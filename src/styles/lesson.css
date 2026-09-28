@@ -209,3 +209,9 @@ dl.glossary dt:last-of-type, dl.glossary dd:last-of-type { border-bottom: 0; }
 .faq details[open] summary::after { content: "−"; }
 .faq .answer { padding: 0 18px 16px; color: var(--muted); display: grid; gap: 8px; }
 .faq .answer b { color: var(--ink); }
+
+/* ─────────── worksheet results frame ─────────── */
+/* The status bar belongs to the worksheet, the grid to ResultGrid, which
+   carries its own .results frame; this wrapper draws ONE frame around both. */
+.ws-out { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.ws-out .results { border: 0; border-radius: 0; }

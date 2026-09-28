@@ -1,0 +1,124 @@
+/* SQL Playground page. Tokens only (theme.css); reuses .panel, .btn, .badge,
+   .examples, .verdict, .callout from app/lesson.css. Layout is driven by the
+   page's OWN width (container query) because the shell may or may not show
+   the outline and "on this page" rails beside it; the phone tabs key off the
+   viewport, matching the shell's ≤860px breakpoint. */
+
+.pg { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; max-width: 1480px; margin: 0 auto; min-width: 0; container-type: inline-size; }
+.pg-stats b { color: var(--link); font-weight: 600; }
+
+/* ─────────── layout ─────────── */
+.pg-layout { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "work" "tables" "exercises"; gap: 20px; align-items: start; min-width: 0; }
+.pg-col { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
+.pg-col-tables { grid-area: tables; }
+.pg-col-editor { grid-area: work; }
+.pg-col-exercises { grid-area: exercises; }
+
+@container (min-width: 760px) {
+  .pg-layout { grid-template-columns: minmax(0, 1fr) 320px; grid-template-areas: "work exercises" "tables exercises"; }
+}
+@container (min-width: 1120px) {
+  .pg-layout { grid-template-columns: 240px minmax(0, 1fr) 340px; grid-template-areas: "tables work exercises"; }
+  /* Side columns scroll on their own so the editor stays in view while browsing exercises. */
+  .pg-col-tables, .pg-col-exercises { position: sticky; top: 72px; max-height: calc(100vh - 88px); overflow-y: auto; }
+}
+
+/* ─────────── phone tabs (hidden on wider screens) ─────────── */
+.pg-tabs { display: none; }
+@media (max-width: 860px) {
+  .pg-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); position: sticky; top: 60px; z-index: 5; }
+  .pg-tabs button { min-height: 40px; border: 0; border-radius: 7px; background: none; color: var(--muted); font-weight: 600; font-size: 14px; }
+  .pg-tabs button.on { background: var(--accent-soft); color: var(--link); }
+  .pg-layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: none; }
+  .pg-col { grid-area: auto; }
+  .pg-col:not(.on) { display: none; }
+  .pg { gap: 16px; }
+}
+
+/* ─────────── table browser ─────────── */
+.pg-table-list, .pg-cols, .pg-saved-list, .pg-ex-list { list-style: none; margin: 0; padding: 0; }
+.pg-table-list > li + li { border-top: 1px solid var(--line); }
+.pg-table-row { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 8px; align-items: center; width: 100%; min-height: 40px; padding: 6px 14px; background: none; border: 0; text-align: left; color: var(--ink); }
+.pg-table-row:hover { background: var(--subtle); }
+.pg-table-row code { background: none; border: 0; padding: 0; font-size: 13px; color: var(--link); overflow-wrap: anywhere; }
+.pg-caret { color: var(--faint); font-size: 12px; }
+.pg-count { font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pg-table-detail { padding: 4px 14px 12px 36px; display: grid; gap: 10px; background: var(--subtle); }
+/* Finger-sized regardless of pointer type: the phone rules in lesson.css key off pointer: coarse, which a narrow desktop window never matches. */
+.pg-table-detail .examples button { min-height: 40px; padding-inline: 14px; }
+.pg-cols { display: grid; gap: 2px; font-size: 12.5px; }
+.pg-cols li { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.pg-cols code { background: none; border: 0; padding: 0; font-size: 12.5px; }
+.pg-type { color: var(--faint); font: 11px var(--mono); text-transform: uppercase; }
+.pg-note { color: var(--muted); font-size: 12px; }
+
+/* ─────────── saved queries ─────────── */
+.pg-saved-list > li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 4px 8px 4px 14px; }
+.pg-saved-list > li + li { border-top: 1px solid var(--line); }
+.pg-saved-load { display: grid; gap: 2px; min-height: 40px; padding: 6px 0; background: none; border: 0; text-align: left; color: var(--ink); min-width: 0; }
+.pg-saved-load b { font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pg-saved-load span { font-size: 12px; color: var(--faint); }
+.pg-saved-load:hover b { color: var(--link); }
+.pg-saved .icon-btn { width: 36px; height: 36px; font-size: 18px; line-height: 1; }
+
+/* ─────────── editor ─────────── */
+.pg-editor { display: grid; grid-template-columns: minmax(0, 1fr); }
+.pg-status { font-size: 12.5px; color: var(--muted); display: inline-flex; align-items: center; gap: 8px; }
+.pg-status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); }
+.pg-status.ready::before { background: var(--ok); }
+.pg-status.failed::before { background: var(--bad); }
+.pg-status.booting::before { animation: pg-pulse 1.2s ease-in-out infinite; }
+@keyframes pg-pulse { 50% { opacity: .3; } }
+.pg-ws { border-radius: 0; border-left: 0; border-right: 0; }
+.pg-ws .cm-editor { min-height: 220px; }
+.pg-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 14px; }
+.pg-actions .btn { min-height: 40px; }
+.pg-reset { margin-left: auto; }
+.pg-inline { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 0 14px 14px; }
+.pg-inline label { font-size: 13px; font-weight: 600; color: var(--muted); }
+.pg-inline input { flex: 1 1 200px; min-height: 40px; font-size: 16px; padding: 6px 12px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); color: var(--ink); }
+.pg-confirm { margin: 0 14px 14px; grid-template-columns: 1fr; gap: 10px; }
+.pg-confirm p { font-size: 14px; }
+.pg-confirm-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ─────────── exercises ─────────── */
+.pg-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.pg-filters label { display: grid; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.pg-filters select { font: inherit; font-size: 14px; color: var(--ink); background: var(--bg); border: 1px solid var(--line-strong); border-radius: 8px; padding: 6px 10px; min-height: 40px; width: 100%; }
+.pg-ex-list > li + li { border-top: 1px solid var(--line); }
+.pg-ex-item { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; align-items: center; width: 100%; min-height: 48px; padding: 8px 14px; background: none; border: 0; text-align: left; color: var(--ink); }
+.pg-ex-item:hover { background: var(--subtle); }
+/* Keyboard focus / scrollIntoView must clear the sticky top bar AND the phone tab strip. */
+.pg-ex-item, .pg-table-row { scroll-margin-top: 120px; }
+.pg-tick { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--line-strong); display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+.pg-ex-item.solved .pg-tick { border-color: var(--ok); background: var(--ok); color: var(--bg); }
+.pg-ex-title { display: grid; gap: 1px; min-width: 0; }
+.pg-ex-title b { font-weight: 600; font-size: 13.5px; }
+.pg-ex-title small { font-size: 12px; color: var(--faint); }
+.pg-ex-detail { padding: 14px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.pg-ex-detail h4 { font-size: 16px; }
+.pg-back, .pg-link { justify-self: start; background: none; border: 0; padding: 4px 0; color: var(--link); font-weight: 600; font-size: 13.5px; min-height: 32px; }
+.pg-back:hover, .pg-link:hover { text-decoration: underline; }
+.pg-ex-id { font: 12px var(--mono); color: var(--faint); }
+.pg-solved { color: var(--ok); font-weight: 600; }
+.pg-task { font-size: 14.5px; }
+.pg-hint { font-size: 13.5px; color: var(--muted); background: var(--amber-soft); border: 1px solid var(--amber-line); border-radius: 8px; padding: 10px 12px; }
+.pg-hint b { color: var(--amber); }
+.pg-ex-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.pg-ex-actions .btn { min-height: 40px; }
+.pg-ex-detail .verdict { font-size: 13.5px; border-radius: 8px; padding: 8px 12px; }
+.pg-solution { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
+.pg-sql { margin: 0; background: var(--code-bg); color: var(--code-ink); font: 12.5px/1.6 var(--mono); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--code-line); overflow-x: auto; white-space: pre; }
+.pg-note-text { font-size: 13.5px; color: var(--muted); }
+.pg-solution .btn { justify-self: start; }
+
+@media (max-width: 600px) {
+  .pg-sql { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .pg-filters { grid-template-columns: 1fr; }
+  .pg-actions .btn { flex: 1 1 40%; }
+  .pg-reset { margin-left: 0; }
+  .pg-table-detail { padding-left: 14px; }
+}
+
+/* Clears the sticky top bar when ExercisePanel scrolls itself into view. */
+.pg-exercises { scroll-margin-top: 72px; }

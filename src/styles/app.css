@@ -66,3 +66,14 @@ aside.toc { position: sticky; top: 56px; height: calc(100vh - 56px); padding: 32
   .lesson-link { padding-block: 10px; }
 }
 @media (min-width: 861px) { .scrim { display: none; } }
+
+/* ─────────── playground layout ─────────── */
+/* The playground has no "On this page" rail; the page takes that track too.
+   Repeated per breakpoint because .app.wide outranks the plain .app rules. */
+.app.wide { grid-template-columns: 290px minmax(0, 1fr); }
+@media (max-width: 1180px) { .app.wide { grid-template-columns: 270px minmax(0, 1fr); } }
+@media (max-width: 860px) { .app.wide { grid-template-columns: 1fr; } }
+
+/* ─────────── playground link in the outline ─────────── */
+/* An icon instead of the status circle: it is a page, not a lesson to tick off. */
+.play-link .st { border: 0; box-shadow: none; color: var(--link); }

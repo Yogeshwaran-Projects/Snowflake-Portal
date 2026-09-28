@@ -1,0 +1,25 @@
+/* SqlEditor (CodeMirror) and ResultGrid additions. The panel look itself
+   (.results, .results-bar, .dot, .grid-wrap, .empty) lives in lesson.css;
+   colours come from CodeMirror's theme object (sqlEditorTheme.tsx) and the
+   tokens below — never literals, the panel must survive both site themes. */
+
+/* ─────────── editor ─────────── */
+.sql-editor { display: block; min-width: 0; background: var(--code-bg); }
+.sql-editor .cm-editor { min-height: 140px; }
+.sql-editor .cm-scroller { overflow: auto; }
+
+/* ─────────── result grid ─────────── */
+.grid-wrap th.num, .grid-wrap td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.grid-wrap td .null { color: var(--faint); font-style: italic; }
+.grid-wrap td.none { color: var(--muted); white-space: normal; }
+.cap-note { padding: 8px 14px; font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--line); background: var(--subtle); }
+.empty.bad { display: grid; gap: 6px; }
+.empty.bad b { font-weight: 600; overflow-wrap: anywhere; }
+.empty.bad .hint { color: var(--muted); font-size: 13px; }
+
+/* ─────────── phones ───────────
+   16px so iOS does not zoom on focus (matches textarea.sql in lesson.css).
+   Two-class selector beats the theme's single-class font-size rule. */
+@media (max-width: 600px) {
+  .sql-editor .cm-editor { font-size: 16px; min-height: 160px; }
+}

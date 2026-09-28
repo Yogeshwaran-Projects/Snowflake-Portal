@@ -1,0 +1,312 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Snowflake Fundamentals</span><span>Module 2 · Working with data</span><span>Lesson 2.3</span></div>
+  <h1>Zero-copy cloning</h1>
+  <p class="lede">Copy a whole table, schema or database in seconds without paying for the space twice. Learn what a clone really is, when it starts to cost money, and how teams use clones for safe testing.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>20 min</span>
+    <span class="badge">Beginner</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain why a clone is instant and why it starts out free</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Clone a table, a schema or a whole database with one line of SQL</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Combine a clone with Time Travel to copy the past</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Use clones for dev and test work without touching production</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">A zero-copy clone is a full, independent copy of a table, schema or database that is created instantly, because Snowflake copies only the metadata and shares the underlying data until one side changes it.</p></div>
+  </div>
+  <p>“Zero-copy” means exactly that: at the moment you clone, zero bytes of data are copied. The clone gets its own name and its own list of micro-partitions, but that list points at the same boxes the original uses. Both sides can then be changed freely. The moment one side changes a box, Snowflake writes a new box for that side only, and only that new box costs extra storage.</p>
+  <ul>
+    <li><b>Instant</b>: cloning a 10 TB database takes seconds, not hours.</li>
+    <li><b>Free at first</b>: storage grows only for the micro-partitions that change afterwards.</li>
+    <li><b>Independent</b>: changing the clone never changes the original, and the other way round.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a magic photocopy</h2>
+  <p>You ask the librarian for a copy of a whole bookshelf. Instead of photocopying every page, she hands you a new shelf label and a new index that points at the very same pages as the original. It takes a second and uses no paper. You can now scribble on “your” copy. The moment you write on a page, the magic photocopier makes a real copy of just that page for you. The original still shows the clean page, and you only paid for the pages you changed.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Magic photocopy</b><span>In Snowflake: CREATE TABLE … CLONE. Metadata is copied, pages are shared.</span></div>
+    <div><small>In the library</small><b>Writing on one page</b><span>In Snowflake: an UPDATE, INSERT or DELETE on either side creates a new micro-partition for that side only.</span></div>
+    <div><small>In the library</small><b>Paper you pay for</b><span>In Snowflake: storage for changed micro-partitions. Unchanged ones stay shared and free.</span></div>
+  </div>
+  <p>Because the photocopier also has the CCTV tape from Lesson 2.2, you can even ask for a copy of the shelf “as it was yesterday at 9 am”. That is a clone plus Time Travel.</p>
+</section>
+
+<section class="sec" id="how" data-toc="How it works">
+  <h2>How it works and why it matters</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>Old way (copy the data)</th><th>Zero-copy clone</th></tr></thead>
+      <tbody>
+        <tr><td><b>Time to copy 1 TB</b></td><td>Hours, plus a warehouse running the whole time</td><td>Seconds; a metadata operation</td></tr>
+        <tr><td><b>Storage right after</b></td><td>Double</td><td>No extra storage</td></tr>
+        <tr><td><b>Storage after edits</b></td><td>Double, always</td><td>Only the changed micro-partitions</td></tr>
+        <tr><td><b>Risk to production</b></td><td>Low, but the copy is stale by the time it finishes</td><td>None; the clone is a separate object</td></tr>
+        <tr><td><b>Copy the past</b></td><td>Restore a backup first</td><td>Add AT or BEFORE to the clone</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="features">
+    <div class="feature"><b>What you can clone</b><span>Tables, schemas and databases are the everyday ones. Stages, streams, tasks and more can be cloned too. Cloning a database clones every schema and table inside it.</span><small>One command</small></div>
+    <div class="feature"><b>Clone the past</b><span>CLONE accepts the same AT and BEFORE clause as a query, so “give me this table as it was before that bad statement” is one line.</span><small>Time Travel</small></div>
+    <div class="feature"><b>Grants are not copied</b><span>A cloned table does not inherit the privileges of the source unless you add COPY GRANTS. Objects inside a cloned database or schema keep their grants.</span><small>Access control</small></div>
+    <div class="feature"><b>Independent history</b><span>After cloning, each side gets its own Time Travel from that moment. A clone made for a test can be dropped when the test ends.</span><small>Cleanup</small></div>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Good to know</div><p>A clone shares data, not compute. Querying the clone uses your warehouse like any other table. And if a clone lives for years while the original keeps changing, less and less is shared, so storage slowly grows. Drop clones you no longer need.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>A global bank keeps its production database <code>ledger_prod</code> under strict change control: nobody runs untested SQL on it. Yet developers need realistic data to build and test new reports. Before Snowflake this meant a weekly job that copied a sample into a test server, so tests ran on old, incomplete data.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Situation</th><th>What the team does</th><th>Why it works</th></tr></thead>
+      <tbody>
+        <tr><td>New report to build</td><td><code>CREATE DATABASE ledger_dev CLONE ledger_prod;</code> each Monday morning</td><td>Full, fresh data in seconds; production untouched</td></tr>
+        <tr><td>Month-end freeze for audit</td><td>Clone the finance schema at 23:59 on the last day of the month</td><td>Auditors query a frozen copy while production keeps moving</td></tr>
+        <tr><td>Bad batch loaded at 03:00</td><td>Clone the table <code>BEFORE(STATEMENT =&gt; …)</code>, check it, then swap it in</td><td>Time Travel plus clone gives a safe rollback</td></tr>
+        <tr><td>Try a risky migration</td><td>Run the script on a clone first</td><td>If it breaks, drop the clone; nobody notices</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The dev database costs almost nothing extra, because most of its micro-partitions are still the production ones. Only the rows the developers edit take new space.</p>
+</section>
+
+<section class="sec" id="sql" data-toc="The SQL">
+  <h2>The SQL you will use</h2>
+  <p>One keyword does the work: <code>CLONE</code>. The shape is the same for tables, schemas and databases.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- Clone a table, a schema, a whole database</span>
+<span class="kw">CREATE TABLE</span> accounts_dev <span class="kw">CLONE</span> accounts;
+<span class="kw">CREATE SCHEMA</span> finance_dev <span class="kw">CLONE</span> finance;
+<span class="kw">CREATE DATABASE</span> ledger_dev <span class="kw">CLONE</span> ledger_prod;
+
+<span class="cm">-- Clone the past: combine CLONE with Time Travel</span>
+<span class="kw">CREATE TABLE</span> accounts_yesterday <span class="kw">CLONE</span> accounts <span class="kw">AT</span>(OFFSET =&gt; -60*60*24);
+<span class="kw">CREATE TABLE</span> accounts_fixed <span class="kw">CLONE</span> accounts <span class="kw">BEFORE</span>(STATEMENT =&gt; '01b2c3d4-0000-1234-0000-000000000001');
+
+<span class="cm">-- Keep the source table's privileges on the clone</span>
+<span class="kw">CREATE TABLE</span> accounts_dev <span class="kw">CLONE</span> accounts <span class="kw">COPY GRANTS</span>;
+
+<span class="cm">-- Roll back production to the clone: swap names, then drop the bad one</span>
+<span class="kw">ALTER TABLE</span> accounts <span class="kw">SWAP WITH</span> accounts_fixed;
+<span class="kw">DROP TABLE</span> accounts_fixed;</pre></div>
+  <p>SWAP WITH exchanges the two tables in one step, so the fixed copy becomes <code>accounts</code> and the broken version takes the old clone name. That is the cleanest rollback pattern on a project.</p>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>This worksheet cannot clone (that is Snowflake-only, see the lab). Instead it gives you the result of a clone: <code>prod_accounts</code> and <code>dev_accounts</code>, where dev started as an exact clone of prod and a developer then changed two balances and added a test row. Use plain SQL to find every difference. Open the <b>Schema</b> tab to see the columns.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: clone, change, compare</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Zero-copy cloning in your trial account</h3>
+      <div class="meta"><span>About 15 min</span><span>Free trial (Enterprise edition)</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>Open a SQL worksheet and point it at the learning database from Lesson 2.2. Rebuild the accounts table (the previous lab dropped it).</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE WAREHOUSE IF NOT EXISTS</span> learn_wh <span class="kw">WITH</span> WAREHOUSE_SIZE = XSMALL AUTO_SUSPEND = 60 AUTO_RESUME = TRUE;
+<span class="kw">CREATE DATABASE IF NOT EXISTS</span> learn_db;
+<span class="kw">USE WAREHOUSE</span> learn_wh;
+<span class="kw">USE SCHEMA</span> learn_db.public;
+
+<span class="kw">CREATE OR REPLACE TABLE</span> accounts (account_no NUMBER, customer_name VARCHAR, city VARCHAR, balance NUMBER);
+<span class="kw">INSERT INTO</span> accounts <span class="kw">VALUES</span>
+  (1001, 'Asha Rao', 'Mumbai', 52000),
+  (1002, 'Vikram Shah', 'Delhi', 210000),
+  (1003, 'Meera Iyer', 'Chennai', 34500),
+  (1004, 'Priya Menon', 'Bengaluru', 97500),
+  (1005, 'Arjun Das', 'Delhi', 61000);</pre></div>
+        <p class="expect">Expected: “5 rows inserted”.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Clone the table and note how fast it is.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE TABLE</span> accounts_dev <span class="kw">CLONE</span> accounts;
+<span class="kw">SELECT</span> 'prod' <span class="kw">AS</span> side, <span class="kw">COUNT</span>(*) <span class="kw">AS</span> rows_in, <span class="kw">SUM</span>(balance) <span class="kw">AS</span> total <span class="kw">FROM</span> accounts
+<span class="kw">UNION ALL</span>
+<span class="kw">SELECT</span> 'dev', <span class="kw">COUNT</span>(*), <span class="kw">SUM</span>(balance) <span class="kw">FROM</span> accounts_dev;</pre></div>
+        <p class="expect">Expected: “Table ACCOUNTS_DEV successfully created.” in well under a second, then two identical rows: 5 rows, total 455,000 on each side.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Change the clone. Zero one balance, add a test customer, then compare both sides again.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">UPDATE</span> accounts_dev <span class="kw">SET</span> balance = 0 <span class="kw">WHERE</span> account_no = 1002;
+<span class="kw">INSERT INTO</span> accounts_dev <span class="kw">VALUES</span> (9999, 'Test Customer', 'Pune', 1);
+
+<span class="kw">SELECT</span> 'prod' <span class="kw">AS</span> side, <span class="kw">COUNT</span>(*) <span class="kw">AS</span> rows_in, <span class="kw">SUM</span>(balance) <span class="kw">AS</span> total <span class="kw">FROM</span> accounts
+<span class="kw">UNION ALL</span>
+<span class="kw">SELECT</span> 'dev', <span class="kw">COUNT</span>(*), <span class="kw">SUM</span>(balance) <span class="kw">FROM</span> accounts_dev;</pre></div>
+        <p class="expect">Expected: prod still 5 rows and 455,000. dev now 6 rows and 245,001. The original is untouched.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Now combine clone and Time Travel. Break production on purpose, save the query ID, and clone the version from just before.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">DELETE FROM</span> accounts <span class="kw">WHERE</span> city = 'Delhi';
+<span class="kw">SET</span> bad_query = LAST_QUERY_ID();
+
+<span class="kw">CREATE TABLE</span> accounts_fixed <span class="kw">CLONE</span> accounts <span class="kw">BEFORE</span>(STATEMENT =&gt; $bad_query);
+<span class="kw">SELECT COUNT</span>(*) <span class="kw">FROM</span> accounts;        <span class="cm">-- 3</span>
+<span class="kw">SELECT COUNT</span>(*) <span class="kw">FROM</span> accounts_fixed;  <span class="cm">-- 5</span></pre></div>
+        <p class="expect">Expected: “2 rows deleted”, then accounts has 3 rows and accounts_fixed has all 5.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Roll back by swapping the fixed clone into place, then drop the broken version.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">ALTER TABLE</span> accounts <span class="kw">SWAP WITH</span> accounts_fixed;
+<span class="kw">SELECT COUNT</span>(*) <span class="kw">FROM</span> accounts;        <span class="cm">-- 5 again</span>
+<span class="kw">DROP TABLE</span> accounts_fixed;             <span class="cm">-- this now holds the 3-row version</span></pre></div>
+        <p class="expect">Expected: accounts is back to 5 rows. Production is repaired without a single INSERT.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Clone a whole schema and look inside it.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE SCHEMA</span> learn_db.public_dev <span class="kw">CLONE</span> learn_db.public;
+<span class="kw">SHOW TABLES IN SCHEMA</span> learn_db.public_dev;</pre></div>
+        <p class="expect">Expected: the new schema lists ACCOUNTS and ACCOUNTS_DEV, both cloned in one go.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Optional: peek at storage. Snowflake tracks which bytes each table owns. Right after a clone, the clone owns almost nothing.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> table_schema, table_name, active_bytes, retained_for_clone_bytes
+<span class="kw">FROM</span> learn_db.information_schema.table_storage_metrics
+<span class="kw">WHERE</span> table_name <span class="kw">LIKE</span> 'ACCOUNTS%'
+<span class="kw">ORDER BY</span> table_schema, table_name;</pre></div>
+        <p class="expect">Expected: a few rows with tiny byte counts; the clones show far fewer active bytes than the source (often 0). This view can lag by a few minutes, so do not worry if numbers look stale.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Clean up. Keep learn_db and learn_wh for the next lesson.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">DROP SCHEMA</span> learn_db.public_dev;
+<span class="kw">DROP TABLE</span> accounts_dev;
+<span class="kw">DROP TABLE</span> accounts;</pre></div>
+        <p class="expect">Expected: “successfully dropped” three times.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>A clone is a magic photocopy: instant, free until you change a page, and fully independent. Add AT or BEFORE to clone the past, and use clones for every dev, test and rollback job so production is never your playground.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Clone</dt><dd>A new table, schema or database created from an existing one with CREATE … CLONE.</dd>
+    <dt>Zero-copy</dt><dd>No data is copied at clone time; only metadata. Data is shared until changed.</dd>
+    <dt>Metadata</dt><dd>Information about the data: table names, columns and the list of micro-partitions. Kept by the cloud services layer.</dd>
+    <dt>Micro-partition</dt><dd>A small compressed block of rows. Clones share these until one side changes them.</dd>
+    <dt>COPY GRANTS</dt><dd>An option that copies the source object's privileges onto the clone.</dd>
+    <dt>SWAP WITH</dt><dd>ALTER TABLE a SWAP WITH b exchanges the two tables' names and contents in one step.</dd>
+    <dt>Dev / test environment</dt><dd>A copy of production data where developers can experiment safely.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#2-4">2.4 Secure data sharing →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "prod_accounts": {
+        "columns": [
+          ["account_no", "NUMBER"],
+          ["customer_name", "VARCHAR"],
+          ["city", "VARCHAR"],
+          ["account_type", "VARCHAR", "SAVINGS or CURRENT"],
+          ["balance", "NUMBER", "in rupees"]
+        ],
+        "rows": [
+          [1001, "Asha Rao", "Mumbai", "SAVINGS", 52000],
+          [1002, "Vikram Shah", "Delhi", "CURRENT", 210000],
+          [1003, "Meera Iyer", "Chennai", "SAVINGS", 34500],
+          [1004, "Rahul Nair", "Mumbai", "SAVINGS", 18000],
+          [1005, "Priya Menon", "Bengaluru", "CURRENT", 97500],
+          [1006, "Arjun Das", "Delhi", "SAVINGS", 61000],
+          [1007, "Sneha Pillai", "Chennai", "SAVINGS", 12500],
+          [1008, "Karthik Reddy", "Bengaluru", "CURRENT", 143000],
+          [1009, "Divya Kumar", "Mumbai", "SAVINGS", 76000],
+          [1010, "Nikhil Joshi", "Delhi", "SAVINGS", 29000]
+        ]
+      },
+      "dev_accounts": {
+        "columns": [
+          ["account_no", "NUMBER"],
+          ["customer_name", "VARCHAR"],
+          ["city", "VARCHAR"],
+          ["account_type", "VARCHAR", "SAVINGS or CURRENT"],
+          ["balance", "NUMBER", "in rupees"]
+        ],
+        "rows": [
+          [1001, "Asha Rao", "Mumbai", "SAVINGS", 52000],
+          [1002, "Vikram Shah", "Delhi", "CURRENT", 210000],
+          [1003, "Meera Iyer", "Chennai", "SAVINGS", 99999],
+          [1004, "Rahul Nair", "Mumbai", "SAVINGS", 18000],
+          [1005, "Priya Menon", "Bengaluru", "CURRENT", 97500],
+          [1006, "Arjun Das", "Delhi", "SAVINGS", 61000],
+          [1007, "Sneha Pillai", "Chennai", "SAVINGS", 0],
+          [1008, "Karthik Reddy", "Bengaluru", "CURRENT", 143000],
+          [1009, "Divya Kumar", "Mumbai", "SAVINGS", 76000],
+          [1010, "Nikhil Joshi", "Delhi", "SAVINGS", 29000],
+          [1011, "Test Customer", "Pune", "SAVINGS", 1]
+        ]
+      }
+    },
+    "starter": "SELECT 'prod' AS side, COUNT(*) AS rows_in, SUM(balance) AS total_balance\nFROM prod_accounts\nUNION ALL\nSELECT 'dev', COUNT(*), SUM(balance)\nFROM dev_accounts",
+    "examples": [
+      { "label": "Compare totals", "sql": "SELECT 'prod' AS side, COUNT(*) AS rows_in, SUM(balance) AS total_balance\nFROM prod_accounts\nUNION ALL\nSELECT 'dev', COUNT(*), SUM(balance)\nFROM dev_accounts" },
+      { "label": "Test rows in dev", "sql": "SELECT *\nFROM dev_accounts\nWHERE customer_name LIKE 'Test%'" },
+      { "label": "Side by side", "sql": "SELECT p.account_no, p.customer_name, p.balance AS prod_balance, d.balance AS dev_balance\nFROM prod_accounts p\nJOIN dev_accounts d ON p.account_no = d.account_no\nORDER BY p.account_no" }
+    ],
+    "challenges": [
+      { "task": "How many rows does dev_accounts have now?", "hint": "COUNT(*) on dev_accounts.", "answer": "SELECT COUNT(*) FROM dev_accounts" },
+      { "task": "Which accounts have a different balance in dev than in prod? Return account_no, the prod balance and the dev balance.", "hint": "JOIN the two tables ON account_no and keep rows WHERE p.balance <> d.balance. Name the two balance columns with AS prod_balance and AS dev_balance.", "answer": "SELECT p.account_no, p.balance AS prod_balance, d.balance AS dev_balance FROM prod_accounts p JOIN dev_accounts d ON p.account_no = d.account_no WHERE p.balance <> d.balance" },
+      { "task": "In prod_accounts, what is the total balance per city, largest total first? Return city and the total.", "hint": "SUM(balance) AS total_balance, GROUP BY city, ORDER BY total_balance DESC.", "answer": "SELECT city, SUM(balance) AS total_balance FROM prod_accounts GROUP BY city ORDER BY total_balance DESC" }
+    ]
+  },
+  "quiz": [
+    { "q": "Why is a zero-copy clone created in seconds even for a huge database?", "options": ["Snowflake copies the data on very fast disks", "Only metadata is copied; the data stays shared", "The clone is empty until you query it"], "answer": 1, "why": "A clone is a new set of pointers to the same micro-partitions. No data moves, so size does not matter." },
+    { "q": "When does a clone start to use extra storage?", "options": ["Immediately, for the whole table", "Never", "When either side changes a micro-partition"], "answer": 2, "why": "Shared micro-partitions are free. A change on one side writes a new micro-partition for that side only, and only that is billed." },
+    { "q": "You UPDATE rows in the clone. What happens to the original table?", "options": ["Nothing; it is unchanged", "It gets the same UPDATE", "It becomes read-only"], "answer": 0, "why": "Clone and original are independent objects. Changes on one never appear on the other." },
+    { "q": "Which statement clones a table as it was one hour ago?", "options": ["CREATE TABLE t2 CLONE t AT(OFFSET => -3600)", "CREATE TABLE t2 COPY t AT(-3600)", "CLONE TABLE t TO t2 HOURS AGO 1"], "answer": 0, "why": "CLONE accepts the same AT / BEFORE clause as a query. -3600 seconds is one hour ago." },
+    { "q": "In the library, what is a clone?", "options": ["A glass reading window", "A CCTV rewind", "A magic photocopy that shares pages until you change one"], "answer": 2, "why": "The glass window is data sharing and the CCTV is Time Travel. The clone is the photocopy that only copies a page when you write on it." },
+    { "q": "What is the most common use of cloning on a project?", "options": ["Sending data to another company", "Creating dev and test copies of production safely", "Making queries run faster"], "answer": 1, "why": "Teams clone production into dev or test environments so they can experiment on fresh data without any risk to the real system." }
+  ]
+}
+</script>

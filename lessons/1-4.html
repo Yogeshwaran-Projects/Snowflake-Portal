@@ -1,0 +1,320 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Snowflake Fundamentals</span><span>Module 1 · Foundations</span><span>Lesson 1.4</span></div>
+  <h1>Credits and cost</h1>
+  <p class="lede">Snowflake charges in credits. Learn what a credit buys, how the bill is worked out to the second, and the habits that keep a bank’s bill small.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>12 min</span>
+    <span class="badge">Beginner</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain what a credit is and how many each warehouse size burns per hour</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Work out the cost of a query from its size and its seconds</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Name the three parts of a Snowflake bill: compute, storage and cloud services</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Set up a resource monitor so nobody can run up a surprise bill</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">A credit is Snowflake’s unit of work. A warehouse burns credits only while it is running, at a rate fixed by its size. The company buys credits in its own currency, so credits times price is the compute bill.</p></div>
+  </div>
+  <p>A Snowflake bill has three parts, and it helps to keep them apart in your head:</p>
+  <ul>
+    <li><b>Compute</b>: credits burned by virtual warehouses. Almost always the biggest part.</li>
+    <li><b>Storage</b>: a flat price per terabyte per month for what sits on the shelves. Billed separately from credits.</li>
+    <li><b>Cloud services</b>: the front-desk manager. Free unless it goes above 10% of the day’s warehouse credits, which is rare.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like librarian wages</h2>
+  <p>Librarians in the sky library are paid by the second, but only while they are working. A team of two costs twice a team of one. The moment a team starts a shift you owe at least one minute of wages, even if the question took ten seconds. Shelf rent is a different bill, paid monthly per metre of shelf you fill, whether anyone reads the books or not. The front-desk manager is included in the price unless you keep them unusually busy.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Wages by the second</b><span>In Snowflake: credits per second while a warehouse runs, 60-second minimum per start</span></div>
+    <div><small>In the library</small><b>Shelf rent</b><span>In Snowflake: storage, a flat price per TB per month, separate from credits</span></div>
+    <div><small>In the library</small><b>Spending cap</b><span>In Snowflake: a resource monitor that warns or suspends at a credit limit</span></div>
+  </div>
+</section>
+
+<section class="sec" id="rates" data-toc="Credits per hour">
+  <h2>Credits per hour by size</h2>
+  <p>The rate doubles with each size. Learn the first six by heart; on a project you will do this sum in your head every week.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Size</th><th class="num">Credits per hour</th><th class="num">Credits per minute</th><th>10-minute query costs</th></tr></thead>
+      <tbody>
+        <tr><td>X-Small</td><td class="num">1</td><td class="num">0.0167</td><td>0.17 credits</td></tr>
+        <tr><td>Small</td><td class="num">2</td><td class="num">0.0333</td><td>0.33 credits</td></tr>
+        <tr><td>Medium</td><td class="num">4</td><td class="num">0.0667</td><td>0.67 credits</td></tr>
+        <tr><td>Large</td><td class="num">8</td><td class="num">0.1333</td><td>1.33 credits</td></tr>
+        <tr><td>X-Large</td><td class="num">16</td><td class="num">0.2667</td><td>2.67 credits</td></tr>
+        <tr><td>2X-Large</td><td class="num">32</td><td class="num">0.5333</td><td>5.33 credits</td></tr>
+        <tr><td>3XL, 4XL, 5XL, 6XL</td><td class="num">64, 128, 256, 512</td><td class="num">up to 8.53</td><td>up to 85 credits</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The price of one credit depends on the edition (Standard, Enterprise, Business Critical), the cloud and the region, and on the contract the company signed. It is a few US dollars. Your project lead will know the number; ask, and then everything in this lesson turns into money.</p>
+</section>
+
+<section class="sec" id="rules" data-toc="Billing rules">
+  <h2>The billing rules</h2>
+  <div class="features">
+    <div class="feature"><b>Per second</b><span>A running warehouse is billed for every second it is on, not rounded up to the hour.</span><small>Rule 1</small></div>
+    <div class="feature"><b>60-second minimum</b><span>Each time a warehouse starts (or resumes) you pay for at least one minute. A 5-second query on a fresh warehouse costs 60 seconds.</span><small>Rule 2</small></div>
+    <div class="feature"><b>Idle time counts</b><span>A started warehouse with no queries still burns credits until auto-suspend kicks in. Idle is the silent cost.</span><small>Rule 3</small></div>
+    <div class="feature"><b>Clusters multiply</b><span>A Medium warehouse running 3 clusters for an hour costs 4 x 3 = 12 credits.</span><small>Rule 4</small></div>
+    <div class="feature"><b>Resizing up bills the difference</b><span>Going from Small to Medium bills a one-minute minimum for the two extra credits per hour, not the whole warehouse again.</span><small>Rule 5</small></div>
+    <div class="feature"><b>Storage is separate</b><span>Compressed size, averaged daily, charged per TB per month. Time Travel and Fail-safe copies count too.</span><small>Rule 6</small></div>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Worked example</div><p>A Large warehouse (8 credits an hour) runs a report for 15 minutes, then sits idle for 10 minutes before auto-suspend. Billed time is 25 minutes: 8 x 25 / 60 = 3.33 credits. The idle 10 minutes cost 1.33 credits, forty percent of the total, for doing nothing. That is why auto-suspend matters.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="monitors" data-toc="Resource monitors">
+  <h2>Resource monitors: the spending cap</h2>
+  <p>A resource monitor watches credits burned by one or more warehouses (or the whole account) over a period such as a month, and acts when a percentage of the quota is reached.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Trigger</th><th>What happens</th><th>Library</th></tr></thead>
+      <tbody>
+        <tr><td><code>NOTIFY</code></td><td>Email the account admins; nothing stops</td><td>A note on the manager’s desk: “80% of the wage budget is spent”</td></tr>
+        <tr><td><code>SUSPEND</code></td><td>Let running queries finish, then suspend the warehouses</td><td>Finish the questions in hand, then send everyone home</td></tr>
+        <tr><td><code>SUSPEND_IMMEDIATE</code></td><td>Cancel running queries and suspend now</td><td>Down tools this second</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Only <code>ACCOUNTADMIN</code> can create monitors. Thresholds can go above 100%, and one monitor may have several notify triggers but only one SUSPEND and one SUSPEND_IMMEDIATE. An account has at most one account-level monitor; each warehouse can be assigned to one warehouse-level monitor.</p>
+</section>
+
+<section class="sec" id="habits" data-toc="Cost-saving habits">
+  <h2>Cost-saving habits</h2>
+  <p>Most Snowflake waste is boring and easy to prevent. These are the habits good teams follow from day one.</p>
+  <ul>
+    <li><b>Short auto-suspend.</b> 60 seconds for learning and ad hoc work, 5 to 10 minutes for busy shared warehouses. Never leave it at 0.</li>
+    <li><b>Start small.</b> Create warehouses as X-Small and size up only when you measure that a query is too slow.</li>
+    <li><b>One warehouse per team.</b> The bill then reads like a list of teams, and nobody hides inside someone else’s budget.</li>
+    <li><b>Do not run SELECT * on huge tables.</b> Ask for the columns and rows you need; less work means fewer credits.</li>
+    <li><b>Reuse results.</b> The same query on unchanged data comes from the result cache and costs no warehouse time.</li>
+    <li><b>Monitor everything.</b> A resource monitor on every warehouse, with a notify at 80% and suspend at 100%.</li>
+    <li><b>Look at the bill weekly.</b> Snowsight has an <b>Admin → Cost Management</b> page (the exact menu name varies a little by account) that shows credits by warehouse and by day.</li>
+  </ul>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>A global bank reviews last week’s credits by warehouse. One line stands out.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Warehouse</th><th>Size</th><th class="num">Credits</th><th>What the numbers said</th></tr></thead>
+      <tbody>
+        <tr><td><code>FRAUD_WH</code></td><td>Small</td><td class="num">336</td><td>Runs 24 hours a day, as designed: 2 x 24 x 7</td></tr>
+        <tr><td><code>RISK_WH</code></td><td>X-Large</td><td class="num">64</td><td>Four hours of month-end work, then suspended</td></tr>
+        <tr><td><code>REPORTING_WH</code></td><td>Large</td><td class="num">280</td><td>Extra clusters at 9 am, as expected</td></tr>
+        <tr><td><code>ADHOC_WH</code></td><td>X-Large</td><td class="num">2,688</td><td>Auto-suspend was 0. It ran all week doing almost nothing: 16 x 24 x 7</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>One setting cost more than every other team combined. The fix took one line: <code>ALTER WAREHOUSE adhoc_wh SET AUTO_SUSPEND = 300;</code> and a resource monitor so it can never happen again. This is the kind of thing you will be asked to check in your first weeks, and now you can.</p>
+</section>
+
+<section class="sec" id="sql" data-toc="The SQL">
+  <h2>The SQL you will see</h2>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- a spending cap: warn at 80%, stop at 100% of 100 credits a month</span>
+<span class="kw">USE ROLE</span> ACCOUNTADMIN;
+<span class="kw">CREATE RESOURCE MONITOR</span> team_cap <span class="kw">WITH</span> CREDIT_QUOTA = 100
+  FREQUENCY = MONTHLY START_TIMESTAMP = IMMEDIATELY
+  TRIGGERS <span class="kw">ON</span> 80 PERCENT <span class="kw">DO</span> NOTIFY
+           <span class="kw">ON</span> 100 PERCENT <span class="kw">DO</span> SUSPEND;
+<span class="kw">ALTER WAREHOUSE</span> adhoc_wh <span class="kw">SET</span> RESOURCE_MONITOR = team_cap;
+
+<span class="cm">-- last 7 days of credits by warehouse (data can lag by up to 3 hours)</span>
+<span class="kw">SELECT</span> warehouse_name, <span class="kw">SUM</span>(credits_used) <span class="kw">AS</span> credits
+<span class="kw">FROM</span> snowflake.account_usage.warehouse_metering_history
+<span class="kw">WHERE</span> start_time &gt;= DATEADD('day', -7, CURRENT_TIMESTAMP())
+<span class="kw">GROUP BY</span> warehouse_name
+<span class="kw">ORDER BY</span> credits <span class="kw">DESC</span>;
+
+<span class="cm">-- the cheapest fix in Snowflake</span>
+<span class="kw">ALTER WAREHOUSE</span> adhoc_wh <span class="kw">SET</span> AUTO_SUSPEND = 300;</pre></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>Two tables show two days of a fictional bank’s bill. <code>warehouse_usage</code> has one row per warehouse per day with the hours it ran and the credits that cost. <code>storage_monthly</code> is the shelf rent. For the exercises, pretend the bank pays <b>250 rupees per credit</b> and <b>2,000 rupees per TB per month</b>, so cost is <code>credits_used * 250</code>. Open the <b>Schema</b> tab to see the columns.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: see your credits and cap them</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Read the meter, then install a spending cap</h3>
+      <div class="meta"><span>About 15 min</span><span>Uses your free trial</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>Open a SQL worksheet and check that your learning warehouse still has a short auto-suspend. If you skipped earlier labs, create it first with the command from Lesson 1.3.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SHOW WAREHOUSES</span>;</pre></div>
+        <p class="expect">Expected: at least two rows, <code>COMPUTE_WH</code> and <code>LEARN_WH</code>. Read the <code>size</code> and <code>auto_suspend</code> columns. LEARN_WH should say X-Small and 60. Trial accounts usually create COMPUTE_WH with a 600-second suspend; that is fine for now.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Burn a few known seconds of credits, then look at what each query cost in time. Elapsed time is in milliseconds, so divide by 1000.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE WAREHOUSE</span> learn_wh;
+<span class="kw">SELECT</span> <span class="kw">COUNT</span>(*) <span class="kw">AS</span> line_items, <span class="kw">SUM</span>(l_extendedprice) <span class="kw">AS</span> total
+<span class="kw">FROM</span> snowflake_sample_data.tpch_sf10.lineitem;
+
+<span class="kw">SELECT</span> start_time, warehouse_name, warehouse_size,
+       total_elapsed_time / 1000 <span class="kw">AS</span> seconds,
+       total_elapsed_time / 1000 / 3600 <span class="kw">AS</span> credits_if_xsmall
+<span class="kw">FROM TABLE</span>(information_schema.query_history(result_limit =&gt; 5))
+<span class="kw">ORDER BY</span> start_time <span class="kw">DESC</span>;</pre></div>
+        <p class="expect">Expected: the first query returns one row of about 60 million line items. The second lists your last 5 queries with seconds and a tiny credit estimate (an X-Small burns 1 credit per 3,600 seconds). Remember the 60-second minimum if the warehouse had just woken up.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Read the real meter. This view is the official record of credits by warehouse and hour. It can lag by up to 3 hours, so if it is empty for today, run it again later in the lab or tomorrow.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> warehouse_name, start_time, credits_used
+<span class="kw">FROM</span> snowflake.account_usage.warehouse_metering_history
+<span class="kw">WHERE</span> start_time &gt;= DATEADD('day', -7, CURRENT_TIMESTAMP())
+<span class="kw">ORDER BY</span> start_time <span class="kw">DESC</span>;</pre></div>
+        <p class="expect">Expected: one row per warehouse per hour with a small <code>credits_used</code> value, for example 0.02 for a minute of X-Small. In Snowsight you can see the same numbers as a chart under <b>Admin → Cost Management</b> (menu names vary slightly by account).</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Install a spending cap on the learning warehouse: 5 credits a month, warn at 80%, suspend at 100%. This needs the ACCOUNTADMIN role, which a trial gives you.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE ROLE</span> ACCOUNTADMIN;
+<span class="kw">CREATE RESOURCE MONITOR</span> learn_cap <span class="kw">WITH</span> CREDIT_QUOTA = 5
+  FREQUENCY = MONTHLY START_TIMESTAMP = IMMEDIATELY
+  TRIGGERS <span class="kw">ON</span> 80 PERCENT <span class="kw">DO</span> NOTIFY
+           <span class="kw">ON</span> 100 PERCENT <span class="kw">DO</span> SUSPEND;
+<span class="kw">ALTER WAREHOUSE</span> learn_wh <span class="kw">SET</span> RESOURCE_MONITOR = learn_cap;
+<span class="kw">SHOW RESOURCE MONITORS</span>;</pre></div>
+        <p class="expect">Expected: <code>Resource monitor LEARN_CAP successfully created.</code>, then one row for LEARN_CAP with <code>credit_quota</code> 5, <code>frequency</code> MONTHLY and <code>level</code> WAREHOUSE. If you see it listed with <code>used_credits</code> a small fraction, the meter is already counting.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Apply the cheapest habit to the trial’s default warehouse too, then send the librarians home. Keep the monitor; it costs nothing and protects your free credits for the rest of the course.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">ALTER WAREHOUSE</span> compute_wh <span class="kw">SET</span> AUTO_SUSPEND = 60;
+<span class="kw">ALTER WAREHOUSE</span> learn_wh SUSPEND;
+<span class="kw">SHOW WAREHOUSES</span>;</pre></div>
+        <p class="expect">Expected: both warehouses show <code>auto_suspend</code> = 60 and LEARN_WH shows <code>state</code> SUSPENDED. If SUSPEND says it is already suspended, auto-suspend beat you to it.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>Credits are librarian wages: paid by the second, one-minute minimum per shift, doubled with every team size. Shelf rent is a separate monthly bill. Short auto-suspend, small sizes and a resource monitor stop almost every surprise.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Credit</dt><dd>Snowflake’s unit of compute work. Burned by running warehouses at a rate set by size.</dd>
+    <dt>Per-second billing</dt><dd>Credits are charged for each second a warehouse runs, after a 60-second minimum per start.</dd>
+    <dt>Idle time</dt><dd>Seconds a warehouse is started but running nothing. Still billed until auto-suspend.</dd>
+    <dt>Storage cost</dt><dd>A flat price per terabyte per month for compressed data, including Time Travel and Fail-safe copies.</dd>
+    <dt>Cloud services cost</dt><dd>Credits for the front-desk layer. Only charged for the part above 10% of daily warehouse credits.</dd>
+    <dt>Resource monitor</dt><dd>A credit quota with triggers that notify or suspend warehouses. Created by ACCOUNTADMIN.</dd>
+    <dt>Credit quota</dt><dd>The number of credits a resource monitor allows per period (daily, weekly, monthly, yearly or never resetting).</dd>
+    <dt>WAREHOUSE_METERING_HISTORY</dt><dd>The account usage view that records credits per warehouse per hour for the last year.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#1-5">1.5 Database, schema, table →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "warehouse_usage": {
+        "columns": [
+          ["usage_id", "NUMBER"],
+          ["wh_name", "VARCHAR"],
+          ["team", "VARCHAR"],
+          ["wh_size", "VARCHAR"],
+          ["credits_per_hour", "NUMBER"],
+          ["hours_run", "NUMBER", "hours the warehouse was started"],
+          ["credits_used", "NUMBER", "credits_per_hour x hours_run"],
+          ["run_date", "DATE"]
+        ],
+        "rows": [
+          [1, "FINANCE_WH", "Finance", "MEDIUM", 4, 3, 12, "2026-09-01"],
+          [2, "FRAUD_WH", "Fraud", "SMALL", 2, 15, 30, "2026-09-01"],
+          [3, "RISK_WH", "Risk", "XLARGE", 16, 3, 48, "2026-09-01"],
+          [4, "MARKETING_WH", "Marketing", "XSMALL", 1, 2, 2, "2026-09-01"],
+          [5, "REPORTING_WH", "Reporting", "LARGE", 8, 4, 32, "2026-09-01"],
+          [6, "LOAD_WH", "Data Engineering", "MEDIUM", 4, 1.5, 6, "2026-09-01"],
+          [7, "FINANCE_WH", "Finance", "MEDIUM", 4, 2.5, 10, "2026-09-02"],
+          [8, "FRAUD_WH", "Fraud", "SMALL", 2, 16, 32, "2026-09-02"],
+          [9, "RISK_WH", "Risk", "XLARGE", 16, 0.25, 4, "2026-09-02"],
+          [10, "MARKETING_WH", "Marketing", "XSMALL", 1, 0, 0, "2026-09-02"],
+          [11, "REPORTING_WH", "Reporting", "LARGE", 8, 6, 48, "2026-09-02"],
+          [12, "LOAD_WH", "Data Engineering", "MEDIUM", 4, 2, 8, "2026-09-02"],
+          [13, "ADHOC_WH", "Analytics", "XLARGE", 16, 8, 128, "2026-09-02"]
+        ]
+      },
+      "storage_monthly": {
+        "columns": [
+          ["storage_id", "NUMBER"],
+          ["db_name", "VARCHAR"],
+          ["team", "VARCHAR"],
+          ["stored_tb", "NUMBER", "average compressed terabytes"],
+          ["month_start", "DATE"]
+        ],
+        "rows": [
+          [1, "PAYMENTS_DB", "Finance", 0.8, "2026-09-01"],
+          [2, "CARDS_DB", "Fraud", 0.55, "2026-09-01"],
+          [3, "LOANS_DB", "Risk", 0.3, "2026-09-01"],
+          [4, "CUSTOMER_DB", "Marketing", 0.1, "2026-09-01"]
+        ]
+      }
+    },
+    "starter": "SELECT wh_name, SUM(credits_used) AS credits, SUM(credits_used) * 250 AS cost_rupees\nFROM warehouse_usage\nGROUP BY wh_name\nORDER BY credits DESC",
+    "examples": [
+      { "label": "All usage rows", "sql": "SELECT *\nFROM warehouse_usage\nORDER BY run_date, wh_name" },
+      { "label": "Cost per warehouse", "sql": "SELECT wh_name, SUM(credits_used) AS credits, SUM(credits_used) * 250 AS cost_rupees\nFROM warehouse_usage\nGROUP BY wh_name\nORDER BY credits DESC" },
+      { "label": "Storage bill", "sql": "SELECT db_name, stored_tb, stored_tb * 2000 AS cost_rupees\nFROM storage_monthly\nORDER BY cost_rupees DESC" }
+    ],
+    "challenges": [
+      { "task": "How many credits did the whole bank use on 2026-09-02?", "hint": "SUM(credits_used) with WHERE run_date = '2026-09-02'.", "answer": "SELECT SUM(credits_used) FROM warehouse_usage WHERE run_date = '2026-09-02'" },
+      { "task": "What did each team’s compute cost in rupees across both days, at 250 rupees per credit? Show the team and the cost, highest first.", "hint": "SUM(credits_used) * 250, GROUP BY team, ORDER BY the cost DESC.", "answer": "SELECT team, SUM(credits_used) * 250 AS cost_rupees FROM warehouse_usage GROUP BY team ORDER BY cost_rupees DESC" },
+      { "task": "Find every row where a warehouse used more than 40 credits in one day. Show the warehouse name, the date and the credits.", "hint": "Three columns from warehouse_usage with WHERE credits_used > 40.", "answer": "SELECT wh_name, run_date, credits_used FROM warehouse_usage WHERE credits_used > 40" }
+    ]
+  },
+  "quiz": [
+    { "q": "An X-Large warehouse runs for exactly one hour. How many credits is that?", "options": ["8", "16", "32"], "answer": 1, "why": "X-Large is 16 credits per hour. Each size doubles: XS 1, S 2, M 4, L 8, XL 16, 2XL 32." },
+    { "q": "A query takes 5 seconds on a warehouse that had just resumed. How long are you billed for?", "options": ["5 seconds", "60 seconds", "1 hour"], "answer": 1, "why": "Billing is per second but every start has a 60-second minimum. After that first minute, you pay only for the seconds used." },
+    { "q": "Which of these is NOT paid for in warehouse credits?", "options": ["Storage", "A running Small warehouse", "An idle Large warehouse that has not suspended yet"], "answer": 0, "why": "Storage is a separate bill: a flat price per terabyte per month. Both running and idle warehouses burn credits." },
+    { "q": "When are cloud services charged?", "options": ["Always, at 10% of every bill", "Only when they exceed 10% of the day’s warehouse credits", "Never"], "answer": 1, "why": "Snowflake gives a daily allowance equal to 10% of warehouse credits. Only usage above that is billed, which is rare for normal work." },
+    { "q": "A resource monitor is set to SUSPEND at 100%. What happens to a query that is running when the limit is hit?", "options": ["It is cancelled instantly", "It is allowed to finish, then the warehouse suspends", "Nothing; SUSPEND only sends an email"], "answer": 1, "why": "SUSPEND waits for running queries to finish. SUSPEND_IMMEDIATE cancels them. NOTIFY only sends an email." },
+    { "q": "An analyst’s X-Large warehouse has AUTO_SUSPEND = 0. What is the risk?", "options": ["It never switches off and burns 16 credits every hour, all week", "It cannot run queries", "Its data is deleted"], "answer": 0, "why": "With auto-suspend disabled a warehouse runs until someone suspends it by hand. That is the most common surprise bill in Snowflake." }
+  ]
+}
+</script>

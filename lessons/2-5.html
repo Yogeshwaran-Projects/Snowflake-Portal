@@ -1,0 +1,329 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Snowflake Fundamentals</span><span>Module 2 · Working with data</span><span>Lesson 2.5</span></div>
+  <h1>Roles and access control</h1>
+  <p class="lede">Learn how Snowflake decides who may see and change what: roles, privileges, grants, and the extra locks a bank puts on card numbers and account numbers.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 min</span>
+    <span class="badge">Beginner</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain how privileges, roles and users fit together</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Name the six system roles and say what each is for</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Create a custom role and grant it exactly what it needs</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Use SHOW GRANTS to answer “who can read this table?”</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">Access control in Snowflake is role-based (RBAC): privileges are granted to roles, and roles are granted to users. A user can only do what one of their roles allows.</p></div>
+  </div>
+  <p>Notice what is <b>not</b> in that sentence. You never grant a privilege straight to a person. Everything goes through a role. That is the one rule that makes the rest of this lesson simple.</p>
+  <ul>
+    <li><b>Privilege</b>: permission to do one thing on one object, such as SELECT on a table or USAGE on a warehouse.</li>
+    <li><b>Role</b>: a named bundle of privileges, such as <code>analyst_role</code>.</li>
+    <li><b>User</b>: a login. A user holds one or more roles and switches between them.</li>
+    <li><b>Role hierarchy</b>: a role can be granted to another role. The senior role then gets everything the junior role has.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like ID badges in the library</h2>
+  <p>Nobody walks around the sky library with a bunch of keys. Everyone wears an <b>ID badge</b>. The badge decides which rooms you can enter and which shelves you can take books from. The security office decides what each badge opens; it does not decide anything about you personally. If you move teams, you hand back one badge and receive another.</p>
+  <div class="map">
+    <div><small>In the library</small><b>ID badge</b><span>In Snowflake: a role. Users wear one badge at a time (USE ROLE) but may own several.</span></div>
+    <div><small>In the library</small><b>Which doors the badge opens</b><span>In Snowflake: privileges and grants. USAGE opens a wing or room, SELECT lets you read a shelf.</span></div>
+    <div><small>In the library</small><b>Senior badge includes junior badges</b><span>In Snowflake: role hierarchy. Grant analyst_role to sysadmin and sysadmin can do everything an analyst can.</span></div>
+  </div>
+  <p>And the <b>master key</b> that opens everything? That is ACCOUNTADMIN. It stays in a safe, is held by two or three people, and is never used for daily work.</p>
+</section>
+
+<section class="sec" id="system-roles" data-toc="System roles">
+  <h2>The system roles</h2>
+  <p>Every account comes with these roles already made. They form a ladder: each one is granted to the one above it, so the top role inherits everything below.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Role</th><th>What it is for</th><th>In the library</th></tr></thead>
+      <tbody>
+        <tr><td><code>ORGADMIN</code></td><td>Manages the organisation: creates accounts, sees usage across all of them. Not part of the ladder.</td><td>Head office that owns several libraries</td></tr>
+        <tr><td><code>ACCOUNTADMIN</code></td><td>The top role in one account. Inherits SYSADMIN and SECURITYADMIN. Billing, account settings, emergencies.</td><td>The master key in the safe</td></tr>
+        <tr><td><code>SECURITYADMIN</code></td><td>Manages grants on any object account-wide. Inherits USERADMIN.</td><td>Head of the security office</td></tr>
+        <tr><td><code>USERADMIN</code></td><td>Creates and manages users and roles, nothing else.</td><td>The badge-printing desk</td></tr>
+        <tr><td><code>SYSADMIN</code></td><td>Creates warehouses, databases, schemas and tables. Custom roles should be granted up to it.</td><td>Head librarian who builds wings and shelves</td></tr>
+        <tr><td><code>PUBLIC</code></td><td>Every user and role has it automatically. Anything granted to PUBLIC is open to everyone.</td><td>The public reading room</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Good to know</div><p>Your trial account gives you ACCOUNTADMIN, which is why the labs work. In a bank you will almost never hold it. Expect a custom role such as <code>project_dev_role</code> and a ticket process to get more.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="how" data-toc="How grants work">
+  <h2>How grants work</h2>
+  <p>To read one table, a role needs a chain of small permissions, one per level of the building. Miss one and the query fails with “does not exist or not authorized”.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Object</th><th>Privilege needed</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td>Warehouse</td><td><code>USAGE</code></td><td>Allowed to hire this team of librarians</td></tr>
+        <tr><td>Database</td><td><code>USAGE</code></td><td>Allowed to enter the wing</td></tr>
+        <tr><td>Schema</td><td><code>USAGE</code></td><td>Allowed to enter the room</td></tr>
+        <tr><td>Table</td><td><code>SELECT</code></td><td>Allowed to read the shelf. INSERT, UPDATE and DELETE are separate privileges.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="features">
+    <div class="feature"><b>Ownership</b><span>Whichever role creates an object owns it and can do anything to it, including granting it to others. Ownership can be handed over with GRANT OWNERSHIP.</span><small>One owner per object</small></div>
+    <div class="feature"><b>Least privilege</b><span>Give each role the smallest set of privileges that lets the job get done. A reporting role gets SELECT, never DELETE.</span><small>The bank’s golden rule</small></div>
+    <div class="feature"><b>Custom roles</b><span>Made with CREATE ROLE by USERADMIN or above. Name them by job: analyst_role, fraud_role, data_engineer_role.</span><small>Grant them to SYSADMIN</small></div>
+    <div class="feature"><b>Checking access</b><span>SHOW GRANTS TO ROLE, SHOW GRANTS ON TABLE and SHOW GRANTS TO USER answer almost every “why can’t I see this?” question.</span><small>Your first debugging tool</small></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>A global bank keeps card numbers (PAN), account numbers and customer names in Snowflake. The regulator requires that only people who need a full card number ever see one. Roles alone are not enough for that, because the fraud team and the marketing team query the <b>same</b> table. Two Enterprise Edition features finish the job:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Feature</th><th>What it does</th><th>Bank example</th></tr></thead>
+      <tbody>
+        <tr><td><b>Masking policy</b></td><td>Hides or scrambles a <b>column</b> depending on the role running the query.</td><td>fraud_role sees 4532 0151 1283 0366; everyone else sees XXXX XXXX XXXX 0366.</td></tr>
+        <tr><td><b>Row access policy</b></td><td>Hides whole <b>rows</b> depending on the role.</td><td>The South region team only gets rows where region = 'SOUTH'.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The policy is attached to the table once. Every query, from every tool, obeys it automatically. Nobody has to remember to filter.</p>
+</section>
+
+<section class="sec" id="syntax" data-toc="The SQL">
+  <h2>The SQL you will use</h2>
+  <p>Create a role, give it the chain of privileges, hand it to a person, then check your work.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- 1. Make the badge (USERADMIN or higher)</span>
+<span class="kw">CREATE ROLE</span> analyst_role;
+
+<span class="cm">-- 2. Decide which doors it opens</span>
+<span class="kw">GRANT USAGE ON WAREHOUSE</span> learn_wh <span class="kw">TO ROLE</span> analyst_role;
+<span class="kw">GRANT USAGE ON DATABASE</span> learn_db <span class="kw">TO ROLE</span> analyst_role;
+<span class="kw">GRANT USAGE ON SCHEMA</span> learn_db.public <span class="kw">TO ROLE</span> analyst_role;
+<span class="kw">GRANT SELECT ON TABLE</span> learn_db.public.accounts <span class="kw">TO ROLE</span> analyst_role;
+
+<span class="cm">-- 3. Give the badge to a person, and roll it up to SYSADMIN</span>
+<span class="kw">GRANT ROLE</span> analyst_role <span class="kw">TO USER</span> asha;
+<span class="kw">GRANT ROLE</span> analyst_role <span class="kw">TO ROLE</span> sysadmin;
+
+<span class="cm">-- 4. Put the badge on and work</span>
+<span class="kw">USE ROLE</span> analyst_role;
+
+<span class="cm">-- 5. Take a door away again</span>
+<span class="kw">REVOKE SELECT ON TABLE</span> learn_db.public.accounts <span class="kw">FROM ROLE</span> analyst_role;
+
+<span class="cm">-- 6. Who can do what?</span>
+<span class="kw">SHOW GRANTS TO ROLE</span> analyst_role;
+<span class="kw">SHOW GRANTS ON TABLE</span> learn_db.public.accounts;
+<span class="kw">SHOW GRANTS TO USER</span> asha;</pre></div>
+  <p>Masking and row access policies look like small functions that return the value (or TRUE/FALSE) for the current role. You attach them to a column or table once.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- Show the full card number only to fraud_role; everyone else sees the last 4 digits</span>
+<span class="kw">CREATE MASKING POLICY</span> mask_pan <span class="kw">AS</span> (val <span class="kw">VARCHAR</span>) <span class="kw">RETURNS VARCHAR</span> -&gt;
+  <span class="kw">CASE WHEN</span> CURRENT_ROLE() <span class="kw">IN</span> ('FRAUD_ROLE') <span class="kw">THEN</span> val
+       <span class="kw">ELSE</span> 'XXXXXXXXXXXX' || RIGHT(val, 4) <span class="kw">END</span>;
+<span class="kw">ALTER TABLE</span> cards <span class="kw">MODIFY COLUMN</span> pan <span class="kw">SET MASKING POLICY</span> mask_pan;
+
+<span class="cm">-- Show South region rows only to the South team (ACCOUNTADMIN sees all)</span>
+<span class="kw">CREATE ROW ACCESS POLICY</span> region_rap <span class="kw">AS</span> (region <span class="kw">VARCHAR</span>) <span class="kw">RETURNS BOOLEAN</span> -&gt;
+  CURRENT_ROLE() = 'ACCOUNTADMIN' <span class="kw">OR</span> (CURRENT_ROLE() = 'SOUTH_ROLE' <span class="kw">AND</span> region = 'SOUTH');
+<span class="kw">ALTER TABLE</span> accounts <span class="kw">ADD ROW ACCESS POLICY</span> region_rap <span class="kw">ON</span> (region);</pre></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>This worksheet simulates the grants inside a small bank. <code>users_roles</code> says which badge each person holds and <code>role_grants</code> says which doors each badge opens. Join them to answer “who can read what?”. Open the <b>Schema</b> tab to see the columns.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: build a read-only role and prove it is read-only</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Create analyst_role, grant it, switch to it, watch a write fail</h3>
+      <div class="meta"><span>About 20 min</span><span>Trial account, ACCOUNTADMIN</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>Open a SQL worksheet in Snowsight. Make sure you have the practice database, a small warehouse and a table to protect. Run all of this as ACCOUNTADMIN:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE ROLE</span> ACCOUNTADMIN;
+<span class="kw">CREATE WAREHOUSE IF NOT EXISTS</span> learn_wh <span class="kw">WITH</span> WAREHOUSE_SIZE = 'XSMALL' AUTO_SUSPEND = 60 AUTO_RESUME = TRUE;
+<span class="kw">CREATE DATABASE IF NOT EXISTS</span> learn_db;
+<span class="kw">CREATE OR REPLACE TABLE</span> learn_db.public.accounts (account_no <span class="kw">VARCHAR</span>, holder_name <span class="kw">VARCHAR</span>, balance <span class="kw">NUMBER</span>);
+<span class="kw">INSERT INTO</span> learn_db.public.accounts <span class="kw">VALUES</span>
+  ('AC1001', 'Asha Rao', 75000), ('AC1002', 'Vikram Shah', 12000), ('AC1003', 'Meera Iyer', 42000);
+<span class="kw">SELECT</span> CURRENT_USER();</pre></div>
+        <p class="expect">Expected: “3 rows inserted”, then one row showing your username. Write that username down; you need it in step 3.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Create the badge and decide which doors it opens. Only USAGE and SELECT, nothing that changes data.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE ROLE IF NOT EXISTS</span> analyst_role;
+<span class="kw">GRANT USAGE ON WAREHOUSE</span> learn_wh <span class="kw">TO ROLE</span> analyst_role;
+<span class="kw">GRANT USAGE ON DATABASE</span> learn_db <span class="kw">TO ROLE</span> analyst_role;
+<span class="kw">GRANT USAGE ON SCHEMA</span> learn_db.public <span class="kw">TO ROLE</span> analyst_role;
+<span class="kw">GRANT SELECT ON TABLE</span> learn_db.public.accounts <span class="kw">TO ROLE</span> analyst_role;
+<span class="kw">GRANT ROLE</span> analyst_role <span class="kw">TO ROLE</span> SYSADMIN;</pre></div>
+        <p class="expect">Expected: each statement returns “Statement executed successfully.”</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Hand the badge to yourself. Replace <code>YOUR_USER</code> with the username from step 1 (no quotes).</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">GRANT ROLE</span> analyst_role <span class="kw">TO USER</span> YOUR_USER;
+<span class="kw">SHOW GRANTS TO USER</span> YOUR_USER;</pre></div>
+        <p class="expect">Expected: the SHOW output lists ACCOUNTADMIN and ANALYST_ROLE (and any others you already had) in the <code>role</code> column.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Put the badge on and read the shelf.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE ROLE</span> analyst_role;
+<span class="kw">USE WAREHOUSE</span> learn_wh;
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> learn_db.public.accounts;</pre></div>
+        <p class="expect">Expected: 3 rows. The role selector at the top right of the worksheet now shows ANALYST_ROLE.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Now prove the badge does not open the wrong doors. Both of these must fail.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">INSERT INTO</span> learn_db.public.accounts <span class="kw">VALUES</span> ('AC1004', 'Rahul Nair', 30500);
+<span class="kw">DROP TABLE</span> learn_db.public.accounts;</pre></div>
+        <p class="expect">Expected: “SQL access control error: Insufficient privileges to operate on table 'ACCOUNTS'”. That error is the whole point of this lesson. The table still has 3 rows.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Switch back to the master key and look at the grants from both directions.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE ROLE</span> ACCOUNTADMIN;
+<span class="kw">SHOW GRANTS TO ROLE</span> analyst_role;
+<span class="kw">SHOW GRANTS ON TABLE</span> learn_db.public.accounts;</pre></div>
+        <p class="expect">Expected: the first list shows 4 USAGE/SELECT rows (warehouse, database, schema, table). The second shows OWNERSHIP for ACCOUNTADMIN and SELECT for ANALYST_ROLE.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Clean up. Dropping the role removes every grant it held. Keep <code>learn_db</code> and <code>learn_wh</code>; later lessons use them.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">DROP ROLE</span> analyst_role;
+<span class="kw">DROP TABLE</span> learn_db.public.accounts;</pre></div>
+        <p class="expect">Expected: “ANALYST_ROLE successfully dropped.” and “ACCOUNTS successfully dropped.”</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>Privileges go to roles, roles go to people. Give every role the least it needs, keep ACCOUNTADMIN in the safe, and let masking and row access policies guard the sensitive columns and rows.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>RBAC</dt><dd>Role-based access control: permissions attach to roles, not to people.</dd>
+    <dt>Privilege</dt><dd>One permission on one object, such as SELECT on a table.</dd>
+    <dt>Grant</dt><dd>The act of giving a privilege to a role, or a role to a user or role.</dd>
+    <dt>Role hierarchy</dt><dd>A role granted to another role. The parent inherits the child’s privileges.</dd>
+    <dt>Ownership</dt><dd>The role that created an object. It can do anything to it and hand it over.</dd>
+    <dt>Least privilege</dt><dd>Give only what the job needs, nothing more.</dd>
+    <dt>Masking policy</dt><dd>Hides or scrambles a column for roles that should not see it.</dd>
+    <dt>Row access policy</dt><dd>Filters out whole rows for roles that should not see them.</dd>
+    <dt>PAN</dt><dd>Primary Account Number: the 16-digit card number. Highly sensitive.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#2-6">2.6 Streams and tasks →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "users_roles": {
+        "columns": [
+          ["user_name", "VARCHAR"],
+          ["role_name", "VARCHAR", "the badge this person holds"]
+        ],
+        "rows": [
+          ["Asha Rao", "analyst_role"],
+          ["Vikram Shah", "analyst_role"],
+          ["Meera Iyer", "fraud_role"],
+          ["Rahul Nair", "fraud_role"],
+          ["Priya Menon", "finance_role"],
+          ["Arjun Das", "finance_role"],
+          ["Sneha Pillai", "analyst_role"],
+          ["Karthik Reddy", "data_engineer_role"],
+          ["Divya Kumar", "data_engineer_role"],
+          ["Nikhil Joshi", "auditor_role"],
+          ["Farah Khan", "analyst_role"],
+          ["Lakshmi Bose", "fraud_role"]
+        ]
+      },
+      "role_grants": {
+        "columns": [
+          ["role_name", "VARCHAR"],
+          ["privilege", "VARCHAR", "USAGE, SELECT, INSERT or DELETE"],
+          ["object_name", "VARCHAR", "a table or a warehouse"]
+        ],
+        "rows": [
+          ["analyst_role", "USAGE", "learn_wh"],
+          ["analyst_role", "SELECT", "accounts"],
+          ["analyst_role", "SELECT", "transactions"],
+          ["fraud_role", "USAGE", "fraud_wh"],
+          ["fraud_role", "SELECT", "transactions"],
+          ["fraud_role", "SELECT", "card_alerts"],
+          ["finance_role", "USAGE", "finance_wh"],
+          ["finance_role", "SELECT", "ledger"],
+          ["finance_role", "SELECT", "accounts"],
+          ["data_engineer_role", "SELECT", "transactions"],
+          ["data_engineer_role", "INSERT", "transactions"],
+          ["data_engineer_role", "DELETE", "transactions"],
+          ["auditor_role", "SELECT", "accounts"],
+          ["auditor_role", "SELECT", "ledger"]
+        ]
+      }
+    },
+    "starter": "SELECT role_name, privilege, object_name\nFROM role_grants\nWHERE role_name = 'analyst_role'",
+    "examples": [
+      { "label": "All badges", "sql": "SELECT *\nFROM users_roles\nORDER BY role_name, user_name" },
+      { "label": "What analyst_role opens", "sql": "SELECT role_name, privilege, object_name\nFROM role_grants\nWHERE role_name = 'analyst_role'" },
+      { "label": "Who can read accounts?", "sql": "SELECT u.user_name, u.role_name\nFROM users_roles u\nJOIN role_grants g ON u.role_name = g.role_name\nWHERE g.privilege = 'SELECT' AND g.object_name = 'accounts'\nORDER BY u.user_name" }
+    ],
+    "challenges": [
+      { "task": "How many people hold each role? Show the role name and the count.", "hint": "COUNT(*) on users_roles with GROUP BY role_name.", "answer": "SELECT role_name, COUNT(*) FROM users_roles GROUP BY role_name" },
+      { "task": "List the names of everyone who can SELECT the transactions table.", "hint": "JOIN users_roles to role_grants on role_name, then filter privilege = 'SELECT' and object_name = 'transactions'. Select only user_name.", "answer": "SELECT u.user_name FROM users_roles u JOIN role_grants g ON u.role_name = g.role_name WHERE g.privilege = 'SELECT' AND g.object_name = 'transactions'" },
+      { "task": "Which roles can change data (INSERT or DELETE)? Show each role once with how many such privileges it has.", "hint": "WHERE privilege IN ('INSERT', 'DELETE') then GROUP BY role_name with COUNT(*).", "answer": "SELECT role_name, COUNT(*) FROM role_grants WHERE privilege IN ('INSERT', 'DELETE') GROUP BY role_name" }
+    ]
+  },
+  "quiz": [
+    { "q": "In Snowflake, privileges are granted directly to…", "options": ["Users", "Roles", "Warehouses"], "answer": 1, "why": "Privileges always go to roles. Roles are then granted to users (or to other roles)." },
+    { "q": "You grant analyst_role to SYSADMIN. What happens?", "options": ["SYSADMIN loses its own privileges", "SYSADMIN can now do everything analyst_role can", "Nothing until you also grant SYSADMIN to analyst_role"], "answer": 1, "why": "A senior badge includes the junior badges. Role hierarchy means the parent role inherits the child’s privileges." },
+    { "q": "Which system role should be used for daily work?", "options": ["ACCOUNTADMIN, because it can do everything", "None of them; use a custom role with least privilege", "PUBLIC, because everyone has it"], "answer": 1, "why": "ACCOUNTADMIN is the master key in the safe. Daily work uses a custom role that has only what the job needs." },
+    { "q": "A role has SELECT on a table but the query says the table does not exist or is not authorized. Most likely cause?", "options": ["The table was deleted", "The role is missing USAGE on the database or schema", "SELECT is not enough; it also needs DELETE"], "answer": 1, "why": "Reading a table needs the whole chain: USAGE on the warehouse, database and schema plus SELECT on the table." },
+    { "q": "The fraud team must see full card numbers and everyone else must see only the last 4 digits, on the same table. What do you use?", "options": ["A masking policy on the card number column", "Two copies of the table", "A bigger warehouse"], "answer": 0, "why": "A masking policy changes what a column shows depending on the role running the query. One table, one policy, every tool obeys it." },
+    { "q": "Which command tells you every privilege a role holds?", "options": ["SHOW GRANTS TO ROLE", "USE ROLE", "SELECT * FROM roles"], "answer": 0, "why": "SHOW GRANTS TO ROLE lists what the role can do. SHOW GRANTS ON TABLE answers the reverse question: who can touch this table." }
+  ]
+}
+</script>

@@ -1,0 +1,281 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Snowflake Fundamentals</span><span>Module 1 · Foundations</span><span>Lesson 1.2</span></div>
+  <h1>Storage vs compute</h1>
+  <p class="lede">Snowflake keeps the data in one place and does the thinking somewhere else. Learn why that split is the single most important idea on your project.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>12 min</span>
+    <span class="badge">Beginner</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain the difference between storage and compute in one sentence</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Name the three layers of Snowflake and what each one does</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Say why a bank pays two separate bills and how each one grows</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Prove in a real account that data stays put while compute is switched off</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">Storage is where the data sits. Compute is the power that reads it and works out answers. In Snowflake the two are separate, so each one can grow, shrink and be paid for on its own.</p></div>
+  </div>
+  <p>In older databases the two were glued together. One machine held the disks and did the thinking. If you needed more disk space you bought a bigger machine, even when the thinking part was idle. Snowflake cuts that link.</p>
+  <ul>
+    <li><b>Storage</b>: your tables, kept in cheap cloud storage. It is always there, even when nobody is working.</li>
+    <li><b>Compute</b>: the <b>virtual warehouses</b> that run your SQL. They switch on when needed and off when not.</li>
+    <li><b>Cloud services</b>: the brain that connects them. It checks who you are, plans each query and remembers where every piece of data lives.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like shelves and librarians</h2>
+  <p>Back to the library in the sky. The books sit on shelves. The shelves do not answer questions; they just hold books, and you pay a small rent for every metre of shelf you fill. The librarians are the ones who run around finding answers. You pay them by the minute, and when nobody is asking anything they go home. Hiring more librarians never means building more shelves, and buying more shelves never means hiring more librarians. At the front desk a manager keeps the master catalogue: they know which shelf holds which book, decide which librarians take which question and check your library card at the door.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Shelves</b><span>In Snowflake: storage, the cloud disks holding your tables</span></div>
+    <div><small>In the library</small><b>Librarians</b><span>In Snowflake: compute, the virtual warehouses that run queries</span></div>
+    <div><small>In the library</small><b>Front-desk manager</b><span>In Snowflake: the cloud services layer that plans queries and keeps the catalogue</span></div>
+  </div>
+  <p>Every team can send its own librarians to the same shelves at the same time. Nobody has to copy the books first. That is the whole trick.</p>
+</section>
+
+<section class="sec" id="layers" data-toc="The three layers">
+  <h2>The three layers</h2>
+  <p>Snowflake calls this its three-layer architecture. You will see this picture in every Snowflake deck on your project, so learn the names now.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Layer</th><th>What it does</th><th>Library</th><th>How you pay</th></tr></thead>
+      <tbody>
+        <tr><td><b>Database storage</b></td><td>Holds every table, compressed and split into small pieces called micro-partitions</td><td>Shelves with books packed in labelled boxes</td><td>Per terabyte per month</td></tr>
+        <tr><td><b>Query processing</b></td><td>Virtual warehouses run your SQL. Each warehouse is its own team and never shares power with another</td><td>Teams of librarians</td><td>Credits per second while running</td></tr>
+        <tr><td><b>Cloud services</b></td><td>Logs you in, checks permissions, plans and optimises queries, keeps metadata and the result cache</td><td>Front-desk manager</td><td>Free unless it goes above 10% of your daily compute</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Good to know</div><p>The front-desk manager remembers recent answers. If you run exactly the same query again and the data has not changed, Snowflake hands back the saved result from the cloud services layer instead of sending the librarians out again. That saved answer is kept for 24 hours and stretched to at most 31 days if people keep reusing it.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="why" data-toc="Why it matters">
+  <h2>Why the split matters</h2>
+  <div class="features">
+    <div class="feature"><b>Grow one without the other</b><span>Keep ten years of history on the shelves for a small rent, and only pay for librarians on the days you actually read it.</span><small>Cheaper</small></div>
+    <div class="feature"><b>No fighting for one machine</b><span>Each team gets its own warehouse. Risk’s huge report and Fraud’s quick checks read the same shelves without slowing each other.</span><small>Faster</small></div>
+    <div class="feature"><b>One copy of the truth</b><span>Nobody exports a spreadsheet to work in peace. Everyone reads the same live tables.</span><small>Safer</small></div>
+    <div class="feature"><b>Switch compute off at night</b><span>The shelves stay full while the librarians are home. The data never disappears when compute stops.</span><small>Two separate bills</small></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>A global bank keeps its card payments in one large database. Four teams read it, and each has its own warehouse:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Team</th><th>Their warehouse</th><th>What they do with the payments data</th><th>When</th></tr></thead>
+      <tbody>
+        <tr><td><b>Finance</b></td><td>FINANCE_WH</td><td>Monthly totals per region</td><td>Office hours</td></tr>
+        <tr><td><b>Fraud</b></td><td>FRAUD_WH</td><td>Thousands of tiny checks per hour</td><td>All day and night</td></tr>
+        <tr><td><b>Risk</b></td><td>RISK_WH</td><td>One giant month-end model</td><td>Last 3 days of the month</td></tr>
+        <tr><td><b>Marketing</b></td><td>MARKETING_WH</td><td>Occasional campaign lists</td><td>Rarely</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The storage bill is the same whichever team reads the data, because the shelves are shared. The compute bill is different for each team: Fraud’s warehouse runs almost all day, Marketing’s barely runs at all. On the 28th of the month Risk switches on a very large warehouse for a few hours and switches it off again. Nobody else notices.</p>
+</section>
+
+<section class="sec" id="sql" data-toc="The SQL">
+  <h2>The SQL you will see</h2>
+  <p>Creating storage and creating compute are two different commands. Notice that neither one mentions the other.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- storage: a database is a building, the table is a shelf</span>
+<span class="kw">CREATE DATABASE</span> payments_db;
+<span class="kw">CREATE TABLE</span> payments_db.public.card_payments (
+  payment_id <span class="kw">NUMBER</span>, card_no <span class="kw">VARCHAR</span>, amount <span class="kw">NUMBER</span>, paid_on <span class="kw">DATE</span>);
+
+<span class="cm">-- compute: a warehouse is a team of librarians</span>
+<span class="kw">CREATE WAREHOUSE</span> finance_wh <span class="kw">WITH</span> WAREHOUSE_SIZE = XSMALL
+  AUTO_SUSPEND = 60 AUTO_RESUME = <span class="kw">TRUE</span>;
+
+<span class="cm">-- point your session at a team, then ask the question</span>
+<span class="kw">USE WAREHOUSE</span> finance_wh;
+<span class="kw">SELECT</span> <span class="kw">COUNT</span>(*) <span class="kw">FROM</span> payments_db.public.card_payments;</pre></div>
+  <p>Two commands report on the two layers. <code>SHOW WAREHOUSES</code> lists your teams and whether each is started or suspended. <code>SHOW TABLES</code> lists your shelves with their row counts and size in bytes, and it works even when every warehouse is switched off, because the front-desk manager keeps that catalogue.</p>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>Two small tables show the two bills of a fictional bank. <code>storage_daily</code> is how much each database held on the shelves each day. <code>compute_daily</code> is what each warehouse spent reading them. Notice that MARKETING_WH used nothing on the second day, while its database still took up space. Open the <b>Schema</b> tab to see the columns.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: switch compute off and watch the data stay</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Create a warehouse and a database, then separate them</h3>
+      <div class="meta"><span>About 15 min</span><span>Uses your free trial</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>Open a new SQL worksheet in Snowsight and create a small team of librarians. The settings send them on break after 60 seconds of quiet and bring them back on the next query.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE WAREHOUSE</span> learn_wh <span class="kw">WITH</span> WAREHOUSE_SIZE = XSMALL
+  AUTO_SUSPEND = 60 AUTO_RESUME = <span class="kw">TRUE</span>;</pre></div>
+        <p class="expect">Expected: <code>Warehouse LEARN_WH successfully created.</code> If you already made it in an earlier session, use <code>USE WAREHOUSE learn_wh;</code> instead.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Now build some shelves. This creates a database and copies the 150,000 sample customers into your own table.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE DATABASE</span> learn_db;
+<span class="kw">USE WAREHOUSE</span> learn_wh;
+<span class="kw">CREATE TABLE</span> learn_db.public.customer_copy <span class="kw">AS</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> snowflake_sample_data.tpch_sf1.customer;</pre></div>
+        <p class="expect">Expected: <code>Table CUSTOMER_COPY successfully created.</code> The copy needed compute, so LEARN_WH started by itself.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Send the librarians home on purpose, then check they have gone.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">ALTER WAREHOUSE</span> learn_wh SUSPEND;
+<span class="kw">SHOW WAREHOUSES</span> <span class="kw">LIKE</span> 'LEARN_WH';</pre></div>
+        <p class="expect">Expected: one row where the <code>state</code> column says <code>SUSPENDED</code>. If the first line complains that the warehouse cannot be suspended, it had already gone on break after 60 seconds; that is fine, carry on.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>With compute switched off, ask the front-desk manager about the shelves. This reads the catalogue only, so it needs no warehouse.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SHOW TABLES</span> <span class="kw">IN</span> learn_db.public;</pre></div>
+        <p class="expect">Expected: one row for <code>CUSTOMER_COPY</code> with <code>rows</code> = 150000 and a <code>bytes</code> value of a few megabytes. The data is safely on the shelves while the warehouse is asleep. Run <code>SHOW WAREHOUSES LIKE 'LEARN_WH';</code> again to confirm it is still <code>SUSPENDED</code>.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Now ask a real question. This needs work, so the librarians come back automatically (auto-resume).</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> c_mktsegment <span class="kw">AS</span> segment, <span class="kw">AVG</span>(c_acctbal) <span class="kw">AS</span> avg_balance
+<span class="kw">FROM</span> learn_db.public.customer_copy
+<span class="kw">GROUP BY</span> c_mktsegment
+<span class="kw">ORDER BY</span> avg_balance <span class="kw">DESC</span>;
+
+<span class="kw">SHOW WAREHOUSES</span> <span class="kw">LIKE</span> 'LEARN_WH';</pre></div>
+        <p class="expect">Expected: 5 segments with an average balance around 4,500, then a row where <code>state</code> is now <code>STARTED</code>. You never typed a resume command.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Tidy up. Keep <code>learn_wh</code> and <code>learn_db</code> for later lessons, but drop the copied table so you are not renting shelf space for it, and send the librarians home.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">DROP TABLE</span> learn_db.public.customer_copy;
+<span class="kw">ALTER WAREHOUSE</span> learn_wh SUSPEND;</pre></div>
+        <p class="expect">Expected: <code>CUSTOMER_COPY successfully dropped.</code> and <code>Statement executed successfully.</code></p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>Shelves hold the books, librarians find the answers, and the front desk keeps the catalogue. You rent shelves by the terabyte and pay librarians by the second, and switching the librarians off never touches the books.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Storage</dt><dd>The layer that holds your tables in cloud disks. Billed per terabyte per month.</dd>
+    <dt>Compute</dt><dd>The processing power that runs queries. In Snowflake this means virtual warehouses.</dd>
+    <dt>Virtual warehouse</dt><dd>A named team of compute that runs your SQL. Lesson 1.3 covers sizes and settings.</dd>
+    <dt>Cloud services</dt><dd>The layer that logs you in, plans queries and keeps metadata. Mostly free.</dd>
+    <dt>Metadata</dt><dd>Facts about your data, such as table names, row counts and sizes, kept by cloud services.</dd>
+    <dt>Micro-partition</dt><dd>A small compressed chunk of a table. Snowflake splits every table into these automatically.</dd>
+    <dt>Result cache</dt><dd>A saved answer to a recent query, returned instantly if you ask the exact same question again.</dd>
+    <dt>Suspend / resume</dt><dd>Switching a warehouse off and on. Data is never affected.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#1-3">1.3 Virtual warehouses →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "storage_daily": {
+        "columns": [
+          ["storage_id", "NUMBER"],
+          ["db_name", "VARCHAR"],
+          ["owner_team", "VARCHAR"],
+          ["stored_gb", "NUMBER", "compressed size on the shelves"],
+          ["run_date", "DATE"]
+        ],
+        "rows": [
+          [1, "PAYMENTS_DB", "Finance", 820, "2026-09-01"],
+          [2, "CARDS_DB", "Fraud", 540, "2026-09-01"],
+          [3, "LOANS_DB", "Risk", 310, "2026-09-01"],
+          [4, "CUSTOMER_DB", "Marketing", 95, "2026-09-01"],
+          [5, "PAYMENTS_DB", "Finance", 835, "2026-09-02"],
+          [6, "CARDS_DB", "Fraud", 552, "2026-09-02"],
+          [7, "LOANS_DB", "Risk", 312, "2026-09-02"],
+          [8, "CUSTOMER_DB", "Marketing", 96, "2026-09-02"]
+        ]
+      },
+      "compute_daily": {
+        "columns": [
+          ["usage_id", "NUMBER"],
+          ["warehouse", "VARCHAR"],
+          ["team", "VARCHAR"],
+          ["db_name", "VARCHAR", "which shelves the team read"],
+          ["credits_used", "NUMBER"],
+          ["queries_run", "NUMBER"],
+          ["run_date", "DATE"]
+        ],
+        "rows": [
+          [1, "FINANCE_WH", "Finance", "PAYMENTS_DB", 12, 340, "2026-09-01"],
+          [2, "FRAUD_WH", "Fraud", "CARDS_DB", 30, 4100, "2026-09-01"],
+          [3, "RISK_WH", "Risk", "LOANS_DB", 48, 120, "2026-09-01"],
+          [4, "FRAUD_WH", "Fraud", "PAYMENTS_DB", 6, 900, "2026-09-01"],
+          [5, "MARKETING_WH", "Marketing", "CUSTOMER_DB", 2, 55, "2026-09-01"],
+          [6, "RISK_WH", "Risk", "PAYMENTS_DB", 10, 40, "2026-09-01"],
+          [7, "FINANCE_WH", "Finance", "PAYMENTS_DB", 14, 360, "2026-09-02"],
+          [8, "FRAUD_WH", "Fraud", "CARDS_DB", 31, 4300, "2026-09-02"],
+          [9, "RISK_WH", "Risk", "LOANS_DB", 50, 130, "2026-09-02"],
+          [10, "FRAUD_WH", "Fraud", "PAYMENTS_DB", 7, 950, "2026-09-02"],
+          [11, "MARKETING_WH", "Marketing", "CUSTOMER_DB", 0, 0, "2026-09-02"],
+          [12, "RISK_WH", "Risk", "PAYMENTS_DB", 9, 35, "2026-09-02"]
+        ]
+      }
+    },
+    "starter": "SELECT warehouse, SUM(credits_used) AS credits\nFROM compute_daily\nGROUP BY warehouse\nORDER BY credits DESC",
+    "examples": [
+      { "label": "Shelves: all storage rows", "sql": "SELECT *\nFROM storage_daily\nORDER BY run_date, db_name" },
+      { "label": "Librarians: credits per warehouse", "sql": "SELECT warehouse, SUM(credits_used) AS credits\nFROM compute_daily\nGROUP BY warehouse\nORDER BY credits DESC" },
+      { "label": "Who reads PAYMENTS_DB", "sql": "SELECT warehouse, team, credits_used, run_date\nFROM compute_daily\nWHERE db_name = 'PAYMENTS_DB'\nORDER BY credits_used DESC" }
+    ],
+    "challenges": [
+      { "task": "How many credits did all warehouses use together on 2026-09-01?", "hint": "SUM(credits_used) from compute_daily, with WHERE run_date = '2026-09-01'.", "answer": "SELECT SUM(credits_used) FROM compute_daily WHERE run_date = '2026-09-01'" },
+      { "task": "On 2026-09-02, show each database name and how many GB it stored, biggest first.", "hint": "Two columns from storage_daily, a WHERE on run_date, then ORDER BY stored_gb DESC.", "answer": "SELECT db_name, stored_gb FROM storage_daily WHERE run_date = '2026-09-02' ORDER BY stored_gb DESC" },
+      { "task": "How many queries did each team run in total across both days? Show the team and the total.", "hint": "SUM(queries_run) with GROUP BY team.", "answer": "SELECT team, SUM(queries_run) FROM compute_daily GROUP BY team" }
+    ]
+  },
+  "quiz": [
+    { "q": "In Snowflake, what happens to your tables when every warehouse is suspended?", "options": ["They are deleted until a warehouse starts", "Nothing; they stay in storage", "They are moved to a backup"], "answer": 1, "why": "Storage and compute are separate. Suspending the librarians never touches the shelves." },
+    { "q": "Which layer plans your query and remembers where every micro-partition lives?", "options": ["Cloud services", "Database storage", "The virtual warehouse"], "answer": 0, "why": "Cloud services is the front-desk manager: login, permissions, query planning, metadata and the result cache." },
+    { "q": "A bank keeps ten years of history but only reads it once a quarter. Which bill is high and which is low?", "options": ["High compute, low storage", "Both high", "High storage, low compute"], "answer": 2, "why": "Storage is billed per terabyte all month. Compute is billed only while a warehouse runs, so rare reads cost little." },
+    { "q": "Does SHOW TABLES need a running warehouse?", "options": ["Yes, always", "No, cloud services answers it from metadata", "Only for tables over 1 GB"], "answer": 1, "why": "SHOW commands read the catalogue kept by cloud services. You proved this in the lab with the warehouse suspended." },
+    { "q": "Two teams query the same table at the same time with different warehouses. Do they slow each other down?", "options": ["No, each warehouse has its own compute", "Yes, they share one machine", "Only if the table is large"], "answer": 0, "why": "Warehouses never share compute. Both teams read the same shelves with their own librarians." },
+    { "q": "You rerun exactly the same query on unchanged data a minute later. What does Snowflake do?", "options": ["Runs it again in full on the warehouse", "Returns the saved result from the result cache", "Refuses duplicate queries"], "answer": 1, "why": "The front-desk manager remembers recent answers for 24 hours (up to 31 days if reused), so the librarians do not go out again." }
+  ]
+}
+</script>

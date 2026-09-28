@@ -1,0 +1,289 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Snowflake Fundamentals</span><span>Module 2 · Working with data</span><span>Lesson 2.2</span></div>
+  <h1>Time Travel &amp; Fail-safe</h1>
+  <p class="lede">Learn how Snowflake keeps a rewind button for your data, how to look at a table as it was an hour ago, how to bring back a table you dropped, and what happens after the rewind window closes.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>25 min</span>
+    <span class="badge">Beginner</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain Time Travel and Fail-safe in plain words</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Query a table as it was in the past with AT and BEFORE</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Undo a bad UPDATE and bring back a dropped table with UNDROP</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Say how many days of history a table keeps, and what it costs</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">Time Travel lets you see and restore data as it was at any moment in the recent past. Fail-safe is a further 7 days after that, when only Snowflake can recover the data for you.</p></div>
+  </div>
+  <p>Every time you change a table (INSERT, UPDATE, DELETE, or even DROP), Snowflake does not throw the old version away straight away. It keeps it for a set number of days called the <b>retention period</b>. During that window you can look back, compare, or put things back the way they were. No backups to schedule, no restore tickets.</p>
+  <p>Two words matter here:</p>
+  <ul>
+    <li><b>Time Travel</b>: the window you control. Default 1 day; up to 90 days on Enterprise edition and above.</li>
+    <li><b>Fail-safe</b>: the 7 days after that. You cannot query it yourself. You ask Snowflake Support, and they recover it as a last resort.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like CCTV in the library</h2>
+  <p>Our sky library has cameras on every shelf, recording all day. Someone moves a bookshelf by mistake, or throws a whole shelf into the bin. No panic: you rewind the CCTV to any minute in the last day (or up to 90 days if you paid for longer tapes) and see exactly how the shelf looked. You can even tell the librarians “put it back the way it was at 10:15”.</p>
+  <p>When the tape reaches the end of its window, it is not wiped at once. It goes into an <b>emergency vault</b> for 7 more days. You cannot open that vault. Only Snowflake staff can, and only if you ask them. After 7 days, the tape is gone for good.</p>
+  <div class="map">
+    <div><small>In the library</small><b>CCTV rewind</b><span>In Snowflake: Time Travel. Query with AT or BEFORE, restore with UNDROP.</span></div>
+    <div><small>In the library</small><b>Length of the tape</b><span>In Snowflake: DATA_RETENTION_TIME_IN_DAYS. Default 1 day, up to 90.</span></div>
+    <div><small>In the library</small><b>Emergency vault</b><span>In Snowflake: Fail-safe. 7 days, fixed, opened only by Snowflake Support.</span></div>
+  </div>
+  <p>Keeping tapes takes shelf space, and Snowflake charges for that space. The longer the tape, the more you pay. That is why you set a long retention only on tables that really need it.</p>
+</section>
+
+<section class="sec" id="how" data-toc="How it works">
+  <h2>How it works</h2>
+  <p>Remember from Lesson 2.1 that data lives in micro-partitions, the small labelled boxes of books. Snowflake never edits a box in place. A change writes a new box and marks the old one as “old”. Time Travel simply keeps the old boxes around for the retention period instead of deleting them. That is why it is cheap and instant: nothing is copied, old boxes are just not thrown out yet.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Table type</th><th>Time Travel (max)</th><th>Fail-safe</th><th>Used for</th></tr></thead>
+      <tbody>
+        <tr><td><b>Permanent</b> (the default)</td><td>1 day on Standard; 0 to 90 days on Enterprise and above</td><td>7 days, always</td><td>Real business data: accounts, payments, customers</td></tr>
+        <tr><td><b>Transient</b></td><td>0 or 1 day</td><td>None</td><td>Staging or scratch data you can rebuild</td></tr>
+        <tr><td><b>Temporary</b></td><td>0 or 1 day</td><td>None</td><td>Data for one session only; vanishes when you log out</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="features">
+    <div class="feature"><b>Default is 1 day</b><span>Every new permanent table keeps 1 day of history unless you change it. Standard edition cannot go above 1.</span><small>DATA_RETENTION_TIME_IN_DAYS</small></div>
+    <div class="feature"><b>Set it per object</b><span>You can set retention on the account, a database, a schema or one table. A table setting wins over its schema.</span><small>ALTER TABLE … SET</small></div>
+    <div class="feature"><b>Fail-safe is fixed</b><span>7 days for permanent tables, no setting to change it, no SQL to read it. Recovery is best effort and can take hours or days.</span><small>Snowflake Support</small></div>
+    <div class="feature"><b>You pay for the history</b><span>Storage is billed for Time Travel and Fail-safe. Snowflake keeps only the changed rows, so a table that rarely changes costs little extra.</span><small>Storage cost</small></div>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Good to know</div><p>Fail-safe is not a backup you should plan around. It exists for disasters. If a table matters, set a sensible Time Travel retention and fix mistakes inside that window yourself.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>It is 5:40 pm at a global bank. An analyst runs an UPDATE on the <code>account_balances</code> table to correct one customer and forgets the WHERE clause. Every balance in the table is now zero. Without Time Travel this is a night of restoring backups and a report to the regulator. With Time Travel it goes like this:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Minute</th><th>What happens</th><th>Snowflake feature</th></tr></thead>
+      <tbody>
+        <tr><td>17:40</td><td>Bad UPDATE runs. All balances are 0.</td><td>The old micro-partitions are kept, not deleted</td></tr>
+        <tr><td>17:42</td><td>Analyst queries the table as it was before her statement and sees the correct balances.</td><td><code>BEFORE(STATEMENT =&gt; '&lt;query id&gt;')</code></td></tr>
+        <tr><td>17:44</td><td>She overwrites the table with that historical version.</td><td><code>INSERT OVERWRITE … SELECT … BEFORE(…)</code></td></tr>
+        <tr><td>17:45</td><td>Balances are back. Nobody outside the team noticed.</td><td>Time Travel window (1 to 90 days)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The same bank sets 90 days of retention on its ledger tables because auditors ask questions like “what did this account show on the 3rd of last month?”, and answering with <code>AT(TIMESTAMP =&gt; …)</code> is faster than digging out a backup.</p>
+</section>
+
+<section class="sec" id="sql" data-toc="The SQL">
+  <h2>The SQL you will use</h2>
+  <p>Time Travel adds one small clause after the table name. <code>AT</code> means “including changes made at that exact point”. <code>BEFORE</code> means “just before that point”. You can point at a moment in three ways.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- 1. OFFSET: N seconds ago (always a negative number)</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> account_balances <span class="kw">AT</span>(OFFSET =&gt; -60*10);   <span class="cm">-- 10 minutes ago</span>
+
+<span class="cm">-- 2. TIMESTAMP: an exact moment</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> account_balances <span class="kw">AT</span>(TIMESTAMP =&gt; '2026-09-03 09:00:00'::TIMESTAMP_LTZ);
+
+<span class="cm">-- 3. STATEMENT: just before a specific query ran (copy the ID from Query History)</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> account_balances <span class="kw">BEFORE</span>(STATEMENT =&gt; '01b2c3d4-0000-1234-0000-000000000001');</pre></div>
+  <p>Restoring is just as short. A dropped object comes back with UNDROP, as long as you are still inside the retention window and nothing else now uses that name.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">UNDROP TABLE</span> account_balances;
+<span class="kw">UNDROP SCHEMA</span> finance;
+<span class="kw">UNDROP DATABASE</span> ledger_db;
+
+<span class="cm">-- Keep 30 days of history on one important table (Enterprise edition or above)</span>
+<span class="kw">ALTER TABLE</span> account_balances <span class="kw">SET</span> DATA_RETENTION_TIME_IN_DAYS = 30;
+
+<span class="cm">-- See dropped tables that can still be undropped</span>
+<span class="kw">SHOW TABLES HISTORY</span>;</pre></div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Watch out</div><p>Setting retention to 0 switches Time Travel off for that table. If a table with the same name already exists, UNDROP fails: rename the new one first, then undrop.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>This worksheet cannot run real Time Travel (that needs Snowflake, see the lab). Instead it holds <code>account_snapshots</code>: a photo of four accounts on three different dates, like frames from the CCTV tape. On 12 August someone ran a bad UPDATE. Filtering by <code>snapshot_date</code> is the same idea as <code>AT(TIMESTAMP =&gt; …)</code>. Select <b>Run</b>, try the examples, then solve the challenges.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: break a table, then rewind it</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Time Travel and UNDROP in your trial account</h3>
+      <div class="meta"><span>About 15 min</span><span>Free trial (Enterprise edition)</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>Open a new SQL worksheet in Snowsight. Set up a small warehouse and a learning database. Both statements are safe to rerun.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE WAREHOUSE IF NOT EXISTS</span> learn_wh <span class="kw">WITH</span> WAREHOUSE_SIZE = XSMALL AUTO_SUSPEND = 60 AUTO_RESUME = TRUE;
+<span class="kw">CREATE DATABASE IF NOT EXISTS</span> learn_db;
+<span class="kw">USE WAREHOUSE</span> learn_wh;
+<span class="kw">USE SCHEMA</span> learn_db.public;</pre></div>
+        <p class="expect">Expected: “Statement executed successfully” for each line. The worksheet context now shows LEARN_DB.PUBLIC and LEARN_WH.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Create a table of account balances and load five rows.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE OR REPLACE TABLE</span> accounts (account_no NUMBER, customer_name VARCHAR, city VARCHAR, balance NUMBER);
+<span class="kw">INSERT INTO</span> accounts <span class="kw">VALUES</span>
+  (1001, 'Asha Rao', 'Mumbai', 52000),
+  (1002, 'Vikram Shah', 'Delhi', 210000),
+  (1003, 'Meera Iyer', 'Chennai', 34500),
+  (1004, 'Priya Menon', 'Bengaluru', 97500),
+  (1005, 'Arjun Das', 'Delhi', 61000);
+<span class="kw">SELECT</span> <span class="kw">SUM</span>(balance) <span class="kw">AS</span> total <span class="kw">FROM</span> accounts;</pre></div>
+        <p class="expect">Expected: total = 455,000.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Now make the classic mistake: an UPDATE with no WHERE clause. Straight after it, save the query ID of that statement in a variable so you can point Time Travel at it.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">UPDATE</span> accounts <span class="kw">SET</span> balance = 0;
+<span class="kw">SET</span> bad_query = LAST_QUERY_ID();
+<span class="kw">SELECT</span> <span class="kw">SUM</span>(balance) <span class="kw">AS</span> total <span class="kw">FROM</span> accounts;</pre></div>
+        <p class="expect">Expected: “5 rows updated”, then total = 0. Run the three lines one at a time (or select all three and run) so that LAST_QUERY_ID() picks up the UPDATE.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Rewind the CCTV. Ask for the table as it was just before that statement, and also as it was 5 minutes ago.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> * <span class="kw">FROM</span> accounts <span class="kw">BEFORE</span>(STATEMENT =&gt; $bad_query);
+<span class="kw">SELECT</span> <span class="kw">SUM</span>(balance) <span class="kw">AS</span> total_before <span class="kw">FROM</span> accounts <span class="kw">BEFORE</span>(STATEMENT =&gt; $bad_query);</pre></div>
+        <p class="expect">Expected: the five original balances, and total_before = 455,000, even though the live table says 0. Try <code>AT(OFFSET =&gt; -300)</code> instead: it shows the same, as long as step 2 happened more than 5 minutes ago.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Put it back. Overwrite the live table with the historical version, then check.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">INSERT OVERWRITE INTO</span> accounts
+  <span class="kw">SELECT</span> * <span class="kw">FROM</span> accounts <span class="kw">BEFORE</span>(STATEMENT =&gt; $bad_query);
+<span class="kw">SELECT</span> <span class="kw">SUM</span>(balance) <span class="kw">AS</span> total <span class="kw">FROM</span> accounts;</pre></div>
+        <p class="expect">Expected: “5 rows inserted”, then total = 455,000 again. The mistake is undone.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Now drop the whole table, prove it is gone, and bring it back.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">DROP TABLE</span> accounts;
+<span class="kw">SELECT COUNT</span>(*) <span class="kw">FROM</span> accounts;        <span class="cm">-- fails</span>
+<span class="kw">SHOW TABLES HISTORY LIKE</span> 'ACCOUNTS';   <span class="cm">-- dropped_on has a value</span>
+<span class="kw">UNDROP TABLE</span> accounts;
+<span class="kw">SELECT COUNT</span>(*) <span class="kw">FROM</span> accounts;        <span class="cm">-- works again</span></pre></div>
+        <p class="expect">Expected: the first SELECT errors with “Object 'ACCOUNTS' does not exist”. SHOW TABLES HISTORY lists it with a dropped_on time. After UNDROP, COUNT(*) = 5.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Give the table a longer tape, then read the setting back. The trial is Enterprise edition, so up to 90 is allowed.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">ALTER TABLE</span> accounts <span class="kw">SET</span> DATA_RETENTION_TIME_IN_DAYS = 30;
+<span class="kw">SHOW TABLES LIKE</span> 'ACCOUNTS';</pre></div>
+        <p class="expect">Expected: the retention_time column shows 30. Scroll right in the results to find it.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Clean up. Keep learn_db and learn_wh for the next lessons.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">DROP TABLE</span> accounts;</pre></div>
+        <p class="expect">Expected: “ACCOUNTS successfully dropped.” (It stays undroppable for 30 days, and Snowflake bills that history storage. On a trial the amount is tiny.)</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>Time Travel is your CCTV rewind: 1 day by default, up to 90 on Enterprise, and you drive it with AT, BEFORE and UNDROP. Fail-safe is the 7-day vault after that, opened only by Snowflake Support. Transient and temporary tables have no vault.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Time Travel</dt><dd>Querying or restoring data as it was at a past moment inside the retention period.</dd>
+    <dt>Retention period</dt><dd>How many days of history a table keeps. Set with DATA_RETENTION_TIME_IN_DAYS.</dd>
+    <dt>AT / BEFORE</dt><dd>The clause after a table name that picks a past moment. AT includes that moment; BEFORE stops just short of it.</dd>
+    <dt>OFFSET</dt><dd>A negative number of seconds from now, for example -3600 for one hour ago.</dd>
+    <dt>STATEMENT</dt><dd>A query ID. BEFORE(STATEMENT => id) shows data as it was before that query ran.</dd>
+    <dt>UNDROP</dt><dd>Brings back a dropped table, schema or database while it is still in the retention window.</dd>
+    <dt>Fail-safe</dt><dd>A fixed 7-day period after Time Travel where only Snowflake Support can recover permanent-table data.</dd>
+    <dt>Permanent table</dt><dd>The normal table type: full Time Travel and Fail-safe.</dd>
+    <dt>Transient table</dt><dd>A table with at most 1 day of Time Travel and no Fail-safe. Cheaper for rebuildable data.</dd>
+    <dt>Query ID</dt><dd>The unique identifier Snowflake gives every statement. Find it in Query History or with LAST_QUERY_ID().</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#2-3">2.3 Zero-copy cloning →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "account_snapshots": {
+        "columns": [
+          ["snapshot_date", "DATE", "the day the photo was taken"],
+          ["account_no", "NUMBER"],
+          ["customer_name", "VARCHAR"],
+          ["city", "VARCHAR"],
+          ["balance", "NUMBER", "in rupees"]
+        ],
+        "rows": [
+          ["2026-08-01", 1001, "Asha Rao", "Mumbai", 50000],
+          ["2026-08-01", 1002, "Vikram Shah", "Delhi", 120000],
+          ["2026-08-01", 1003, "Meera Iyer", "Chennai", 30000],
+          ["2026-08-01", 1004, "Priya Menon", "Bengaluru", 80000],
+          ["2026-08-08", 1001, "Asha Rao", "Mumbai", 65000],
+          ["2026-08-08", 1002, "Vikram Shah", "Delhi", 95000],
+          ["2026-08-08", 1003, "Meera Iyer", "Chennai", 30000],
+          ["2026-08-08", 1004, "Priya Menon", "Bengaluru", 82000],
+          ["2026-08-12", 1001, "Asha Rao", "Mumbai", 65000],
+          ["2026-08-12", 1002, "Vikram Shah", "Delhi", 0],
+          ["2026-08-12", 1003, "Meera Iyer", "Chennai", 0],
+          ["2026-08-12", 1004, "Priya Menon", "Bengaluru", 82000]
+        ]
+      }
+    },
+    "starter": "SELECT account_no, customer_name, balance\nFROM account_snapshots\nWHERE snapshot_date = '2026-08-08'\nORDER BY account_no",
+    "examples": [
+      { "label": "All frames", "sql": "SELECT *\nFROM account_snapshots\nORDER BY snapshot_date, account_no" },
+      { "label": "Rewind to 8 Aug", "sql": "SELECT account_no, customer_name, balance\nFROM account_snapshots\nWHERE snapshot_date = '2026-08-08'\nORDER BY account_no" },
+      { "label": "Total per day", "sql": "SELECT snapshot_date, SUM(balance) AS total_balance\nFROM account_snapshots\nGROUP BY snapshot_date\nORDER BY snapshot_date" }
+    ],
+    "challenges": [
+      { "task": "What was the total balance of all four accounts on 2026-08-01?", "hint": "SUM(balance) with WHERE snapshot_date = '2026-08-01'.", "answer": "SELECT SUM(balance) FROM account_snapshots WHERE snapshot_date = '2026-08-01'" },
+      { "task": "Show Meera Iyer's balance on every snapshot date, oldest first. Return the date and the balance.", "hint": "Filter with WHERE customer_name = 'Meera Iyer' and ORDER BY snapshot_date.", "answer": "SELECT snapshot_date, balance FROM account_snapshots WHERE customer_name = 'Meera Iyer' ORDER BY snapshot_date" },
+      { "task": "Which accounts were wrongly set to 0 on 2026-08-12? Return account_no and customer_name.", "hint": "Two conditions joined with AND: the date and balance = 0.", "answer": "SELECT account_no, customer_name FROM account_snapshots WHERE snapshot_date = '2026-08-12' AND balance = 0" }
+    ]
+  },
+  "quiz": [
+    { "q": "How many days of Time Travel does a new permanent table get by default?", "options": ["1 day", "7 days", "90 days"], "answer": 0, "why": "The default is 1 day on every edition. You can raise it up to 90 days on Enterprise edition and above; Standard edition stays at a maximum of 1." },
+    { "q": "In the library, what does Fail-safe represent?", "options": ["The CCTV rewind you control", "An emergency vault only Snowflake staff can open", "A magic photocopy of the shelf"], "answer": 1, "why": "Fail-safe is the 7 days after Time Travel ends. You cannot query it; you ask Snowflake Support to recover the data." },
+    { "q": "Which clause shows a table as it was 10 minutes ago?", "options": ["AT(OFFSET => -600)", "AT(OFFSET => 600)", "BEFORE(TIMESTAMP => -10)"], "answer": 0, "why": "OFFSET is a negative number of seconds from now. 10 minutes is 600 seconds, so -600 (or -60*10)." },
+    { "q": "You dropped a schema 2 hours ago. Retention was 1 day. What brings it back?", "options": ["Contact Snowflake Support", "UNDROP SCHEMA name", "It cannot be restored"], "answer": 1, "why": "Inside the retention window you can UNDROP a table, schema or database yourself. Support is only needed once you are in Fail-safe." },
+    { "q": "Which table types have no Fail-safe?", "options": ["Permanent tables", "Transient and temporary tables", "All tables have Fail-safe"], "answer": 1, "why": "Only permanent tables get the 7-day Fail-safe. Transient and temporary tables get at most 1 day of Time Travel and nothing after." },
+    { "q": "What is the highest DATA_RETENTION_TIME_IN_DAYS on Snowflake Standard edition?", "options": ["1", "30", "90"], "answer": 0, "why": "Standard edition allows 0 or 1 day. The 90-day maximum needs Enterprise edition or above, and applies to permanent objects only." }
+  ]
+}
+</script>

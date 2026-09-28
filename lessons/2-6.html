@@ -1,0 +1,339 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Snowflake Fundamentals</span><span>Module 2 · Working with data</span><span>Lesson 2.6</span></div>
+  <h1>Streams and tasks</h1>
+  <p class="lede">Learn how Snowflake notices what changed in a table (streams) and runs SQL for you on a timer (tasks), so a bank can process new payments every minute without anyone pressing Run.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>35 min</span>
+    <span class="badge">Intermediate</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain what a stream records and read its three METADATA$ columns</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Say when a stream’s offset moves forward, and when it does not</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Create a task on a schedule, resume it, watch it run and suspend it</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Chain stream + task into a small pipeline, and know when a Dynamic Table is simpler</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">A stream is an object that records which rows were inserted, updated or deleted in a table since you last used it. A task is an object that runs a SQL statement on a schedule, or right after another task finishes.</p></div>
+  </div>
+  <p>Put them together and you get the most common Snowflake pipeline: <b>table changes → stream notices → task wakes up → task copies the changes somewhere useful</b>. Nobody clicks anything.</p>
+  <ul>
+    <li><b>Stream</b>: does not copy the data. It keeps a bookmark (the <b>offset</b>) and shows you everything after the bookmark.</li>
+    <li><b>Task</b>: one SQL statement (or a stored procedure call) plus a timer. It is born <b>suspended</b>; you must resume it.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a change notebook and an alarm clock</h2>
+  <p>In the sky library a clerk sits beside one bookshelf with a <b>change notebook</b>. Every time a book is added, swapped or removed, the clerk writes a line. When you come by and say “give me everything since my last visit”, the clerk tears out those pages and hands them to you; the notebook then starts fresh from that moment. Just peeking at the pages does not tear them out. Next to the clerk is an <b>alarm clock</b>. Every minute it rings and a librarian checks: “any new pages? If yes, carry them to the archive room.”</p>
+  <div class="map">
+    <div><small>In the library</small><b>Change notebook</b><span>In Snowflake: a stream. It lists rows added, changed or removed since the offset.</span></div>
+    <div><small>In the library</small><b>Tearing out the pages</b><span>In Snowflake: consuming the stream in a DML statement (INSERT … SELECT FROM stream). Only then does the offset move.</span></div>
+    <div><small>In the library</small><b>Alarm clock</b><span>In Snowflake: a task. Rings on a schedule and runs one SQL statement; can wake another task when it finishes.</span></div>
+  </div>
+</section>
+
+<section class="sec" id="streams" data-toc="How streams work">
+  <h2>How streams work</h2>
+  <p>When you <code>SELECT * FROM my_stream</code> you get the table’s own columns plus three extra ones that describe the change.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Column</th><th>Values</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>METADATA$ACTION</code></td><td>INSERT or DELETE</td><td>Was the row added or removed? There is no “UPDATE” value.</td></tr>
+        <tr><td><code>METADATA$ISUPDATE</code></td><td>TRUE or FALSE</td><td>An update shows up as a DELETE of the old row plus an INSERT of the new row, both with ISUPDATE = TRUE.</td></tr>
+        <tr><td><code>METADATA$ROW_ID</code></td><td>a long hash</td><td>A stable id for the row, so you can match the DELETE half of an update with its INSERT half.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="features">
+    <div class="feature"><b>Standard stream</b><span>Records inserts, updates and deletes. The default. Use it when you need to keep a target table in sync.</span><small>Full picture</small></div>
+    <div class="feature"><b>Append-only stream</b><span>Records inserts only; updates and deletes are ignored. Cheaper, and perfect for tables that only ever receive new rows, such as a payments log.</span><small>APPEND_ONLY = TRUE</small></div>
+    <div class="feature"><b>Offset only moves on DML</b><span>Reading the stream with SELECT changes nothing. The offset advances when the stream is read inside INSERT, MERGE, CTAS or COPY INTO location, and the whole read is one transaction.</span><small>Net changes since the bookmark</small></div>
+    <div class="feature"><b>SYSTEM$STREAM_HAS_DATA</b><span>Returns TRUE if the stream has rows waiting. Tasks use it in a WHEN clause so they skip the run (and the cost) when nothing changed.</span><small>Cheap check</small></div>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Good to know</div><p>A stream shows the <b>net</b> change. Insert a row and update it before anyone consumes the stream, and you see one INSERT with the final values, not three lines. Also, a stream left unread for longer than the table’s Time Travel retention goes <b>stale</b> and must be recreated.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="tasks" data-toc="How tasks work">
+  <h2>How tasks work</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Choice</th><th>Options</th><th>Which to pick</th></tr></thead>
+      <tbody>
+        <tr><td><b>When it runs</b></td><td><code>SCHEDULE = '5 MINUTES'</code>, <code>SCHEDULE = 'USING CRON 0 2 * * * Asia/Kolkata'</code>, or <code>AFTER other_task</code></td><td>Minutes for simple polling, CRON for “2 am every day”, AFTER to build a chain (a DAG) with one root task.</td></tr>
+        <tr><td><b>Who does the work</b></td><td><code>WAREHOUSE = learn_wh</code> or leave it out for <b>serverless</b> (Snowflake picks the size)</td><td>Serverless for small frequent jobs; your own warehouse when it is already running anyway.</td></tr>
+        <tr><td><b>Should it bother?</b></td><td><code>WHEN SYSTEM$STREAM_HAS_DATA('my_stream')</code></td><td>Always add this when a task consumes a stream. Skipped runs cost nothing.</td></tr>
+        <tr><td><b>Is it on?</b></td><td><code>ALTER TASK … RESUME</code> / <code>SUSPEND</code></td><td>New tasks are suspended. In a DAG resume the children before the root, or call <code>SYSTEM$TASK_DEPENDENTS_ENABLE</code>.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Simpler alternative: Dynamic Tables</div><p>If all you want is “keep this summary table up to date”, a <b>Dynamic Table</b> does the stream + task job in one statement: <code>CREATE DYNAMIC TABLE … TARGET_LAG = '1 minute' … AS SELECT …</code>. Snowflake tracks the changes and refreshes it. Learn streams and tasks anyway; most existing bank pipelines still use them, and you will read them on your project.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>A global bank lands every card payment into a raw <code>payments_raw</code> table all day long. The fraud team needs those payments scored within minutes, not at tomorrow’s batch. The pipeline looks like this:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Step</th><th>Object</th><th>What happens</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Append-only stream on <code>payments_raw</code></td><td>Writes a line for every new payment. Updates are impossible here, so append-only is enough and cheaper.</td></tr>
+        <tr><td>2</td><td>Task <code>score_payments</code>, every 1 minute, WHEN stream has data</td><td>Copies the new rows into <code>payments_scored</code> with a risk score. The offset moves; those rows never get scored twice.</td></tr>
+        <tr><td>3</td><td>Task <code>alert_fraud</code>, AFTER score_payments</td><td>Inserts high-score rows into <code>fraud_alerts</code>. Runs only when step 2 finishes.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>If the scoring task fails at 14:03, the stream still holds those rows. The 14:04 run picks them up. Nothing is lost and nothing is doubled, which is exactly what an auditor wants to hear.</p>
+</section>
+
+<section class="sec" id="syntax" data-toc="The SQL">
+  <h2>The SQL you will use</h2>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- The change notebook</span>
+<span class="kw">CREATE OR REPLACE STREAM</span> payments_stream <span class="kw">ON TABLE</span> payments_raw;                      <span class="cm">-- standard</span>
+<span class="kw">CREATE OR REPLACE STREAM</span> payments_stream <span class="kw">ON TABLE</span> payments_raw APPEND_ONLY = TRUE;   <span class="cm">-- inserts only</span>
+
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> payments_stream;                        <span class="cm">-- peek: offset does NOT move</span>
+<span class="kw">SELECT</span> SYSTEM$STREAM_HAS_DATA('payments_stream');    <span class="cm">-- TRUE / FALSE</span>
+
+<span class="cm">-- Consume: offset moves because this is DML</span>
+<span class="kw">INSERT INTO</span> payments_scored
+<span class="kw">SELECT</span> payment_id, amount, amount &gt; 200000 <span class="kw">AS</span> high_risk
+<span class="kw">FROM</span> payments_stream
+<span class="kw">WHERE</span> METADATA$ACTION = 'INSERT';
+
+<span class="cm">-- The alarm clock: every minute, only if there is something to do</span>
+<span class="kw">CREATE OR REPLACE TASK</span> score_payments
+  WAREHOUSE = learn_wh
+  SCHEDULE = '1 MINUTE'
+<span class="kw">WHEN</span> SYSTEM$STREAM_HAS_DATA('payments_stream')
+<span class="kw">AS</span>
+  <span class="kw">INSERT INTO</span> payments_scored
+  <span class="kw">SELECT</span> payment_id, amount, amount &gt; 200000 <span class="kw">FROM</span> payments_stream <span class="kw">WHERE</span> METADATA$ACTION = 'INSERT';
+
+<span class="cm">-- A second clock that rings only after the first job finishes (a DAG)</span>
+<span class="kw">CREATE OR REPLACE TASK</span> alert_fraud
+  WAREHOUSE = learn_wh
+  <span class="kw">AFTER</span> score_payments
+<span class="kw">AS</span>
+  <span class="kw">INSERT INTO</span> fraud_alerts <span class="kw">SELECT</span> payment_id <span class="kw">FROM</span> payments_scored <span class="kw">WHERE</span> high_risk;
+
+<span class="cm">-- Serverless version: no WAREHOUSE line, Snowflake sizes it</span>
+<span class="kw">CREATE OR REPLACE TASK</span> nightly_summary
+  USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = 'XSMALL'
+  SCHEDULE = 'USING CRON 0 2 * * * Asia/Kolkata'
+<span class="kw">AS</span> <span class="kw">INSERT INTO</span> daily_totals <span class="kw">SELECT</span> CURRENT_DATE(), SUM(amount) <span class="kw">FROM</span> payments_scored;
+
+<span class="cm">-- Switch on (children first, then root), watch, switch off</span>
+<span class="kw">ALTER TASK</span> alert_fraud <span class="kw">RESUME</span>;
+<span class="kw">ALTER TASK</span> score_payments <span class="kw">RESUME</span>;
+<span class="kw">SELECT</span> * <span class="kw">FROM TABLE</span>(INFORMATION_SCHEMA.TASK_HISTORY(TASK_NAME =&gt; 'SCORE_PAYMENTS')) <span class="kw">ORDER BY</span> SCHEDULED_TIME <span class="kw">DESC</span>;
+<span class="kw">ALTER TASK</span> score_payments <span class="kw">SUSPEND</span>;</pre></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>This worksheet holds <code>change_log</code>, a copy of what a standard stream on an <code>accounts</code> table would show: one row per change, with <code>change_action</code> (INSERT or DELETE) and <code>is_update</code> playing the part of METADATA$ACTION and METADATA$ISUPDATE. Open the <b>Schema</b> tab, then read the changes the way a task would.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: a stream, a task, and a running pipeline</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Watch changes appear, consume them, then automate it</h3>
+      <div class="meta"><span>About 25 min</span><span>Trial account, ACCOUNTADMIN</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>Open a SQL worksheet. Create a source table and a standard stream on it.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE ROLE</span> ACCOUNTADMIN;
+<span class="kw">CREATE WAREHOUSE IF NOT EXISTS</span> learn_wh <span class="kw">WITH</span> WAREHOUSE_SIZE = 'XSMALL' AUTO_SUSPEND = 60 AUTO_RESUME = TRUE;
+<span class="kw">USE WAREHOUSE</span> learn_wh;
+<span class="kw">CREATE DATABASE IF NOT EXISTS</span> learn_db;
+<span class="kw">USE SCHEMA</span> learn_db.public;
+
+<span class="kw">CREATE OR REPLACE TABLE</span> accounts_src (account_no <span class="kw">VARCHAR</span>, holder_name <span class="kw">VARCHAR</span>, balance <span class="kw">NUMBER</span>);
+<span class="kw">CREATE OR REPLACE STREAM</span> accounts_stream <span class="kw">ON TABLE</span> accounts_src;
+<span class="kw">SELECT</span> SYSTEM$STREAM_HAS_DATA('accounts_stream');</pre></div>
+        <p class="expect">Expected: “Stream ACCOUNTS_STREAM successfully created.” and then FALSE, because nothing has changed yet.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Add three accounts and peek at the notebook.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">INSERT INTO</span> accounts_src <span class="kw">VALUES</span>
+  ('AC1001', 'Asha Rao', 75000), ('AC1002', 'Vikram Shah', 12000), ('AC1003', 'Meera Iyer', 42000);
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> accounts_stream;
+<span class="kw">SELECT</span> SYSTEM$STREAM_HAS_DATA('accounts_stream');</pre></div>
+        <p class="expect">Expected: 3 rows with METADATA$ACTION = INSERT, METADATA$ISUPDATE = FALSE and a long METADATA$ROW_ID each. Then TRUE. Run the SELECT again: still 3 rows, because peeking does not move the offset.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Consume the stream into a history table. This is DML, so the offset moves.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE OR REPLACE TABLE</span> accounts_history (
+  account_no <span class="kw">VARCHAR</span>, holder_name <span class="kw">VARCHAR</span>, balance <span class="kw">NUMBER</span>,
+  change_action <span class="kw">VARCHAR</span>, is_update <span class="kw">BOOLEAN</span>, loaded_at <span class="kw">TIMESTAMP</span>);
+
+<span class="kw">INSERT INTO</span> accounts_history
+<span class="kw">SELECT</span> account_no, holder_name, balance, METADATA$ACTION, METADATA$ISUPDATE, CURRENT_TIMESTAMP()
+<span class="kw">FROM</span> accounts_stream;
+
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> accounts_stream;
+<span class="kw">SELECT</span> COUNT(*) <span class="kw">FROM</span> accounts_history;</pre></div>
+        <p class="expect">Expected: “3 rows inserted”, then the stream returns 0 rows (the pages were torn out), and the history table has 3.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Now change one balance and see how an update looks inside a stream.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">UPDATE</span> accounts_src <span class="kw">SET</span> balance = 80000 <span class="kw">WHERE</span> account_no = 'AC1001';
+<span class="kw">SELECT</span> account_no, balance, METADATA$ACTION, METADATA$ISUPDATE, METADATA$ROW_ID <span class="kw">FROM</span> accounts_stream;</pre></div>
+        <p class="expect">Expected: 2 rows for AC1001: one DELETE with balance 75000 and one INSERT with balance 80000, both METADATA$ISUPDATE = TRUE, and the same METADATA$ROW_ID on both.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Automate it. Create a task that consumes the stream every minute, only when there is data. Notice it starts suspended.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE OR REPLACE TASK</span> load_accounts_history
+  WAREHOUSE = learn_wh
+  SCHEDULE = '1 MINUTE'
+<span class="kw">WHEN</span> SYSTEM$STREAM_HAS_DATA('accounts_stream')
+<span class="kw">AS</span>
+  <span class="kw">INSERT INTO</span> accounts_history
+  <span class="kw">SELECT</span> account_no, holder_name, balance, METADATA$ACTION, METADATA$ISUPDATE, CURRENT_TIMESTAMP()
+  <span class="kw">FROM</span> accounts_stream;
+
+<span class="kw">SHOW TASKS</span>;
+<span class="kw">ALTER TASK</span> load_accounts_history <span class="kw">RESUME</span>;
+<span class="kw">SHOW TASKS</span>;</pre></div>
+        <p class="expect">Expected: the first SHOW TASKS has <code>state</code> = suspended; after RESUME it says started. (Both '1 MINUTE' and '1 MINUTES' are accepted in the schedule.)</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Wait about two minutes, then check the task history and the result.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> name, state, scheduled_time, completed_time, error_message
+<span class="kw">FROM TABLE</span>(INFORMATION_SCHEMA.TASK_HISTORY(TASK_NAME =&gt; 'LOAD_ACCOUNTS_HISTORY'))
+<span class="kw">ORDER BY</span> scheduled_time <span class="kw">DESC</span>;
+
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> accounts_history <span class="kw">ORDER BY</span> loaded_at, account_no;
+<span class="kw">SELECT</span> SYSTEM$STREAM_HAS_DATA('accounts_stream');</pre></div>
+        <p class="expect">Expected: a SUCCEEDED run (later runs show SKIPPED because the stream is empty, plus one SCHEDULED row for the next minute). The history table now has 5 rows: the 3 original inserts plus the DELETE/INSERT pair for AC1001. The stream reports FALSE.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Clean up. A resumed task keeps ringing forever and each real run spends warehouse credits, so always suspend and drop what you no longer need.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">ALTER TASK</span> load_accounts_history <span class="kw">SUSPEND</span>;
+<span class="kw">DROP TASK</span> load_accounts_history;
+<span class="kw">DROP STREAM</span> accounts_stream;
+<span class="kw">DROP TABLE</span> accounts_history;
+<span class="kw">DROP TABLE</span> accounts_src;</pre></div>
+        <p class="expect">Expected: each statement says “successfully dropped”. SHOW TASKS now returns nothing.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>A stream is the change notebook: it shows what changed since the bookmark, and only DML moves the bookmark. A task is the alarm clock: born suspended, resumed by you, and worth suspending again when the job is done.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Stream</dt><dd>An object that shows the rows inserted, updated or deleted in a table since its offset.</dd>
+    <dt>Offset</dt><dd>The stream’s bookmark. Advances only when the stream is read inside a DML statement.</dd>
+    <dt>CDC</dt><dd>Change data capture: the general name for “tell me what changed”. Streams are Snowflake’s CDC.</dd>
+    <dt>Append-only stream</dt><dd>A stream that records inserts only.</dd>
+    <dt>Stale stream</dt><dd>A stream not consumed within the table’s Time Travel retention. It must be recreated.</dd>
+    <dt>Task</dt><dd>One SQL statement or procedure call that runs on a schedule or after another task.</dd>
+    <dt>DAG</dt><dd>A chain of tasks linked with AFTER, starting from one root task that holds the schedule.</dd>
+    <dt>Serverless task</dt><dd>A task with no WAREHOUSE clause. Snowflake supplies and sizes the compute.</dd>
+    <dt>Dynamic Table</dt><dd>A table that refreshes itself from a query to meet a target lag. Often replaces stream + task.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#3-1">3.1 Snowpark →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "change_log": {
+        "columns": [
+          ["row_id", "NUMBER"],
+          ["change_action", "VARCHAR", "INSERT or DELETE, like METADATA$ACTION"],
+          ["is_update", "VARCHAR", "TRUE or FALSE, like METADATA$ISUPDATE"],
+          ["account_no", "VARCHAR"],
+          ["holder_name", "VARCHAR"],
+          ["balance", "NUMBER", "in rupees"],
+          ["changed_at", "DATE"]
+        ],
+        "rows": [
+          [1, "INSERT", "FALSE", "AC1001", "Asha Rao", 75000, "2026-09-01"],
+          [2, "INSERT", "FALSE", "AC1002", "Vikram Shah", 12000, "2026-09-01"],
+          [3, "INSERT", "FALSE", "AC1003", "Meera Iyer", 42000, "2026-09-02"],
+          [4, "DELETE", "TRUE", "AC1002", "Vikram Shah", 12000, "2026-09-03"],
+          [5, "INSERT", "TRUE", "AC1002", "Vikram Shah", 18000, "2026-09-03"],
+          [6, "INSERT", "FALSE", "AC1004", "Rahul Nair", 30500, "2026-09-04"],
+          [7, "DELETE", "FALSE", "AC1003", "Meera Iyer", 42000, "2026-09-05"],
+          [8, "INSERT", "FALSE", "AC1005", "Priya Menon", 96000, "2026-09-05"],
+          [9, "DELETE", "TRUE", "AC1001", "Asha Rao", 75000, "2026-09-06"],
+          [10, "INSERT", "TRUE", "AC1001", "Asha Rao", 80000, "2026-09-06"],
+          [11, "INSERT", "FALSE", "AC1006", "Arjun Das", 27000, "2026-09-07"],
+          [12, "DELETE", "TRUE", "AC1004", "Rahul Nair", 30500, "2026-09-08"],
+          [13, "INSERT", "TRUE", "AC1004", "Rahul Nair", 25000, "2026-09-08"],
+          [14, "INSERT", "FALSE", "AC1007", "Sneha Pillai", 53500, "2026-09-09"]
+        ]
+      }
+    },
+    "starter": "SELECT change_action, COUNT(*) AS changes\nFROM change_log\nGROUP BY change_action",
+    "examples": [
+      { "label": "Whole notebook", "sql": "SELECT *\nFROM change_log\nORDER BY row_id" },
+      { "label": "Inserts vs deletes", "sql": "SELECT change_action, COUNT(*) AS changes\nFROM change_log\nGROUP BY change_action" },
+      { "label": "Only real deletions", "sql": "SELECT account_no, holder_name, changed_at\nFROM change_log\nWHERE change_action = 'DELETE' AND is_update = 'FALSE'" }
+    ],
+    "challenges": [
+      { "task": "How many brand-new accounts were added? Count INSERT rows that are not part of an update.", "hint": "COUNT(*) with WHERE change_action = 'INSERT' AND is_update = 'FALSE'.", "answer": "SELECT COUNT(*) FROM change_log WHERE change_action = 'INSERT' AND is_update = 'FALSE'" },
+      { "task": "Which accounts had their balance updated? Show account_no and the new balance (the INSERT half of each update).", "hint": "The new value lives on the INSERT row where is_update = 'TRUE'.", "answer": "SELECT account_no, balance FROM change_log WHERE change_action = 'INSERT' AND is_update = 'TRUE'" },
+      { "task": "Show every change for account AC1002, oldest first, with all columns.", "hint": "WHERE account_no = 'AC1002' ORDER BY row_id. You should see the insert, then the DELETE/INSERT pair of its update.", "answer": "SELECT * FROM change_log WHERE account_no = 'AC1002' ORDER BY row_id" }
+    ]
+  },
+  "quiz": [
+    { "q": "You run SELECT * FROM my_stream twice in a row. What happens to the offset?", "options": ["It moves forward after the first SELECT", "It does not move; only DML moves it", "It resets to the beginning"], "answer": 1, "why": "Peeking at the notebook does not tear out the pages. The offset advances only when the stream is consumed in INSERT, MERGE, CTAS or COPY INTO location." },
+    { "q": "A row’s balance is changed with UPDATE. What does a standard stream show?", "options": ["One row with METADATA$ACTION = UPDATE", "A DELETE row and an INSERT row, both with METADATA$ISUPDATE = TRUE", "Nothing; streams ignore updates"], "answer": 1, "why": "There is no UPDATE action. An update is the old row leaving (DELETE) and the new row arriving (INSERT), flagged as an update." },
+    { "q": "You create a task and wait ten minutes. It never runs. Why?", "options": ["Tasks need a bigger warehouse", "New tasks are created suspended; you must ALTER TASK … RESUME", "The schedule must be in CRON format"], "answer": 1, "why": "Every new or cloned task starts suspended. Resume it, and in a DAG resume the children before the root." },
+    { "q": "A payments log table only ever receives new rows. Which stream type fits best?", "options": ["Append-only", "Standard", "Neither; use a clone"], "answer": 0, "why": "Append-only streams record inserts only, which is all this table produces, and they are cheaper to maintain." },
+    { "q": "Why add WHEN SYSTEM$STREAM_HAS_DATA('s') to a task?", "options": ["It makes the task run faster", "The task skips the run when the stream is empty, saving credits", "It is required for every task"], "answer": 1, "why": "Skipped runs cost nothing. Without the WHEN clause the warehouse starts every minute even when there is nothing to load." },
+    { "q": "You only need a summary table that stays fresh within a minute. The simplest modern option is…", "options": ["A Dynamic Table with TARGET_LAG = '1 minute'", "A stream, two tasks and a stored procedure", "A Snowpipe"], "answer": 0, "why": "A Dynamic Table is one statement that does the stream + task job for you. Streams and tasks are still worth knowing for existing pipelines and for custom logic." }
+  ]
+}
+</script>

@@ -1,0 +1,68 @@
+/* Course shell: top bar, course outline, lesson column, "on this page" rail. */
+
+.topbar { position: sticky; top: 0; z-index: 10; height: 56px; background: var(--surface); border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 14px; padding-inline: 20px; }
+.course-title { color: var(--muted); font-size: 14px; padding-left: 14px; border-left: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spacer { margin-left: auto; }
+.progress { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bar { width: 120px; height: 6px; border-radius: 3px; background: var(--accent-soft); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .3s; }
+.menu-btn { display: none; }
+
+.app { display: grid; grid-template-columns: 290px minmax(0, 1fr) 220px; }
+
+/* ─────────── outline ─────────── */
+aside.outline { background: var(--surface); border-right: 1px solid var(--line); position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto; padding-block: 16px 32px; }
+.mod { padding-inline: 12px; }
+.mod + .mod { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 10px; }
+.mod-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 6px 8px; }
+.mod-head b { font-size: 13px; font-weight: 600; }
+.mod-head span { font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.lesson-link { display: grid; grid-template-columns: 18px 1fr auto; gap: 10px; align-items: center; padding: 7px 8px; border-radius: 6px; font-size: 13.5px; color: var(--ink); text-decoration: none; }
+a.lesson-link:hover { background: var(--subtle); }
+.lesson-link .dur { font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.lesson-link.current { background: var(--accent-soft); color: var(--link); font-weight: 600; }
+.lesson-link.soon { color: var(--faint); cursor: default; }
+.st { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--line-strong); display: grid; place-items: center; }
+.current .st { border-color: var(--accent); box-shadow: inset 0 0 0 3px var(--surface), inset 0 0 0 8px var(--accent); }
+.done .st, .current.done .st { border-color: var(--ok); background: var(--ok); color: var(--bg); box-shadow: none; }
+
+/* ─────────── lesson column ─────────── */
+main { padding-block: 32px 80px; padding-inline: 48px; min-width: 0; }
+/* minmax(0, 1fr) — NOT the default auto track: an auto track grows to the
+   widest unbreakable word (e.g. snowflake_sample_data.tpch_sf1.customer),
+   pushing the Run button under the "On this page" rail. */
+.content { max-width: 720px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 40px; }
+.loading { color: var(--muted); }
+
+/* ─────────── on this page ─────────── */
+aside.toc { position: sticky; top: 56px; height: calc(100vh - 56px); padding: 32px 20px; font-size: 13px; overflow-y: auto; }
+.toc .overline { margin-bottom: 10px; display: block; }
+.toc button { display: block; width: 100%; text-align: left; background: none; border: 0; border-left: 2px solid var(--line); padding: 5px 0 5px 12px; color: var(--muted); }
+.toc button:hover, .toc button.on { color: var(--link); border-left-color: var(--accent); }
+
+/* ─────────── phone section jumper (replaces the rail below 1180px) ─────────── */
+.jump { display: none; }
+.scrim { position: fixed; inset: 56px 0 0 0; z-index: 8; background: rgba(8, 5, 18, .55); }
+
+@media (max-width: 1180px) {
+  .app { grid-template-columns: 270px minmax(0, 1fr); }
+  aside.toc { display: none; }
+  .jump { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px; margin-top: -16px; }
+  .jump label { font-size: 13px; font-weight: 600; color: var(--muted); }
+  .jump select { font: inherit; font-size: 16px; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 8px; padding: 9px 12px; min-height: 44px; width: 100%; }
+  main { padding-inline: 32px; }
+}
+@media (max-width: 440px) { .progress { display: none; } }
+@media (max-width: 860px) {
+  .topbar { padding-inline: 16px; gap: 10px; }
+  .app { grid-template-columns: 1fr; }
+  .menu-btn { display: inline-grid; }
+  .course-title, .progress .bar { display: none; }
+  .logo { white-space: nowrap; }
+  aside.outline { position: fixed; top: 56px; left: 0; bottom: 0; height: auto; width: min(300px, 86vw); z-index: 9; box-shadow: var(--shadow); transform: translateX(-105%); transition: transform .2s; }
+  aside.outline.open { transform: none; }
+  main { padding-block: 24px 64px; padding-inline: 16px; }
+  .content { gap: 32px; }
+  .lesson-link { padding-block: 10px; }
+}
+@media (min-width: 861px) { .scrim { display: none; } }

@@ -1,0 +1,264 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Snowflake Fundamentals</span><span>Module 4 · Review</span><span>Lesson 4.2</span></div>
+  <h1>Interview Q&amp;A</h1>
+  <p class="lede">The questions people actually ask in Snowflake interviews and in project meetings, with short answers you can say out loud. Open each one, answer it in your head first, then check.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 min</span>
+    <span class="badge">Review</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>43 questions in 9 groups</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>How to use this page</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Read the question, say your answer out loud, then open the answer</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Every answer ends with a one-line version you can use when someone wants it simple</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>The scenario questions at the end are the ones a client team lead is most likely to ask</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="basics" data-toc="Basics">
+  <h2>Basics</h2>
+  <div class="faq">
+    <details><summary>What is Snowflake?</summary><div class="answer">
+      <p>Snowflake is a cloud data platform. Companies store very large amounts of data in it and ask questions with SQL. It is fully managed: you install nothing and own no servers. It runs on AWS, Azure or Google Cloud and works the same way on all three.</p>
+      <p><b>Say it simply:</b> A library in the sky. You bring the books, it does the heavy lifting.</p>
+    </div></details>
+    <details><summary>What is Snowsight?</summary><div class="answer">
+      <p>Snowsight is Snowflake's web interface. You log in, open a worksheet, type SQL and see results. It also shows databases, warehouses, query history and cost dashboards. Cortex Code lives inside it too.</p>
+      <p><b>Say it simply:</b> The front desk of the library, where you hand in your questions.</p>
+    </div></details>
+    <details><summary>Why did companies move from their own servers to Snowflake?</summary><div class="answer">
+      <p>Own servers are slow to buy, always too small at the busiest moment and cost money even when idle. Snowflake starts in minutes, grows storage automatically and bills compute only while it runs. Each team gets its own compute, so one heavy report does not slow everyone else.</p>
+      <p><b>Say it simply:</b> Renting a huge shared library beats every family building its own.</p>
+    </div></details>
+    <details><summary>What is the difference between a database, a schema and a table?</summary><div class="answer">
+      <p>A database is the top container. A schema is a folder inside a database. A table holds the rows. You name a table fully as <code>database.schema.table</code>, for example <code>BANK_DB.RAW.PAYMENTS</code>. Views, stages, streams and tasks also live inside schemas.</p>
+      <p><b>Say it simply:</b> Building, room, bookshelf.</p>
+    </div></details>
+    <details><summary>What is a VARIANT column?</summary><div class="answer">
+      <p>VARIANT holds semi-structured data such as JSON in one column. You read inside it with a colon, for example <code>details:card_type</code>. This lets you load raw JSON first and shape it later. Snowflake stores it in a compressed columnar form, so it still queries fast.</p>
+      <p><b>Say it simply:</b> A box on the shelf that accepts any shape of book.</p>
+    </div></details>
+  </div>
+</section>
+
+<section class="sec" id="architecture" data-toc="Architecture &amp; warehouses">
+  <h2>Architecture and warehouses</h2>
+  <div class="faq">
+    <details><summary>What are the three layers of Snowflake?</summary><div class="answer">
+      <p>Storage holds data in micro-partitions, each 50 to 500 MB of uncompressed data. Compute is the virtual warehouses that run queries. Cloud services is the brain: login, security, query planning, metadata and the result cache. All three scale separately.</p>
+      <p><b>Say it simply:</b> Shelves, librarians and the front-desk manager.</p>
+    </div></details>
+    <details><summary>Why does separating storage from compute matter?</summary><div class="answer">
+      <p>You can add storage without adding compute, and add compute without copying data. Ten teams can query the same data with ten warehouses and never wait on each other. You pay for each one on its own.</p>
+      <p><b>Say it simply:</b> Shelves and librarians are hired separately, so either can grow alone.</p>
+    </div></details>
+    <details><summary>What is a virtual warehouse?</summary><div class="answer">
+      <p>A virtual warehouse is the compute that runs your queries. It has no data of its own; it reads from shared storage. Sizes go from X-Small to 6X-Large, and each size doubles the compute and the credits per hour. It auto-suspends when idle and auto-resumes when a query arrives.</p>
+      <p><b>Say it simply:</b> A team of librarians you switch on when you need answers.</p>
+    </div></details>
+    <details><summary>Scale up or scale out: which one when?</summary><div class="answer">
+      <p>Scale up means a bigger warehouse size. Use it when one query is slow because it processes a lot of data. Scale out means a multi-cluster warehouse that adds clusters when users queue. Use it when many people run queries at the same time. Multi-cluster needs Enterprise Edition or higher.</p>
+      <p><b>Say it simply:</b> Slow query, stronger librarians. Long queue, more teams of librarians.</p>
+    </div></details>
+    <details><summary>What is a micro-partition?</summary><div class="answer">
+      <p>Snowflake splits every table into micro-partitions of 50 to 500 MB of uncompressed data, stored compressed and by column. For each one it keeps metadata such as the minimum and maximum value of every column. A query skips partitions that cannot contain matching rows, which is called pruning. You never create or manage them.</p>
+      <p><b>Say it simply:</b> Small boxes of books with a label saying what is inside, so the librarian skips the wrong boxes.</p>
+    </div></details>
+    <details><summary>What is the result cache?</summary><div class="answer">
+      <p>When a query finishes, Snowflake keeps its result for 24 hours. If anyone with the right privileges runs the exact same query and the data has not changed, the result comes back instantly and no warehouse credits are used. Every reuse extends the 24 hours, up to 31 days from the first run.</p>
+      <p><b>Say it simply:</b> The front-desk manager remembers yesterday's answer and just repeats it.</p>
+    </div></details>
+  </div>
+</section>
+
+<section class="sec" id="cost" data-toc="Cost">
+  <h2>Cost</h2>
+  <div class="faq">
+    <details><summary>How does Snowflake charge for compute?</summary><div class="answer">
+      <p>Compute is billed in credits. An X-Small warehouse uses 1 credit per hour, Small 2, Medium 4, and so on up to 512 for 6X-Large. Billing is per second while the warehouse runs, with a 60-second minimum every time it starts. A suspended warehouse costs nothing.</p>
+      <p><b>Say it simply:</b> Librarian wages, paid by the second, with a one-minute minimum shift.</p>
+    </div></details>
+    <details><summary>How does Snowflake charge for storage?</summary><div class="answer">
+      <p>Storage is a flat rate per terabyte per month, measured on compressed size. It includes the extra copies kept for Time Travel and Fail-safe. Storage is usually much cheaper than compute, so cost reviews start with warehouses.</p>
+      <p><b>Say it simply:</b> Shelf rent per month, a small bill next to the wages.</p>
+    </div></details>
+    <details><summary>Name three ways to reduce Snowflake cost.</summary><div class="answer">
+      <p>Set a short auto-suspend, such as 60 seconds, so idle warehouses stop billing. Use the smallest size that finishes the job in reasonable time. Put a resource monitor on the account so it notifies at 80 percent and suspends at 100 percent of the monthly credit quota. Use transient tables for staging data that does not need Fail-safe.</p>
+      <p><b>Say it simply:</b> Send librarians home when idle, do not over-hire, and cap the wage budget.</p>
+    </div></details>
+    <details><summary>What is a resource monitor?</summary><div class="answer">
+      <p>A resource monitor is a credit budget for the account or for specific warehouses. You set a quota and triggers at percentages that notify, suspend after running queries finish, or suspend immediately. Only ACCOUNTADMIN can create one. It resets each month by default.</p>
+      <p><b>Say it simply:</b> An alarm on the wage budget that can also lock the door.</p>
+    </div></details>
+  </div>
+</section>
+
+<section class="sec" id="loading" data-toc="Data loading">
+  <h2>Data loading</h2>
+  <div class="faq">
+    <details><summary>What is a stage?</summary><div class="answer">
+      <p>A stage is a place where files sit before you load them. An internal stage lives inside Snowflake. An external stage points at cloud storage such as an S3 bucket or Azure container. You list files with <code>LIST @stage</code> and load them with <code>COPY INTO</code>.</p>
+      <p><b>Say it simply:</b> The loading dock where boxes wait before they go on the shelves.</p>
+    </div></details>
+    <details><summary>What does COPY INTO do?</summary><div class="answer">
+      <p><code>COPY INTO table FROM @stage</code> loads staged files in bulk using your warehouse. A file format tells it how to read CSV, JSON or Parquet. It remembers which files it has loaded for 64 days, so running it twice does not duplicate rows. Add <code>VALIDATION_MODE = RETURN_ERRORS</code> to test a load without writing anything.</p>
+      <p><b>Say it simply:</b> Move the boxes from the dock to the shelves, and keep a list so no box is shelved twice.</p>
+    </div></details>
+    <details><summary>What is Snowpipe and when would you use it instead of COPY INTO?</summary><div class="answer">
+      <p>Snowpipe loads files automatically within minutes of them landing in a stage. It listens to cloud storage notifications and runs on Snowflake-managed compute, so you do not run a warehouse for it. Use it for a continuous trickle of files. Use plain <code>COPY INTO</code> for a scheduled bulk load you control.</p>
+      <p><b>Say it simply:</b> A conveyor belt from the dock instead of pushing the trolley yourself.</p>
+    </div></details>
+  </div>
+</section>
+
+<section class="sec" id="recovery" data-toc="Time Travel, cloning, sharing">
+  <h2>Time Travel, cloning and sharing</h2>
+  <div class="faq">
+    <details><summary>What is Time Travel?</summary><div class="answer">
+      <p>Time Travel lets you query a table as it was at a past moment, using <code>AT</code> or <code>BEFORE</code> with an offset, a timestamp or a query ID. It also lets you <code>UNDROP</code> a dropped table, schema or database. The default retention is 1 day. Enterprise Edition allows up to 90 days for permanent tables; transient and temporary tables get at most 1 day.</p>
+      <p><b>Say it simply:</b> Rewind the CCTV to see the shelf as it was this morning.</p>
+    </div></details>
+    <details><summary>What is Fail-safe and how is it different from Time Travel?</summary><div class="answer">
+      <p>Fail-safe is 7 days of extra protection after Time Travel expires, for permanent tables only. You cannot query it yourself; you must ask Snowflake Support, and it is meant for emergencies. Time Travel is self-service; Fail-safe is not. Transient and temporary tables have no Fail-safe.</p>
+      <p><b>Say it simply:</b> Time Travel is the rewind button you hold. Fail-safe is the vault only the guard can open.</p>
+    </div></details>
+    <details><summary>What is zero-copy cloning?</summary><div class="answer">
+      <p><code>CREATE TABLE x CLONE y</code> makes a full copy instantly, with no extra storage at first. The clone points at the same micro-partitions as the original. Storage only grows as either side changes. You can clone a whole database for testing, and you can combine it with Time Travel to clone the state from an hour ago.</p>
+      <p><b>Say it simply:</b> A magic photocopy that only uses paper for the pages you scribble on.</p>
+    </div></details>
+    <details><summary>How does secure data sharing work?</summary><div class="answer">
+      <p>A provider creates a share, grants a database, schema and tables or secure views to it, and adds consumer accounts. The consumer sees the data live and read-only in their own account. No data is copied, so the provider pays storage and the consumer pays only the compute to query it. Reader accounts let you share with someone who has no Snowflake account; the provider pays their compute.</p>
+      <p><b>Say it simply:</b> A glass reading window: they can read the book, never take it or write in it.</p>
+    </div></details>
+    <details><summary>Why share a secure view instead of the table?</summary><div class="answer">
+      <p>A secure view hides the underlying query and the rows the consumer should not see, and Snowflake does not let the optimizer leak filtered data through tricks. Share the view, not the raw table, so a partner sees the summary and never the customer detail.</p>
+      <p><b>Say it simply:</b> Show one page through the window, not the whole book.</p>
+    </div></details>
+  </div>
+</section>
+
+<section class="sec" id="security" data-toc="Security">
+  <h2>Security</h2>
+  <div class="faq">
+    <details><summary>How does access control work in Snowflake?</summary><div class="answer">
+      <p>Snowflake uses role-based access control. Privileges such as SELECT on a table are granted to roles, and roles are granted to users. Every object has an owner role. A user switches roles with <code>USE ROLE</code>, and a query only sees what the active role can see.</p>
+      <p><b>Say it simply:</b> ID badges. You get a badge, the badge opens certain doors.</p>
+    </div></details>
+    <details><summary>Name the system-defined roles.</summary><div class="answer">
+      <p>ACCOUNTADMIN is the top role for the account. SECURITYADMIN manages grants and users. USERADMIN creates users and roles. SYSADMIN creates warehouses, databases and other objects. PUBLIC is given to everyone automatically. ORGADMIN manages accounts across the organisation. Day-to-day work should never run as ACCOUNTADMIN.</p>
+      <p><b>Say it simply:</b> The master key, the badge office, the building manager, and the visitor badge everyone gets.</p>
+    </div></details>
+    <details><summary>What is least privilege and how do you apply it?</summary><div class="answer">
+      <p>Give each role only what it needs and nothing more. An analyst role gets USAGE on one warehouse, USAGE on the database and schema, and SELECT on the tables it reports on. It does not get CREATE, DELETE or ACCOUNTADMIN. Review grants regularly and remove what is unused.</p>
+      <p><b>Say it simply:</b> A reader's badge opens the reading room, not the vault.</p>
+    </div></details>
+    <details><summary>What is a masking policy? What is a row access policy?</summary><div class="answer">
+      <p>A masking policy hides a column's value at query time unless the current role is allowed to see it, for example showing a card number as stars. A row access policy hides whole rows, for example one region's customers from another region's team. The data itself is never changed; only what each role sees. Both need Enterprise Edition or higher.</p>
+      <p><b>Say it simply:</b> Masking is tape over one line. Row access is a page only some badges can open.</p>
+    </div></details>
+  </div>
+</section>
+
+<section class="sec" id="pipelines" data-toc="Streams, tasks, Snowpark">
+  <h2>Streams, tasks and Snowpark</h2>
+  <div class="faq">
+    <details><summary>What is a stream?</summary><div class="answer">
+      <p>A stream records the inserts, updates and deletes made to a table since you last consumed it. It adds columns such as <code>METADATA$ACTION</code> and <code>METADATA$ISUPDATE</code>. Reading it does not clear it; using it in an INSERT or MERGE does. This is how you process only the new changes, which is called change data capture.</p>
+      <p><b>Say it simply:</b> A notebook of every book added, moved or removed since you last looked.</p>
+    </div></details>
+    <details><summary>What is a task?</summary><div class="answer">
+      <p>A task runs a SQL statement or procedure on a schedule, such as every 10 minutes or a CRON expression, or after another task finishes. Add <code>WHEN SYSTEM$STREAM_HAS_DATA('stream')</code> so it only runs when there is something to process. New tasks are created suspended, so you must <code>ALTER TASK ... RESUME</code>.</p>
+      <p><b>Say it simply:</b> An alarm clock that wakes a librarian to do a job, but it ships switched off.</p>
+    </div></details>
+    <details><summary>When would you use a dynamic table instead of streams and tasks?</summary><div class="answer">
+      <p>A dynamic table is defined by a query plus a target lag such as one hour. Snowflake works out when and how to refresh it, and chains dynamic tables in the right order. Use it when you just need a result kept fresh. Use streams and tasks when you need custom logic, procedures or side effects in the pipeline.</p>
+      <p><b>Say it simply:</b> A shelf that restocks itself, instead of you setting alarm clocks.</p>
+    </div></details>
+    <details><summary>What is Snowpark?</summary><div class="answer">
+      <p>Snowpark lets you write Python (also Java and Scala) that runs inside Snowflake. You build DataFrames, and Snowflake turns them into SQL and runs them on a warehouse, so data never leaves the platform. You can also write UDFs and stored procedures in Python and use them from SQL. Snowflake Notebooks give you a Python workspace in Snowsight.</p>
+      <p><b>Say it simply:</b> Librarians who also speak Python, but the books stay in the library.</p>
+    </div></details>
+  </div>
+</section>
+
+<section class="sec" id="cortex" data-toc="Cortex AI &amp; CoCo">
+  <h2>Cortex AI and CoCo</h2>
+  <div class="faq">
+    <details><summary>What are Cortex AI functions?</summary><div class="answer">
+      <p>They are SQL functions that call a large language model on your data without moving it. <code>AI_COMPLETE</code> answers a prompt. <code>AI_CLASSIFY</code> puts text into your categories. <code>AI_SENTIMENT</code> returns positive, negative, neutral or mixed. <code>AI_SUMMARIZE_AGG</code> summarises many rows into one. <code>AI_TRANSLATE</code> translates between languages. They run under your role, like any function.</p>
+      <p><b>Say it simply:</b> A smart reader who reads a thousand complaint letters and tells you the themes.</p>
+    </div></details>
+    <details><summary>What is the difference between Cortex Analyst and Cortex Search?</summary><div class="answer">
+      <p>Cortex Analyst turns a plain-English question into SQL over your structured tables, guided by a semantic model or semantic view you define. Cortex Search indexes text, such as documents or chat logs, and finds the best matches by meaning and keywords. Search feeds chatbots; Analyst answers business numbers.</p>
+      <p><b>Say it simply:</b> Analyst counts the books for you. Search finds the paragraph you half remember.</p>
+    </div></details>
+    <details><summary>What is Cortex Code (CoCo)?</summary><div class="answer">
+      <p>Cortex Code is Snowflake's AI coding agent. In Snowsight it writes SQL from plain English, explains existing queries, suggests fixes for failed statements and helps you find data. There is also a CLI for developers and a desktop app. It starts each session with your default role and can only do what that role is allowed to do.</p>
+      <p><b>Say it simply:</b> A robot assistant who drafts the request slips; you still sign them.</p>
+    </div></details>
+    <details><summary>Why must you review what CoCo writes?</summary><div class="answer">
+      <p>It is a language model: it can pick the wrong table, guess a column name or filter incorrectly, and the SQL will still run. In Snowsight it shows a diff of suggested changes so you can read before you apply. On bank data a wrong join or a missing WHERE can produce a wrong regulatory number. You own the result, not the tool.</p>
+      <p><b>Say it simply:</b> The robot writes the slip fast, but the librarian who signs it is responsible.</p>
+    </div></details>
+    <details><summary>Where does the data go when you use Cortex features?</summary><div class="answer">
+      <p>Cortex AI functions run inside Snowflake's service, so the rows stay within the platform and your role and policies still apply. CoCo in Snowsight likewise works inside your Snowflake session. Even so, follow the client's rules: check which Cortex features and regions your account has enabled before using them on real data.</p>
+      <p><b>Say it simply:</b> The smart reader sits inside the library; the books do not go home with it.</p>
+    </div></details>
+  </div>
+</section>
+
+<section class="sec" id="scenarios" data-toc="Scenario questions">
+  <h2>Scenario questions</h2>
+  <div class="faq">
+    <details><summary>A report is slow. What do you check?</summary><div class="answer">
+      <p>First open Query History and look at the query profile: is the time spent scanning, joining or waiting in a queue? If it is queued, other users are competing, so scale out or give the team its own warehouse. If one query scans huge data, scale up for that job or add a filter so pruning skips partitions. Check whether the result cache is missed because the query text keeps changing. Finally look for a bad join that multiplies rows.</p>
+      <p><b>Say it simply:</b> Is the librarian queuing, carrying too many boxes, or looking in the wrong boxes?</p>
+    </div></details>
+    <details><summary>Someone deleted a table by mistake. What do you do?</summary><div class="answer">
+      <p>Stay calm and act within the retention window. If the table was dropped, run <code>UNDROP TABLE name</code>. If rows were deleted, create a copy of the table as it was before with <code>CREATE TABLE fixed CLONE name BEFORE (STATEMENT =&gt; 'query-id')</code>, then swap or re-insert. Default retention is 1 day, so do not wait. If it is already past Time Travel on a permanent table, Snowflake Support can recover from Fail-safe within 7 days.</p>
+      <p><b>Say it simply:</b> Rewind the CCTV and put the book back; if the tape has run out, call the guard for the vault.</p>
+    </div></details>
+    <details><summary>Month-end is slow for everyone. What is your plan?</summary><div class="answer">
+      <p>Give the heavy month-end jobs their own warehouse so they stop competing with daily users. Make that warehouse multi-cluster so it scales out when many reports queue at once, and size it up for the largest single job. Set a short auto-suspend so it costs nothing outside month-end. Pre-compute the common summaries with a dynamic table or a scheduled task so the reports read small tables, not raw transactions.</p>
+      <p><b>Say it simply:</b> Hire a separate month-end team, let it grow when the queue forms, and prepare the popular answers in advance.</p>
+    </div></details>
+    <details><summary>How would you use CoCo safely on bank data?</summary><div class="answer">
+      <p>Work with a least-privilege role, ideally one that can only read the schemas you need, so CoCo cannot change or drop anything. Use it to draft and explain queries, then read every line before you run it. Test on a zero-copy clone or a dev database first, never directly on production tables. Keep masking and row access policies in place; they apply to CoCo's queries just as they apply to yours. Follow the client's AI usage policy and never paste real customer data into a prompt.</p>
+      <p><b>Say it simply:</b> Give the robot a reader's badge, check every slip it writes, and practise on the photocopy.</p>
+    </div></details>
+    <details><summary>Costs doubled last month. Where do you look?</summary><div class="answer">
+      <p>Open the cost views in Snowsight and sort warehouses by credits. Look for a warehouse with a long auto-suspend or one left running all night. Check for a task or Snowpipe that started running far more often than planned. Then check whether someone resized a warehouse and forgot to put it back. Put a resource monitor on the account so the next spike is caught early.</p>
+      <p><b>Say it simply:</b> Find which librarian team is still on the clock at midnight.</p>
+    </div></details>
+    <details><summary>A partner needs our daily balances. Send a file or share?</summary><div class="answer">
+      <p>Share. Put the numbers in a secure view, grant it to a share and add the partner's account. They always see the latest data, nothing is copied, and you can revoke access in one command. If they do not have Snowflake, create a reader account for them. A daily file is stale the moment it is sent and you lose control of copies.</p>
+      <p><b>Say it simply:</b> Open a glass window instead of posting photocopies every morning.</p>
+    </div></details>
+    <details><summary>A tester needs a full copy of production to test on. What do you propose?</summary><div class="answer">
+      <p>Clone the database: <code>CREATE DATABASE prod_test CLONE prod_db</code>. It is instant and uses no extra storage until the tester changes something. Give the tester a role that can only touch the clone. Because masking policies follow the cloned columns, sensitive values stay masked for roles that should not see them. Drop the clone when testing ends.</p>
+      <p><b>Say it simply:</b> Hand them the magic photocopy, not the original book.</p>
+    </div></details>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>Good answers have three parts: what it is, why it matters, and one number or command that proves you have used it. If you get stuck, say the library analogy and build up from there.</p></div>
+  </div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#4-3">4.3 Final assessment →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{}
+</script>

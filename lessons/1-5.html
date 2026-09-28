@@ -1,0 +1,329 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Snowflake Fundamentals</span><span>Module 1 · Foundations</span><span>Lesson 1.5</span></div>
+  <h1>Database, schema, table</h1>
+  <p class="lede">Learn how Snowflake organises data into buildings, rooms and shelves, how to name any table exactly, and which data types you will meet on a banking project.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>25 min</span>
+    <span class="badge">Beginner</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Draw the ladder account → database → schema → table</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Write a fully qualified name like <code>bank_db.retail.customers</code> and know when you can shorten it</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Pick the right data type for a column, including VARIANT for JSON</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Tell a view from a table, and a permanent table from a transient or temporary one</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">Every table in Snowflake lives inside a schema, every schema lives inside a database, and every database lives inside your account. Naming the whole chain (database.schema.table) tells Snowflake exactly which table you mean.</p></div>
+  </div>
+  <p>A Snowflake account can hold hundreds of databases and thousands of tables. Without a clear address system, two teams would keep creating tables called <code>customers</code> and nobody would know which one was which. The ladder below is that address system.</p>
+  <ul>
+    <li><b>Account</b>: your company’s whole Snowflake space. You log in to one account.</li>
+    <li><b>Database</b>: a large grouping, for example <code>bank_db</code> or <code>risk_db</code>.</li>
+    <li><b>Schema</b>: a folder inside a database, for example <code>retail</code> or <code>payments</code>. Every database is born with two schemas: <code>PUBLIC</code> (default) and <code>INFORMATION_SCHEMA</code> (read-only facts about the database).</li>
+    <li><b>Table or view</b>: the rows and columns you actually query.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like buildings, rooms and shelves</h2>
+  <p>Back to the library in the sky. The library grounds are your <b>account</b>. On the grounds stand several <b>buildings</b> (databases). Inside each building are <b>rooms</b> (schemas). Each room has <b>bookshelves</b> (tables), and each book on a shelf has one <b>index card</b> (a row) with the same boxes on every card (the columns). To find a book you tell the librarian the building, the room and the shelf: “Retail building, Loans room, Customers shelf.” That is a fully qualified name.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Building → Room → Shelf</b><span>In Snowflake: database → schema → table</span></div>
+    <div><small>In the library</small><b>Index card</b><span>In Snowflake: one row, with one box per column</span></div>
+    <div><small>In the library</small><b>Card box design</b><span>In Snowflake: the data type of each column (number, text, date…)</span></div>
+  </div>
+  <p>If you are standing in a room already, you can just say “the Customers shelf”. That is what <code>USE DATABASE</code> and <code>USE SCHEMA</code> do: they walk you into a room so you can use short names.</p>
+</section>
+
+<section class="sec" id="names" data-toc="Fully qualified names">
+  <h2>Fully qualified names and USE</h2>
+  <p>A fully qualified name has three parts joined by dots: <code>database.schema.table</code>. It always works, from anywhere. Short names only work after you set a context with <code>USE</code>.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>You write</th><th>What Snowflake understands</th><th>When it works</th></tr></thead>
+      <tbody>
+        <tr><td><code>bank_db.retail.customers</code></td><td>Exactly this table</td><td>Always</td></tr>
+        <tr><td><code>retail.customers</code></td><td>Schema <code>retail</code> in the current database</td><td>After <code>USE DATABASE bank_db</code></td></tr>
+        <tr><td><code>customers</code></td><td>Table in the current database and schema</td><td>After <code>USE SCHEMA bank_db.retail</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- Walk into the building, then the room</span>
+<span class="kw">USE DATABASE</span> bank_db;
+<span class="kw">USE SCHEMA</span> retail;          <span class="cm">-- or in one go: USE SCHEMA bank_db.retail;</span>
+
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> customers;               <span class="cm">-- short name, works now</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> bank_db.retail.customers; <span class="cm">-- full name, works anywhere</span>
+
+<span class="cm">-- Where am I?</span>
+<span class="kw">SELECT</span> CURRENT_DATABASE(), CURRENT_SCHEMA();</pre></div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Good to know</div><p>Names are not case sensitive unless someone wraps them in "double quotes" when creating them. <code>customers</code>, <code>Customers</code> and <code>CUSTOMERS</code> are the same table. Snowflake stores unquoted names in upper case, which is why the Data browser shows everything in capitals.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="types" data-toc="Data types">
+  <h2>Data types: the shape of each column</h2>
+  <p>When you create a table you say what kind of value each column holds. Snowflake then checks every row you load. These six cover almost everything on a banking project.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Type</th><th>Holds</th><th>Bank example</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>NUMBER(p,s)</code></td><td>Whole numbers and decimals</td><td><code>balance NUMBER(18,2)</code></td><td>p = total digits (max 38), s = digits after the point. Plain <code>NUMBER</code> means NUMBER(38,0). INT and DECIMAL are aliases.</td></tr>
+        <tr><td><code>VARCHAR(n)</code></td><td>Text</td><td><code>customer_name VARCHAR(100)</code></td><td>STRING and TEXT mean the same. The length is a limit, not reserved space.</td></tr>
+        <tr><td><code>DATE</code></td><td>A calendar day</td><td><code>opened_on DATE</code></td><td>Accepts 'YYYY-MM-DD' text.</td></tr>
+        <tr><td><code>TIMESTAMP</code></td><td>Day plus time</td><td><code>txn_at TIMESTAMP</code></td><td>By default this is TIMESTAMP_NTZ (no time zone). TIMESTAMP_LTZ and TIMESTAMP_TZ are the time zone aware versions.</td></tr>
+        <tr><td><code>BOOLEAN</code></td><td>TRUE or FALSE</td><td><code>is_active BOOLEAN</code></td><td>Great for flags such as “KYC done?”</td></tr>
+        <tr><td><code>VARIANT</code></td><td>Semi-structured data (JSON)</td><td><code>kyc_document VARIANT</code></td><td>Stores a whole JSON object in one column. Read fields with a colon: <code>kyc_document:pan_number</code>.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>VARIANT is the one that surprises people. A payment message from a card network arrives as JSON with dozens of nested fields. Instead of designing 40 columns up front, you land the whole message in one VARIANT column and pick fields out later.</p>
+</section>
+
+<section class="sec" id="objects" data-toc="Views and table types">
+  <h2>Views and the three table types</h2>
+  <p>A <b>view</b> is a saved query with a name. It holds no data of its own; every time you select from it, Snowflake runs the query underneath. Views are how teams share a tidy, safe version of a messy table (for example, hiding card numbers).</p>
+  <div class="features">
+    <div class="feature"><b>Permanent table</b><span>The default. Kept until dropped. Has Time Travel (1 day by default, up to 90 days on Enterprise) and 7 days of Fail-safe.</span><small>CREATE TABLE</small></div>
+    <div class="feature"><b>Transient table</b><span>Kept until dropped, but Time Travel is at most 1 day and there is no Fail-safe. Cheaper for data you can rebuild, such as staging copies.</span><small>CREATE TRANSIENT TABLE</small></div>
+    <div class="feature"><b>Temporary table</b><span>Lives only for your session. Disappears when you log out. Perfect for scratch work.</span><small>CREATE TEMPORARY TABLE</small></div>
+    <div class="feature"><b>View</b><span>A named query. No storage of its own. Use it to simplify or restrict what people see.</span><small>CREATE VIEW</small></div>
+  </div>
+  <p>Lesson 2.2 explains Time Travel and Fail-safe properly. For now: permanent = fully protected, transient = lightly protected, temporary = gone after the session.</p>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>A global bank might arrange its Snowflake account like this. Notice how the schema names tell you which team owns what, and how the same word <code>customers</code> can safely appear in two rooms.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Database</th><th>Schema</th><th>Tables and views</th><th>Who uses it</th></tr></thead>
+      <tbody>
+        <tr><td><code>raw_db</code></td><td><code>core_banking</code></td><td><code>customers</code>, <code>accounts</code>, <code>transactions</code> (as they arrive, untouched)</td><td>Data engineers</td></tr>
+        <tr><td><code>raw_db</code></td><td><code>cards</code></td><td><code>card_events</code> (VARIANT column holding the JSON message)</td><td>Data engineers</td></tr>
+        <tr><td><code>analytics_db</code></td><td><code>retail</code></td><td><code>customers</code> (cleaned), <code>v_customer_balances</code> (view)</td><td>Finance, Risk</td></tr>
+        <tr><td><code>analytics_db</code></td><td><code>compliance</code></td><td><code>v_large_transfers</code> (view showing only transfers above the reporting limit)</td><td>Compliance</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Here is how the cleaned customers table and a view on it would be created. This is real Snowflake SQL; the worksheet below uses a simpler version you can run in the browser.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE TABLE</span> analytics_db.retail.customers (
+  cust_id      <span class="kw">NUMBER</span>(10,0),
+  cust_name    <span class="kw">VARCHAR</span>(100),
+  city         <span class="kw">VARCHAR</span>(50),
+  is_active    <span class="kw">BOOLEAN</span>,
+  joined_on    <span class="kw">DATE</span>,
+  kyc_document <span class="kw">VARIANT</span>       <span class="cm">-- the JSON from the onboarding app</span>
+);
+
+<span class="kw">CREATE VIEW</span> analytics_db.retail.v_active_customers <span class="kw">AS</span>
+<span class="kw">SELECT</span> cust_id, cust_name, city, kyc_document:pan_number::<span class="kw">VARCHAR</span> <span class="kw">AS</span> pan
+<span class="kw">FROM</span> analytics_db.retail.customers
+<span class="kw">WHERE</span> is_active = <span class="kw">TRUE</span>;</pre></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>Imagine these two tables live in <code>bank_db.retail</code>: <code>customers</code> (one row per person) and <code>accounts</code> (one row per account, linked by <code>cust_id</code>). Open the <b>Schema</b> tab to see the columns and their types, then try the examples and challenges. The join example shows how to put a customer’s name next to their account.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: build the ladder yourself</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Create a database, schema, tables and a view in your trial account</h3>
+      <div class="meta"><span>About 15 min</span><span>Uses a few seconds of compute</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>Open a new SQL worksheet in Snowsight (<b>Projects → Worksheets</b>, or <b>Workspaces</b> on newer accounts). Make sure you have a warehouse to use. This creates a tiny one if it does not exist, plus our practice database:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE WAREHOUSE IF NOT EXISTS</span> learn_wh <span class="kw">WAREHOUSE_SIZE</span> = XSMALL <span class="kw">AUTO_SUSPEND</span> = 60 <span class="kw">AUTO_RESUME</span> = <span class="kw">TRUE</span>;
+<span class="kw">CREATE DATABASE IF NOT EXISTS</span> learn_db;
+<span class="kw">USE WAREHOUSE</span> learn_wh;
+<span class="kw">SHOW SCHEMAS IN DATABASE</span> learn_db;</pre></div>
+        <p class="expect">Expected: the last statement lists two schemas, <code>INFORMATION_SCHEMA</code> and <code>PUBLIC</code>. Every new database gets both for free.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Add a room of your own and walk into it:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE SCHEMA IF NOT EXISTS</span> learn_db.retail;
+<span class="kw">USE SCHEMA</span> learn_db.retail;
+<span class="kw">SELECT</span> CURRENT_DATABASE(), CURRENT_SCHEMA();</pre></div>
+        <p class="expect">Expected: one row: <code>LEARN_DB</code>, <code>RETAIL</code>. The worksheet’s context selector (top of the worksheet) also changes to match.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Create a table that uses five data types, including VARIANT, and load three customers. Note that JSON goes in through <code>PARSE_JSON</code> inside a SELECT:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE OR REPLACE TABLE</span> customers (
+  cust_id   <span class="kw">NUMBER</span>(10,0),
+  cust_name <span class="kw">VARCHAR</span>(100),
+  is_active <span class="kw">BOOLEAN</span>,
+  joined_on <span class="kw">DATE</span>,
+  kyc_doc   <span class="kw">VARIANT</span>
+);
+
+<span class="kw">INSERT INTO</span> customers
+<span class="kw">SELECT</span> 1, 'Asha Rao',    <span class="kw">TRUE</span>,  '2021-03-15', PARSE_JSON('{"city":"Mumbai","pan_number":"ABCPR1234K"}')
+<span class="kw">UNION ALL SELECT</span> 2, 'Vikram Shah', <span class="kw">TRUE</span>,  '2020-11-20', PARSE_JSON('{"city":"Delhi","pan_number":"XYZPS5678L"}')
+<span class="kw">UNION ALL SELECT</span> 3, 'Meera Iyer',  <span class="kw">FALSE</span>, '2019-05-09', PARSE_JSON('{"city":"Chennai","pan_number":"LMNPI9012M"}');
+
+<span class="kw">SELECT</span> cust_name, kyc_doc:city::<span class="kw">VARCHAR</span> <span class="kw">AS</span> city, kyc_doc:pan_number::<span class="kw">VARCHAR</span> <span class="kw">AS</span> pan
+<span class="kw">FROM</span> learn_db.retail.customers;</pre></div>
+        <p class="expect">Expected: 3 rows with the city and PAN pulled out of the JSON column. The <code>:</code> reaches into the JSON and <code>::VARCHAR</code> turns the value into plain text.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Create a view that shows only active customers, then query it with its full name from a different context:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE OR REPLACE VIEW</span> v_active_customers <span class="kw">AS</span>
+<span class="kw">SELECT</span> cust_id, cust_name, kyc_doc:city::<span class="kw">VARCHAR</span> <span class="kw">AS</span> city
+<span class="kw">FROM</span> customers <span class="kw">WHERE</span> is_active = <span class="kw">TRUE</span>;
+
+<span class="kw">USE SCHEMA</span> learn_db.public;
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> learn_db.retail.v_active_customers;</pre></div>
+        <p class="expect">Expected: 2 rows (Asha Rao and Vikram Shah). Meera is hidden because she is inactive. The full name worked even though you moved to the <code>PUBLIC</code> schema.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Now try the short name from the wrong room, and then make a transient and a temporary table:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> * <span class="kw">FROM</span> v_active_customers;   <span class="cm">-- expect an error: you are in PUBLIC, not RETAIL</span>
+
+<span class="kw">USE SCHEMA</span> learn_db.retail;
+<span class="kw">CREATE TRANSIENT TABLE</span> customers_stage <span class="kw">AS SELECT</span> * <span class="kw">FROM</span> customers;
+<span class="kw">CREATE TEMPORARY TABLE</span> scratch <span class="kw">AS SELECT</span> cust_id <span class="kw">FROM</span> customers;
+<span class="kw">SHOW TABLES IN SCHEMA</span> learn_db.retail;</pre></div>
+        <p class="expect">Expected: the first query fails with “Object 'V_ACTIVE_CUSTOMERS' does not exist or not authorized”. The final SHOW lists three tables; look at the <code>kind</code> column: TABLE, TRANSIENT and TEMPORARY.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Tidy up. Keep <code>learn_db</code> and the <code>customers</code> table for later lessons, but drop the extras and let the warehouse sleep:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">DROP TABLE IF EXISTS</span> learn_db.retail.customers_stage;
+<span class="kw">DROP TABLE IF EXISTS</span> learn_db.retail.scratch;
+<span class="kw">ALTER WAREHOUSE</span> learn_wh <span class="kw">SUSPEND</span>;</pre></div>
+        <p class="expect">Expected: “statement executed successfully” for each. The tiny tables cost almost nothing, but dropping scratch objects is a good habit on a client account.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>Building, room, shelf: database.schema.table. Use the full name when in doubt, USE SCHEMA to work with short names, and give every column the right type, with VARIANT for JSON.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Account</dt><dd>Your company’s whole Snowflake space; the top of the ladder.</dd>
+    <dt>Database</dt><dd>A named container for schemas. A building in the library.</dd>
+    <dt>Schema</dt><dd>A named container for tables and views inside a database. A room.</dd>
+    <dt>Fully qualified name</dt><dd>database.schema.object. Works from anywhere.</dd>
+    <dt>Context</dt><dd>The current database and schema, set with USE, that lets short names work.</dd>
+    <dt>Data type</dt><dd>The kind of value a column holds: NUMBER, VARCHAR, DATE, TIMESTAMP, BOOLEAN, VARIANT.</dd>
+    <dt>VARIANT</dt><dd>A column type that stores JSON and other semi-structured data.</dd>
+    <dt>View</dt><dd>A saved query with a name; holds no data of its own.</dd>
+    <dt>Transient table</dt><dd>A table with at most 1 day of Time Travel and no Fail-safe.</dd>
+    <dt>Temporary table</dt><dd>A table that disappears when your session ends.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#1-6">1.6 The three layers →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "customers": {
+        "columns": [
+          ["cust_id", "NUMBER"],
+          ["cust_name", "VARCHAR"],
+          ["city", "VARCHAR"],
+          ["segment", "VARCHAR", "RETAIL, PREMIER or BUSINESS"]
+        ],
+        "rows": [
+          [1, "Asha Rao", "Mumbai", "RETAIL"],
+          [2, "Vikram Shah", "Delhi", "RETAIL"],
+          [3, "Meera Iyer", "Chennai", "PREMIER"],
+          [4, "Rahul Nair", "Mumbai", "RETAIL"],
+          [5, "Priya Menon", "Bengaluru", "PREMIER"],
+          [6, "Arjun Das", "Delhi", "BUSINESS"],
+          [7, "Sneha Pillai", "Chennai", "RETAIL"],
+          [8, "Karthik Reddy", "Bengaluru", "BUSINESS"],
+          [9, "Divya Kumar", "Hyderabad", "PREMIER"],
+          [10, "Nikhil Joshi", "Pune", "RETAIL"]
+        ]
+      },
+      "accounts": {
+        "columns": [
+          ["acct_id", "NUMBER"],
+          ["cust_id", "NUMBER", "links to customers.cust_id"],
+          ["acct_type", "VARCHAR", "SAVINGS, CURRENT or FIXED_DEPOSIT"],
+          ["balance", "NUMBER", "in rupees"],
+          ["opened_on", "DATE"]
+        ],
+        "rows": [
+          [101, 1, "SAVINGS", 125000, "2021-03-15"],
+          [102, 1, "CURRENT", 40000, "2022-07-01"],
+          [103, 2, "SAVINGS", 58000, "2020-11-20"],
+          [104, 3, "SAVINGS", 310000, "2019-05-09"],
+          [105, 3, "FIXED_DEPOSIT", 500000, "2023-01-10"],
+          [106, 4, "SAVINGS", 22000, "2024-02-14"],
+          [107, 5, "SAVINGS", 275000, "2018-08-30"],
+          [108, 6, "CURRENT", 890000, "2020-04-22"],
+          [109, 7, "SAVINGS", 15500, "2025-06-05"],
+          [110, 8, "CURRENT", 640000, "2021-09-18"],
+          [111, 9, "FIXED_DEPOSIT", 750000, "2022-12-01"],
+          [112, 10, "SAVINGS", 36000, "2024-10-27"],
+          [113, 5, "FIXED_DEPOSIT", 200000, "2024-03-03"]
+        ]
+      }
+    },
+    "starter": "SELECT acct_type, COUNT(*) AS accounts, SUM(balance) AS total_balance\nFROM accounts\nGROUP BY acct_type\nORDER BY total_balance DESC",
+    "examples": [
+      { "label": "All customers", "sql": "SELECT *\nFROM customers" },
+      { "label": "Accounts with owner names (join)", "sql": "SELECT c.cust_name, c.city, a.acct_type, a.balance\nFROM accounts a\nJOIN customers c ON a.cust_id = c.cust_id\nORDER BY a.balance DESC" },
+      { "label": "Balance by account type", "sql": "SELECT acct_type, COUNT(*) AS accounts, SUM(balance) AS total_balance\nFROM accounts\nGROUP BY acct_type\nORDER BY total_balance DESC" }
+    ],
+    "challenges": [
+      { "task": "How many accounts of each type are there? Show acct_type and the count.", "hint": "COUNT(*) with GROUP BY acct_type. No join needed.", "answer": "SELECT acct_type, COUNT(*) FROM accounts GROUP BY acct_type" },
+      { "task": "Show the customer name and balance for every account with a balance above 300000.", "hint": "Copy the join example, keep only cust_name and balance, and add WHERE a.balance > 300000.", "answer": "SELECT c.cust_name, a.balance FROM accounts a JOIN customers c ON a.cust_id = c.cust_id WHERE a.balance > 300000" },
+      { "task": "What is the total balance held in each city? Show city and the total.", "hint": "Join accounts to customers, then SUM(balance) with GROUP BY c.city.", "answer": "SELECT c.city, SUM(a.balance) FROM accounts a JOIN customers c ON a.cust_id = c.cust_id GROUP BY c.city" }
+    ]
+  },
+  "quiz": [
+    { "q": "Which is the correct order, from largest to smallest?", "options": ["Schema → database → table", "Database → schema → table", "Table → schema → database"], "answer": 1, "why": "A database holds schemas, and a schema holds tables and views. Building, room, shelf." },
+    { "q": "What does USE SCHEMA bank_db.retail let you do?", "options": ["Refer to tables in that schema by their short names", "Delete the schema", "Turn on a warehouse"], "answer": 0, "why": "USE sets your context. After it, customers means bank_db.retail.customers. Full names still work from anywhere." },
+    { "q": "A card network sends each payment as a JSON message. Which column type stores the whole message?", "options": ["VARCHAR(100)", "NUMBER(38,0)", "VARIANT"], "answer": 2, "why": "VARIANT holds semi-structured data such as JSON, and you pull fields out later with the colon syntax." },
+    { "q": "Which two schemas does every new database start with?", "options": ["PUBLIC and INFORMATION_SCHEMA", "RAW and ANALYTICS", "MAIN and BACKUP"], "answer": 0, "why": "PUBLIC is the default schema for your objects; INFORMATION_SCHEMA is a read-only set of views describing the database." },
+    { "q": "You need a scratch table that should vanish when you log out. Which type?", "options": ["Permanent", "Transient", "Temporary"], "answer": 2, "why": "Temporary tables exist only for the session. Transient tables stay until dropped but skip Fail-safe; permanent tables are fully protected." },
+    { "q": "Does a view store its own copy of the data?", "options": ["Yes, it copies the rows when created", "No, it runs its saved query each time you select from it", "Only if the table is transient"], "answer": 1, "why": "A view is a named query. It reads the underlying table live, so it always shows current data and uses no extra storage." }
+  ]
+}
+</script>

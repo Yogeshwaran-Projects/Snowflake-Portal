@@ -1,0 +1,294 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Snowflake Fundamentals</span><span>Module 3 · AI and development</span><span>Lesson 3.1</span></div>
+  <h1>Snowpark</h1>
+  <p class="lede">Write Python (or Java or Scala) that runs inside Snowflake. The data never leaves, the code turns into SQL behind the scenes, and you get to use a real programming language when SQL alone gets awkward.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>35 min</span>
+    <span class="badge">Intermediate</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain what Snowpark is and why “the data never leaves” matters to a bank</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Read a DataFrame chain and say which SQL it becomes</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Tell a UDF from a stored procedure</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Run a Python worksheet in Snowsight and see the generated SQL</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">Snowpark is a set of libraries that let you write Python, Java or Scala which runs inside Snowflake. You describe what you want with a DataFrame; Snowpark translates it into SQL and Snowflake’s warehouses do the work.</p></div>
+  </div>
+  <p>Three things to hold on to:</p>
+  <ul>
+    <li><b>Same engine</b>: your Python does not run on your laptop. It becomes SQL that the same warehouses run, so the same roles, masking policies and billing apply.</li>
+    <li><b>Lazy</b>: building a DataFrame sends nothing. Only an <b>action</b> (show, collect, count, write) sends the SQL. That lets Snowpark combine a whole chain into one efficient query.</li>
+    <li><b>No data leaves</b>: you never download a table to process it. For a bank that is the difference between a five-minute approval and a five-month one.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like librarians who also speak Python</h2>
+  <p>Until now you spoke to the sky library in SQL request slips. Snowpark hires librarians who <b>also speak Python</b>. You describe the job in Python: “take the transactions shelf, keep the big payments, pile them by city, add up each pile.” The librarian nods, quietly writes the same thing as one SQL slip, and does the work inside the building. The books never leave; only the answer comes back to you.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Python-speaking librarians</b><span>In Snowflake: the Snowpark library plus the warehouse. You write Python; they run it as SQL inside Snowflake.</span></div>
+    <div><small>In the library</small><b>Your instructions, written down but not yet handed over</b><span>In Snowflake: a DataFrame. Lazy. Nothing happens until you say “go” with show() or collect().</span></div>
+    <div><small>In the library</small><b>Books never leave the building</b><span>In Snowflake: data stays in your account, under your roles and policies. No CSV downloads, no laptop copies.</span></div>
+  </div>
+</section>
+
+<section class="sec" id="dataframe" data-toc="The DataFrame API">
+  <h2>The DataFrame API, side by side with SQL</h2>
+  <p>Every DataFrame method maps to a SQL clause you already know. Read the left column, then the right, and you have learnt Snowpark.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Python (Snowpark)</th><th>SQL it becomes</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>session.table("transactions")</code></td><td><code>FROM transactions</code></td><td>Start here. Nothing runs yet.</td></tr>
+        <tr><td><code>.filter(col("amount") &gt; 50000)</code></td><td><code>WHERE amount &gt; 50000</code></td><td><code>where()</code> is the same method.</td></tr>
+        <tr><td><code>.select("customer_name", "amount")</code></td><td><code>SELECT customer_name, amount</code></td><td>Column names as strings or <code>col("…")</code>.</td></tr>
+        <tr><td><code>.group_by("branch_city").agg(sum_("amount").alias("total_amount"))</code></td><td><code>GROUP BY branch_city</code> with <code>SUM(amount) AS total_amount</code></td><td>Import <code>sum as sum_</code> so it does not hide Python’s own sum.</td></tr>
+        <tr><td><code>.sort(col("total_amount").desc())</code></td><td><code>ORDER BY total_amount DESC</code></td><td><code>order_by()</code> is the same method.</td></tr>
+        <tr><td><code>.show()</code> / <code>.collect()</code> / <code>.count()</code></td><td>Runs the query</td><td>The action. Now the SQL is sent.</td></tr>
+        <tr><td><code>df.queries</code></td><td>Shows the SQL text</td><td>Your best learning tool: see what Snowpark wrote.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="features">
+    <div class="feature"><b>UDF (user-defined function)</b><span>A Python function you call inside a SQL query, once per row: <code>SELECT mask_account(account_no)</code>. Takes values in, gives one value back.</span><small>Row-by-row logic</small></div>
+    <div class="feature"><b>Stored procedure</b><span>A Python program you call with <code>CALL</code>. It gets its own session, can run many statements, create tables and loop. Use for jobs, not per-row maths.</span><small>Whole jobs</small></div>
+    <div class="feature"><b>Python worksheets</b><span>In Snowsight, a worksheet where you write <code>def main(session): … return df</code> and press Run. Great for trying things out.</span><small>Snowsight</small></div>
+    <div class="feature"><b>Snowflake Notebooks</b><span>Cells of SQL, Python and Markdown in one page, with charts. Get the session with <code>get_active_session()</code>. Most data science work on a project happens here.</span><small>Snowsight</small></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>A global bank’s data science team builds a model that flags unusual card spending. Before Snowpark they exported months of transactions to a separate machine, which meant a security review every time. With Snowpark:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Step</th><th>How it is done</th><th>Why the bank likes it</th></tr></thead>
+      <tbody>
+        <tr><td>Prepare features</td><td>DataFrame chain: filter last 90 days, group by card, average and max amount</td><td>Runs as SQL on the warehouse. Masking policies still apply to the PAN column.</td></tr>
+        <tr><td>Score each transaction</td><td>A Python UDF wrapping the model, called from SQL</td><td>Scoring happens inside Snowflake, row by row, at warehouse speed.</td></tr>
+        <tr><td>Nightly retrain</td><td>A Python stored procedure, called by a task at 2 am</td><td>One CALL, fully logged, no laptop involved.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The audit answer to “where did the data go?” is now one word: nowhere.</p>
+</section>
+
+<section class="sec" id="syntax" data-toc="The code">
+  <h2>The code you will use</h2>
+  <p>A complete Python worksheet. Snowsight hands you the <code>session</code>; you return a DataFrame and it shows as a table.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">import</span> snowflake.snowpark <span class="kw">as</span> snowpark
+<span class="kw">from</span> snowflake.snowpark.functions <span class="kw">import</span> col, sum <span class="kw">as</span> sum_
+
+<span class="kw">def</span> main(session: snowpark.Session):
+    <span class="cm"># describe the job (lazy: nothing runs yet)</span>
+    df = (session.table("learn_db.public.transactions")
+            .filter(col("amount") &gt; 50000)
+            .group_by("branch_city")
+            .agg(sum_("amount").alias("total_amount"))
+            .sort(col("total_amount").desc()))
+
+    print(df.queries)   <span class="cm"># the SQL Snowpark wrote, shown in the Output tab</span>
+    <span class="kw">return</span> df           <span class="cm"># the action: Snowsight runs it and shows a table</span></pre></div>
+  <p>The same query as a UDF and as a stored procedure, both written in SQL so you can create them from any worksheet:</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- UDF: one value in, one value out, called per row</span>
+<span class="kw">CREATE OR REPLACE FUNCTION</span> mask_account(acct <span class="kw">VARCHAR</span>)
+<span class="kw">RETURNS VARCHAR</span>
+<span class="kw">LANGUAGE</span> PYTHON
+RUNTIME_VERSION = '3.11'
+HANDLER = 'mask'
+<span class="kw">AS</span> $$
+def mask(acct):
+    return 'XXXX' + acct[-4:]
+$$;
+<span class="kw">SELECT</span> mask_account('123456789012');    <span class="cm">-- XXXX9012</span>
+
+<span class="cm">-- Stored procedure: a whole job with its own session</span>
+<span class="kw">CREATE OR REPLACE PROCEDURE</span> count_big_payments(threshold <span class="kw">NUMBER</span>)
+<span class="kw">RETURNS</span> NUMBER
+<span class="kw">LANGUAGE</span> PYTHON
+RUNTIME_VERSION = '3.11'
+PACKAGES = ('snowflake-snowpark-python')
+HANDLER = 'run'
+<span class="kw">AS</span> $$
+from snowflake.snowpark.functions import col
+def run(session, threshold):
+    return session.table("learn_db.public.transactions").filter(col("amount") &gt; threshold).count()
+$$;
+<span class="kw">CALL</span> count_big_payments(50000);</pre></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>Each challenge below shows a Snowpark DataFrame chain in the hint. Your job is to write the SQL that Snowpark would generate from it and run it against the <code>transactions</code> table. If your SQL gives the same answer, you have understood the translation. Open the <b>Schema</b> tab to see the columns.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: your first Python worksheet</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Run a DataFrame chain inside Snowflake and read the SQL it produced</h3>
+      <div class="meta"><span>About 20 min</span><span>Trial account, ACCOUNTADMIN</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>In Snowsight open <b>Projects → Worksheets</b> and create a new <b>Python worksheet</b> (in newer accounts: <b>Workspaces</b>, then a new Python file or Notebook). If Snowsight asks you to accept the third-party (Anaconda) terms first, do that once as ORGADMIN under <b>Admin → Billing &amp; Terms</b>; it is a one-time switch.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>At the top of the worksheet pick the warehouse <b>learn_wh</b> (or COMPUTE_WH) and the database and schema <b>SNOWFLAKE_SAMPLE_DATA.TPCH_SF1</b>. Python worksheets need a running warehouse to load packages.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Replace the template with this and select <b>Run</b>. It is the same question you asked in SQL in Lesson 1.1, now in Python.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">import</span> snowflake.snowpark <span class="kw">as</span> snowpark
+<span class="kw">from</span> snowflake.snowpark.functions <span class="kw">import</span> col, count
+
+<span class="kw">def</span> main(session: snowpark.Session):
+    df = (session.table("snowflake_sample_data.tpch_sf1.customer")
+            .group_by("c_mktsegment")
+            .agg(count("c_custkey").alias("customers"))
+            .sort(col("customers").desc()))
+    print(df.queries)
+    <span class="kw">return</span> df</pre></div>
+        <p class="expect">Expected: the <b>Results</b> tab shows 5 rows (AUTOMOBILE, BUILDING, FURNITURE, HOUSEHOLD, MACHINERY) with roughly 30,000 customers each, the same as Lesson 1.1. The <b>Output</b> tab shows a dictionary whose <code>queries</code> entry holds a SELECT … GROUP BY … ORDER BY statement. That is the SQL your Python became.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Add a filter and watch the SQL change. Insert this line after the <code>.table(…)</code> line: <code>.filter(col("c_acctbal") &gt; 9000)</code>. Run again.</p>
+        <p class="expect">Expected: the same 5 segments with much smaller counts (a few thousand each), and the printed SQL now contains a WHERE clause. Nothing was downloaded; Snowflake did the filtering.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Now a UDF. Open a normal <b>SQL worksheet</b> and create a Python function, then call it from SQL.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE ROLE</span> ACCOUNTADMIN;
+<span class="kw">USE WAREHOUSE</span> learn_wh;
+<span class="kw">CREATE DATABASE IF NOT EXISTS</span> learn_db;
+<span class="kw">USE SCHEMA</span> learn_db.public;
+
+<span class="kw">CREATE OR REPLACE FUNCTION</span> mask_account(acct <span class="kw">VARCHAR</span>)
+<span class="kw">RETURNS VARCHAR</span>
+<span class="kw">LANGUAGE</span> PYTHON
+RUNTIME_VERSION = '3.11'
+HANDLER = 'mask'
+<span class="kw">AS</span> $$
+def mask(acct):
+    return 'XXXX' + acct[-4:]
+$$;
+
+<span class="kw">SELECT</span> c_name, mask_account(c_phone) <span class="kw">AS</span> masked_phone
+<span class="kw">FROM</span> snowflake_sample_data.tpch_sf1.customer
+<span class="kw">LIMIT</span> 5;</pre></div>
+        <p class="expect">Expected: 5 rows where masked_phone looks like <code>XXXX1234</code>: the Python ran once per row, inside Snowflake.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Clean up.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">DROP FUNCTION</span> learn_db.public.mask_account(<span class="kw">VARCHAR</span>);</pre></div>
+        <p class="expect">Expected: “MASK_ACCOUNT successfully dropped.” Delete the Python worksheet if you do not want to keep it; it holds no data.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>Snowpark is Python that becomes SQL. You describe the job with a lazy DataFrame, an action sends it, the warehouse runs it, and the data never leaves Snowflake. UDFs are per-row helpers; stored procedures are whole jobs.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Snowpark</dt><dd>Libraries for Python, Java and Scala that run code inside Snowflake by turning it into SQL.</dd>
+    <dt>DataFrame</dt><dd>A description of a query, built step by step. Lazy until an action runs it.</dd>
+    <dt>Lazy evaluation</dt><dd>Nothing is sent to Snowflake until you ask for a result.</dd>
+    <dt>Action</dt><dd>A method that runs the query: show(), collect(), count(), to_pandas(), write.</dd>
+    <dt>Pushdown</dt><dd>Doing the work where the data is (in the warehouse) instead of pulling data out.</dd>
+    <dt>Session</dt><dd>Your connection to Snowflake inside Snowpark. Snowsight creates it for you.</dd>
+    <dt>UDF</dt><dd>User-defined function: custom code called per row from SQL.</dd>
+    <dt>Stored procedure</dt><dd>A program you CALL to run a whole job, with its own session.</dd>
+    <dt>Notebook</dt><dd>A Snowsight page of SQL, Python and Markdown cells with charts.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#3-2">3.2 Cortex AI functions →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "transactions": {
+        "columns": [
+          ["txn_id", "NUMBER"],
+          ["customer_name", "VARCHAR"],
+          ["branch_city", "VARCHAR"],
+          ["txn_type", "VARCHAR", "UPI, CARD, NEFT or RTGS"],
+          ["amount", "NUMBER", "in rupees"],
+          ["txn_date", "DATE"]
+        ],
+        "rows": [
+          [1, "Asha Rao", "Mumbai", "UPI", 2500, "2026-09-01"],
+          [2, "Vikram Shah", "Delhi", "NEFT", 75000, "2026-09-01"],
+          [3, "Meera Iyer", "Chennai", "UPI", 1200, "2026-09-02"],
+          [4, "Rahul Nair", "Mumbai", "CARD", 18500, "2026-09-02"],
+          [5, "Priya Menon", "Bengaluru", "RTGS", 250000, "2026-09-03"],
+          [6, "Arjun Das", "Delhi", "UPI", 800, "2026-09-03"],
+          [7, "Sneha Pillai", "Chennai", "CARD", 9600, "2026-09-04"],
+          [8, "Karthik Reddy", "Bengaluru", "NEFT", 55000, "2026-09-04"],
+          [9, "Divya Kumar", "Mumbai", "UPI", 4300, "2026-09-05"],
+          [10, "Nikhil Joshi", "Delhi", "CARD", 27000, "2026-09-05"],
+          [11, "Farah Khan", "Mumbai", "NEFT", 62000, "2026-09-06"],
+          [12, "Lakshmi Bose", "Chennai", "UPI", 3100, "2026-09-06"],
+          [13, "Rohan Mehta", "Bengaluru", "UPI", 1500, "2026-09-07"],
+          [14, "Ananya Sen", "Delhi", "RTGS", 310000, "2026-09-07"]
+        ]
+      }
+    },
+    "starter": "-- session.table(\"transactions\").select(\"customer_name\", \"amount\").show()\nSELECT customer_name, amount\nFROM transactions",
+    "examples": [
+      { "label": "session.table(...).show()", "sql": "SELECT *\nFROM transactions" },
+      { "label": ".filter(col(\"txn_type\") == \"RTGS\")", "sql": "SELECT *\nFROM transactions\nWHERE txn_type = 'RTGS'" },
+      { "label": ".group_by(\"txn_type\").agg(sum_(\"amount\"))", "sql": "SELECT txn_type, SUM(amount) AS total_amount\nFROM transactions\nGROUP BY txn_type\nORDER BY total_amount DESC" }
+    ],
+    "challenges": [
+      { "task": "Write the SQL for: session.table(\"transactions\").filter(col(\"amount\") > 50000).select(\"customer_name\", \"amount\")", "hint": "filter becomes WHERE, select becomes the SELECT list. Two columns, rows over 50,000 only.", "answer": "SELECT customer_name, amount FROM transactions WHERE amount > 50000" },
+      { "task": "Write the SQL for: session.table(\"transactions\").group_by(\"branch_city\").agg(sum_(\"amount\").alias(\"total_amount\")).sort(col(\"total_amount\").desc())", "hint": "GROUP BY branch_city, SUM(amount) AS total_amount, ORDER BY total_amount DESC.", "answer": "SELECT branch_city, SUM(amount) AS total_amount FROM transactions GROUP BY branch_city ORDER BY total_amount DESC" },
+      { "task": "Write the SQL for: session.table(\"transactions\").filter(col(\"txn_type\") == \"UPI\").group_by(\"branch_city\").count()", "hint": "WHERE txn_type = 'UPI', then GROUP BY branch_city with COUNT(*).", "answer": "SELECT branch_city, COUNT(*) FROM transactions WHERE txn_type = 'UPI' GROUP BY branch_city" }
+    ]
+  },
+  "quiz": [
+    { "q": "Where does Snowpark Python code actually run?", "options": ["On your laptop, after downloading the table", "Inside Snowflake, on a warehouse, as SQL", "On a separate Python server owned by Snowflake"], "answer": 1, "why": "Snowpark translates the DataFrame into SQL and the warehouse runs it. The data never leaves your account." },
+    { "q": "You build df = session.table('t').filter(col('amount') > 50000). What has Snowflake done so far?", "options": ["Nothing; DataFrames are lazy until an action", "Filtered the table and cached the rows", "Created a temporary table"], "answer": 0, "why": "Building a DataFrame only writes down the instructions. show(), collect() or count() sends the SQL." },
+    { "q": "Which SQL does .group_by('branch_city').agg(sum_('amount')) become?", "options": ["SELECT branch_city, SUM(amount) … GROUP BY branch_city", "SELECT * … WHERE branch_city = amount", "ORDER BY branch_city"], "answer": 0, "why": "group_by maps to GROUP BY and agg(sum_(…)) maps to SUM(…) in the SELECT list." },
+    { "q": "You need custom logic that runs once per row inside a SELECT. What do you write?", "options": ["A UDF", "A stored procedure", "A task"], "answer": 0, "why": "A UDF takes values in and returns one value, per row. A stored procedure is a whole job you CALL." },
+    { "q": "Why is 'no data leaves Snowflake' so important to a bank?", "options": ["It makes Python run faster", "Roles, masking policies and audit logs keep applying, so no extra security review is needed for exports", "It reduces storage costs"], "answer": 1, "why": "Exports create copies outside the platform’s controls. Snowpark keeps processing where the controls already are." },
+    { "q": "In a Snowsight Python worksheet, what does the handler function return to show a table?", "options": ["A string of SQL", "A DataFrame", "A Python list of column names"], "answer": 1, "why": "def main(session) returns a DataFrame; Snowsight runs it and shows the result in the Results tab." }
+  ]
+}
+</script>

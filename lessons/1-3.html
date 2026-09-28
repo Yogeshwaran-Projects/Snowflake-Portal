@@ -1,0 +1,321 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Snowflake Fundamentals</span><span>Module 1 · Foundations</span><span>Lesson 1.3</span></div>
+  <h1>Virtual warehouses</h1>
+  <p class="lede">A virtual warehouse is the compute that runs your SQL. Learn the sizes, the on/off switches, and when to make one bigger versus adding more of them.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>15 min</span>
+    <span class="badge">Beginner</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain what a virtual warehouse is and is not</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>List the sizes from X-Small to 6X-Large and what changes between them</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Set auto-suspend and auto-resume and say why they save money</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Choose between scaling up and scaling out for a given problem</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">A virtual warehouse is a named bundle of compute power that runs your queries. It has a size, it can be switched on and off, and it never shares its power with another warehouse.</p></div>
+  </div>
+  <p>The name confuses everyone at first. A Snowflake warehouse holds <b>no data</b>. It is only the engine. The data lives in storage (Lesson 1.2), and any warehouse can read any table it has permission to see.</p>
+  <ul>
+    <li>You give it a name, such as <code>FINANCE_WH</code>.</li>
+    <li>You pick a size, from X-Small to 6X-Large.</li>
+    <li>It is either <b>started</b> (costing credits) or <b>suspended</b> (costing nothing).</li>
+    <li>Every query you run uses exactly one warehouse, the one your session has selected with <code>USE WAREHOUSE</code>.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a team of librarians</h2>
+  <p>In the library in the sky a warehouse is one team of librarians. A small team is fine for quick questions. For a huge question, such as counting every word in every book, you want a bigger team, because they split the shelves between them and finish sooner. When nobody asks anything, the team goes on break and stops being paid. The moment a question arrives, they come back. At rush hour, when a queue forms at the desk, the library can call in a second identical team so people stop waiting.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Team size</b><span>In Snowflake: warehouse size. Each size up doubles the team</span></div>
+    <div><small>In the library</small><b>Going on break</b><span>In Snowflake: auto-suspend after N seconds idle; auto-resume when a query arrives</span></div>
+    <div><small>In the library</small><b>Extra teams at rush hour</b><span>In Snowflake: multi-cluster warehouses that add clusters when queries queue</span></div>
+  </div>
+</section>
+
+<section class="sec" id="sizes" data-toc="Sizes">
+  <h2>Sizes: from XS to 6XL</h2>
+  <p>Every step up doubles the compute and doubles the credits per hour. A bigger team finishes a big job in about half the time, so the cost of that one job stays roughly the same. What you buy with a bigger size is speed, not a discount.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Size</th><th>SQL name</th><th class="num">Credits per hour</th><th>Typical use at a bank</th></tr></thead>
+      <tbody>
+        <tr><td>X-Small</td><td><code>XSMALL</code></td><td class="num">1</td><td>Learning, small lookups, this course</td></tr>
+        <tr><td>Small</td><td><code>SMALL</code></td><td class="num">2</td><td>Dashboards, daily reports</td></tr>
+        <tr><td>Medium</td><td><code>MEDIUM</code></td><td class="num">4</td><td>Analyst team’s day-to-day queries</td></tr>
+        <tr><td>Large</td><td><code>LARGE</code></td><td class="num">8</td><td>Nightly data loads</td></tr>
+        <tr><td>X-Large</td><td><code>XLARGE</code></td><td class="num">16</td><td>Month-end risk models</td></tr>
+        <tr><td>2X-Large</td><td><code>XXLARGE</code></td><td class="num">32</td><td>Very large transformations</td></tr>
+        <tr><td>3X-Large to 6X-Large</td><td><code>XXXLARGE</code> to <code>X6LARGE</code></td><td class="num">64 to 512</td><td>Rare, huge jobs; 6XL is 512 credits an hour</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Good to know</div><p>Bigger is not always faster. A tiny query on an X-Large warehouse takes about as long as on an X-Small, because there is not enough work to share out. Snowflake’s own advice is to try the same query on two sizes and measure, rather than guess.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="switches" data-toc="Auto-suspend and resume">
+  <h2>The two switches: auto-suspend and auto-resume</h2>
+  <div class="features">
+    <div class="feature"><b>Auto-suspend</b><span>How many seconds of quiet before the team goes on break. Default is 600 (10 minutes). Set it to 0 or NULL and the warehouse never sleeps, which can be very expensive.</span><small>AUTO_SUSPEND = 60</small></div>
+    <div class="feature"><b>Auto-resume</b><span>Whether the team comes back on its own when a query arrives. Default is TRUE. If FALSE, someone must run ALTER WAREHOUSE ... RESUME first.</span><small>AUTO_RESUME = TRUE</small></div>
+  </div>
+  <p>Two details matter for cost. First, every time a warehouse starts you pay for at least 60 seconds, even if the query took two. So a suspend time that is too short makes a busy warehouse start and stop all day, and each restart costs a minute. Second, when a warehouse suspends it forgets the data it had cached on its local disks, so the first queries after a resume can be a little slower. For a team that queries all day, 5 to 10 minutes is a sensible suspend time. For learning, 60 seconds is right.</p>
+</section>
+
+<section class="sec" id="scaling" data-toc="Scale up vs scale out">
+  <h2>Scaling up vs scaling out</h2>
+  <p>There are two different problems, and each has its own fix. Mixing them up is the most common mistake on real projects.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>Scale up (resize)</th><th>Scale out (multi-cluster)</th></tr></thead>
+      <tbody>
+        <tr><td><b>The problem</b></td><td>One query is too slow</td><td>Too many people at once; queries queue</td></tr>
+        <tr><td><b>The fix</b></td><td>Make the team bigger: Small to Medium</td><td>Add identical teams: 1 cluster to 3 clusters</td></tr>
+        <tr><td><b>Library</b></td><td>More librarians on one question</td><td>More teams at the desk during rush hour</td></tr>
+        <tr><td><b>SQL</b></td><td><code>SET WAREHOUSE_SIZE = MEDIUM</code></td><td><code>SET MAX_CLUSTER_COUNT = 3</code></td></tr>
+        <tr><td><b>Who decides</b></td><td>You, by hand</td><td>Snowflake, automatically, between MIN and MAX</td></tr>
+        <tr><td><b>Edition</b></td><td>All editions</td><td>Enterprise edition or higher</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>A multi-cluster warehouse has a <b>minimum</b> and a <b>maximum</b> number of clusters. When they are equal, every cluster runs all the time (maximized mode). When the minimum is lower, Snowflake starts extra clusters as queues build and stops them when the rush is over (auto-scale mode). The <b>scaling policy</b> sets its mood: <code>STANDARD</code> starts a new cluster as soon as queries queue; <code>ECONOMY</code> waits until it believes the new cluster will stay busy for at least 6 minutes, saving credits at the price of some waiting.</p>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>A global bank gives each team its own warehouse. This is the golden rule: <b>one warehouse per team or workload</b>. It stops one team’s heavy work slowing another, and it makes the bill easy to read, because every team’s cost sits under its own name.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Warehouse</th><th>Size</th><th>Clusters</th><th>Auto-suspend</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td><code>FRAUD_WH</code></td><td>Small</td><td>1 to 3</td><td>60 s</td><td>Thousands of tiny checks; rush hours need more teams, not bigger ones</td></tr>
+        <tr><td><code>RISK_WH</code></td><td>X-Large</td><td>1</td><td>10 min</td><td>One giant month-end model; needs one big team</td></tr>
+        <tr><td><code>REPORTING_WH</code></td><td>Large</td><td>1 to 4</td><td>2 min</td><td>Hundreds of managers open dashboards at 9 am</td></tr>
+        <tr><td><code>MARKETING_WH</code></td><td>X-Small</td><td>1</td><td>60 s</td><td>Rare, small campaign lists</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Notice how the Fraud team never scaled up. Their queries are small and fast; the trouble was queueing at 9 am and 6 pm. Extra clusters fixed that. The Risk team never scaled out. They have one user running one enormous query, and only a bigger team makes it finish sooner.</p>
+</section>
+
+<section class="sec" id="sql" data-toc="The SQL">
+  <h2>The SQL you will see</h2>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- create a team; INITIALLY_SUSPENDED keeps it off until the first query</span>
+<span class="kw">CREATE WAREHOUSE</span> fraud_wh <span class="kw">WITH</span>
+  WAREHOUSE_SIZE = SMALL
+  AUTO_SUSPEND = 60
+  AUTO_RESUME = <span class="kw">TRUE</span>
+  INITIALLY_SUSPENDED = <span class="kw">TRUE</span>;
+
+<span class="cm">-- scale up: one slow query</span>
+<span class="kw">ALTER WAREHOUSE</span> fraud_wh <span class="kw">SET</span> WAREHOUSE_SIZE = MEDIUM;
+
+<span class="cm">-- scale out: queues at rush hour (Enterprise edition)</span>
+<span class="kw">ALTER WAREHOUSE</span> fraud_wh <span class="kw">SET</span>
+  MIN_CLUSTER_COUNT = 1 MAX_CLUSTER_COUNT = 3 SCALING_POLICY = STANDARD;
+
+<span class="cm">-- the switches, by hand</span>
+<span class="kw">ALTER WAREHOUSE</span> fraud_wh SUSPEND;
+<span class="kw">ALTER WAREHOUSE</span> fraud_wh RESUME;
+
+<span class="cm">-- pick a team for this session, then look at all teams</span>
+<span class="kw">USE WAREHOUSE</span> fraud_wh;
+<span class="kw">SHOW WAREHOUSES</span>;</pre></div>
+  <p><code>SHOW WAREHOUSES</code> returns one row per warehouse with columns such as <code>state</code> (STARTED or SUSPENDED), <code>size</code>, <code>auto_suspend</code>, <code>auto_resume</code>, <code>min_cluster_count</code> and <code>max_cluster_count</code>. Get used to reading it; it is the first thing to check when someone says “Snowflake is slow today”.</p>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>Two tables describe a fictional bank’s warehouses. <code>warehouse_config</code> is the settings of each team: size, credits per hour, auto-suspend and how many clusters it may grow to. <code>query_log</code> records queries people ran, how long each took and how many seconds it waited in a queue first. Open the <b>Schema</b> tab to see the columns.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: resize a warehouse and watch it change</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Scale up, scale out, and put it all back</h3>
+      <div class="meta"><span>About 15 min</span><span>Uses your free trial</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>Open a SQL worksheet. Make sure you have the learning warehouse from Lesson 1.2; this creates it only if it is missing, starting suspended.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE WAREHOUSE IF NOT EXISTS</span> learn_wh <span class="kw">WITH</span> WAREHOUSE_SIZE = XSMALL
+  AUTO_SUSPEND = 60 AUTO_RESUME = <span class="kw">TRUE</span> INITIALLY_SUSPENDED = <span class="kw">TRUE</span>;
+<span class="kw">SHOW WAREHOUSES</span> <span class="kw">LIKE</span> 'LEARN_WH';</pre></div>
+        <p class="expect">Expected: one row with <code>size</code> = X-Small, <code>auto_suspend</code> = 60, <code>auto_resume</code> = true and <code>state</code> = SUSPENDED.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Turn off the result cache for this session, otherwise the second run below returns the saved answer instantly and you learn nothing. Then run a real question on 15 million sample orders and note the time shown next to the results.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">ALTER SESSION SET</span> USE_CACHED_RESULT = <span class="kw">FALSE</span>;
+<span class="kw">USE WAREHOUSE</span> learn_wh;
+
+<span class="kw">SELECT</span> o_orderpriority <span class="kw">AS</span> priority, <span class="kw">COUNT</span>(*) <span class="kw">AS</span> orders, <span class="kw">SUM</span>(o_totalprice) <span class="kw">AS</span> total
+<span class="kw">FROM</span> snowflake_sample_data.tpch_sf10.orders
+<span class="kw">GROUP BY</span> o_orderpriority
+<span class="kw">ORDER BY</span> o_orderpriority;</pre></div>
+        <p class="expect">Expected: 5 rows (1-URGENT to 5-LOW), each with about 3 million orders. Write down the seconds it took; the first run includes the warehouse waking up.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Scale up. Make the team twice as big, confirm the new size, then run exactly the same query again.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">ALTER WAREHOUSE</span> learn_wh <span class="kw">SET</span> WAREHOUSE_SIZE = SMALL;
+<span class="kw">SHOW WAREHOUSES</span> <span class="kw">LIKE</span> 'LEARN_WH';</pre></div>
+        <p class="expect">Expected: <code>size</code> now reads Small. Rerun the query from step 2. It usually finishes faster, though on data this small the gap can be modest. The point is that you resized a running engine with one line and no downtime.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Scale out. Trials run on Enterprise edition, so you can allow a second cluster for rush hours.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">ALTER WAREHOUSE</span> learn_wh <span class="kw">SET</span>
+  MIN_CLUSTER_COUNT = 1 MAX_CLUSTER_COUNT = 2 SCALING_POLICY = ECONOMY;
+<span class="kw">SHOW WAREHOUSES</span> <span class="kw">LIKE</span> 'LEARN_WH';</pre></div>
+        <p class="expect">Expected: <code>min_cluster_count</code> = 1, <code>max_cluster_count</code> = 2, <code>scaling_policy</code> = ECONOMY. The second cluster only starts if queries queue, so this costs nothing right now. If you see an error about the edition, your account is Standard; note that and move on.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Look at your own query history to see which size ran each query. Times are in milliseconds.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> start_time, warehouse_name, warehouse_size, total_elapsed_time / 1000 <span class="kw">AS</span> seconds
+<span class="kw">FROM TABLE</span>(information_schema.query_history(result_limit =&gt; 20))
+<span class="kw">WHERE</span> query_text <span class="kw">LIKE</span> '%tpch_sf10.orders%'
+<span class="kw">ORDER BY</span> start_time <span class="kw">DESC</span>;</pre></div>
+        <p class="expect">Expected: two rows for your orders query, one with <code>warehouse_size</code> X-Small and one Small, each with its seconds. Compare them.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Put everything back so the trial stays cheap: X-Small, one cluster, result cache on, and the team on break.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">ALTER WAREHOUSE</span> learn_wh <span class="kw">SET</span> WAREHOUSE_SIZE = XSMALL MAX_CLUSTER_COUNT = 1;
+<span class="kw">ALTER SESSION SET</span> USE_CACHED_RESULT = <span class="kw">TRUE</span>;
+<span class="kw">ALTER WAREHOUSE</span> learn_wh SUSPEND;
+<span class="kw">SHOW WAREHOUSES</span> <span class="kw">LIKE</span> 'LEARN_WH';</pre></div>
+        <p class="expect">Expected: <code>size</code> X-Small, <code>max_cluster_count</code> 1, <code>state</code> SUSPENDED. If SUSPEND says the warehouse is already suspended, it went on break by itself; that is fine.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>A warehouse is a team of librarians, not a room of books. Size up when one query is slow, scale out when many people are queueing, let it sleep when idle, and give every team its own.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Virtual warehouse</dt><dd>A named, sized bundle of compute that runs SQL. Holds no data.</dd>
+    <dt>Warehouse size</dt><dd>X-Small to 6X-Large. Each step doubles compute and credits per hour.</dd>
+    <dt>Auto-suspend</dt><dd>Seconds of inactivity before the warehouse switches itself off. Default 600.</dd>
+    <dt>Auto-resume</dt><dd>Whether a query automatically switches the warehouse back on. Default TRUE.</dd>
+    <dt>Scale up</dt><dd>Resizing one warehouse to a bigger size. Fixes slow single queries.</dd>
+    <dt>Scale out</dt><dd>Adding clusters to a multi-cluster warehouse. Fixes queueing.</dd>
+    <dt>Multi-cluster warehouse</dt><dd>A warehouse with MIN and MAX cluster counts. Enterprise edition or higher.</dd>
+    <dt>Scaling policy</dt><dd>STANDARD starts clusters quickly; ECONOMY waits to save credits.</dd>
+    <dt>Queueing</dt><dd>Queries waiting because the warehouse is already full. The sign you need to scale out.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#1-4">1.4 Credits and cost →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "warehouse_config": {
+        "columns": [
+          ["wh_id", "NUMBER"],
+          ["wh_name", "VARCHAR"],
+          ["team", "VARCHAR"],
+          ["wh_size", "VARCHAR", "XSMALL, SMALL, MEDIUM, LARGE, XLARGE"],
+          ["credits_per_hour", "NUMBER"],
+          ["auto_suspend_sec", "NUMBER"],
+          ["max_clusters", "NUMBER", "1 means no scale-out"]
+        ],
+        "rows": [
+          [1, "FINANCE_WH", "Finance", "MEDIUM", 4, 300, 1],
+          [2, "FRAUD_WH", "Fraud", "SMALL", 2, 60, 3],
+          [3, "RISK_WH", "Risk", "XLARGE", 16, 600, 1],
+          [4, "MARKETING_WH", "Marketing", "XSMALL", 1, 60, 1],
+          [5, "REPORTING_WH", "Reporting", "LARGE", 8, 120, 4],
+          [6, "LOAD_WH", "Data Engineering", "MEDIUM", 4, 60, 1],
+          [7, "ADHOC_WH", "Analytics", "SMALL", 2, 300, 2],
+          [8, "AUDIT_WH", "Compliance", "XSMALL", 1, 600, 1]
+        ]
+      },
+      "query_log": {
+        "columns": [
+          ["query_id", "NUMBER"],
+          ["wh_name", "VARCHAR"],
+          ["analyst", "VARCHAR"],
+          ["run_date", "DATE"],
+          ["run_seconds", "NUMBER", "time the query took"],
+          ["queued_seconds", "NUMBER", "time it waited for a free slot"]
+        ],
+        "rows": [
+          [101, "FRAUD_WH", "Ananya Krishnan", "2026-09-03", 4, 0],
+          [102, "FRAUD_WH", "Rohan Mehta", "2026-09-03", 6, 12],
+          [103, "RISK_WH", "Kavya Menon", "2026-09-03", 540, 0],
+          [104, "FINANCE_WH", "Suresh Iyer", "2026-09-03", 95, 0],
+          [105, "MARKETING_WH", "Pooja Desai", "2026-09-03", 20, 0],
+          [106, "REPORTING_WH", "Aditya Rao", "2026-09-03", 45, 30],
+          [107, "REPORTING_WH", "Nisha Pillai", "2026-09-03", 50, 45],
+          [108, "FRAUD_WH", "Ananya Krishnan", "2026-09-04", 5, 0],
+          [109, "RISK_WH", "Kavya Menon", "2026-09-04", 610, 0],
+          [110, "FINANCE_WH", "Suresh Iyer", "2026-09-04", 88, 0],
+          [111, "REPORTING_WH", "Aditya Rao", "2026-09-04", 40, 60],
+          [112, "AUDIT_WH", "Imran Sheikh", "2026-09-04", 15, 0],
+          [113, "ADHOC_WH", "Pooja Desai", "2026-09-04", 30, 0],
+          [114, "REPORTING_WH", "Nisha Pillai", "2026-09-04", 55, 20]
+        ]
+      }
+    },
+    "starter": "SELECT wh_name, wh_size, credits_per_hour\nFROM warehouse_config\nORDER BY credits_per_hour DESC",
+    "examples": [
+      { "label": "All warehouses", "sql": "SELECT *\nFROM warehouse_config\nORDER BY wh_name" },
+      { "label": "Biggest teams first", "sql": "SELECT wh_name, wh_size, credits_per_hour\nFROM warehouse_config\nORDER BY credits_per_hour DESC" },
+      { "label": "Queries that had to wait", "sql": "SELECT wh_name, analyst, run_seconds, queued_seconds\nFROM query_log\nWHERE queued_seconds > 0\nORDER BY queued_seconds DESC" }
+    ],
+    "challenges": [
+      { "task": "What is the average run time in seconds for each warehouse? Show the warehouse name and the average.", "hint": "AVG(run_seconds) from query_log with GROUP BY wh_name.", "answer": "SELECT wh_name, AVG(run_seconds) FROM query_log GROUP BY wh_name" },
+      { "task": "Which warehouses are allowed to add extra clusters at rush hour? Show the name and its max_clusters.", "hint": "Filter warehouse_config with WHERE max_clusters > 1.", "answer": "SELECT wh_name, max_clusters FROM warehouse_config WHERE max_clusters > 1" },
+      { "task": "How many seconds in total did queries spend queueing on each warehouse? Show the warehouse and the total, largest first.", "hint": "SUM(queued_seconds), GROUP BY wh_name, ORDER BY the total DESC.", "answer": "SELECT wh_name, SUM(queued_seconds) AS waited FROM query_log GROUP BY wh_name ORDER BY waited DESC" }
+    ]
+  },
+  "quiz": [
+    { "q": "What does a virtual warehouse store?", "options": ["Your tables", "Nothing; it is only compute", "Backups of your data"], "answer": 1, "why": "Despite the name, a warehouse holds no data. It is the team of librarians, not the shelves." },
+    { "q": "A Medium warehouse uses 4 credits an hour. How many does a Large use?", "options": ["6", "8", "16"], "answer": 1, "why": "Each size up doubles the credits: XS 1, S 2, M 4, L 8, XL 16, 2XL 32." },
+    { "q": "One analyst’s month-end query takes an hour. What should you try first?", "options": ["Scale up to a bigger size", "Add more clusters", "Turn off auto-suspend"], "answer": 0, "why": "One slow query needs a bigger team. Extra clusters only help when many queries are queueing." },
+    { "q": "At 9 am, 200 managers open dashboards and queries queue. What fixes it?", "options": ["Scale up to 4X-Large", "Scale out with a multi-cluster warehouse", "Lower auto-suspend to 10 seconds"], "answer": 1, "why": "Queueing is a concurrency problem. Extra identical clusters take the extra people; a single bigger cluster would still queue." },
+    { "q": "Why is AUTO_SUSPEND = 5 seconds a bad idea for a busy team?", "options": ["Snowflake does not allow values under 60", "Every restart bills a 60-second minimum and drops the local cache", "It deletes recent query results"], "answer": 1, "why": "Each resume costs at least one minute of credits and the warehouse cache is cleared, so constant restarts cost more and run slower." },
+    { "q": "Which edition do multi-cluster warehouses need?", "options": ["Standard", "Enterprise or higher", "Any edition"], "answer": 1, "why": "Multi-cluster warehouses are an Enterprise edition feature. Resizing a single warehouse works on every edition." }
+  ]
+}
+</script>

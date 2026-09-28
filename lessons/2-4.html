@@ -1,0 +1,316 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Snowflake Fundamentals</span><span>Module 2 · Working with data</span><span>Lesson 2.4</span></div>
+  <h1>Secure data sharing</h1>
+  <p class="lede">Let another team or another company read your data live, without sending a single file. Learn what a share is, who the provider and consumer are, how reader accounts and the Marketplace work, and how secure views let you share only part of a table.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>25 min</span>
+    <span class="badge">Beginner</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain a share, a provider and a consumer in one breath</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Say why shared data is never copied and always current</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Create a share and add a table or secure view to it with SQL</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Know when to use a reader account and what the Marketplace is for</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">Secure data sharing lets one Snowflake account (the provider) give another account (the consumer) live, read-only access to chosen tables and views, with no data copied or moved.</p></div>
+  </div>
+  <p>The old way of sharing data was to export a file, email or upload it, and let the other side load it. By the time they looked at it, it was already out of date, and now two copies existed that could drift apart. A share fixes both problems: there is only ever one copy, the provider's, and the consumer always sees the current version.</p>
+  <ul>
+    <li><b>Share</b>: a named object in the provider account that lists what is shared and with whom.</li>
+    <li><b>Provider</b>: the account that owns the data and creates the share.</li>
+    <li><b>Consumer</b>: the account that reads the shared data. It can query, but never change it.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a glass reading window</h2>
+  <p>A friend from another library wants to read your bank ledger shelf. You do not photocopy it and post it. Instead you put a glass window in the wall. Your friend reads your shelf through the glass whenever she likes. She always sees the shelf as it is right now, because it is the real shelf. She cannot reach through the glass to write in the books, and she cannot take any away. If you want, you frost part of the glass so she sees only some shelves, or only some columns of each index card.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Glass window</b><span>In Snowflake: a share. Live, read-only, nothing copied.</span></div>
+    <div><small>In the library</small><b>Your friend without a library card</b><span>In Snowflake: a reader account. You create it for her, and you pay for her reading time.</span></div>
+    <div><small>In the library</small><b>Frosted glass</b><span>In Snowflake: a secure view. Share only chosen rows and columns.</span></div>
+  </div>
+  <p>The librarians who fetch the books for your friend are her own team, not yours. In Snowflake terms: the consumer uses its own virtual warehouse and pays for that compute. The provider pays only for storing the data, exactly as before.</p>
+</section>
+
+<section class="sec" id="how" data-toc="How it works">
+  <h2>How it works and why it matters</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>Sending files</th><th>Secure data sharing</th></tr></thead>
+      <tbody>
+        <tr><td><b>Copies of the data</b></td><td>One per recipient, drifting apart</td><td>One: the provider's</td></tr>
+        <tr><td><b>How fresh</b></td><td>As old as the last export</td><td>Live; changes appear as they happen</td></tr>
+        <tr><td><b>Can the other side change it</b></td><td>Yes, in their copy</td><td>No; shared objects are read-only</td></tr>
+        <tr><td><b>Stopping access</b></td><td>Impossible once the file is sent</td><td>Remove the account from the share; access ends at once</td></tr>
+        <tr><td><b>Who pays</b></td><td>Both sides store a copy</td><td>Provider pays storage; consumer pays its own compute</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="features">
+    <div class="feature"><b>What you can share</b><span>Tables, secure views, and more. Normal views cannot be shared: only secure views, because a normal view can leak how the data underneath is built.</span><small>GRANT … TO SHARE</small></div>
+    <div class="feature"><b>Reader accounts</b><span>For a customer or partner who has no Snowflake account. The provider creates it, owns it and pays for the compute used in it. Readers can query but not load or change data.</span><small>CREATE MANAGED ACCOUNT</small></div>
+    <div class="feature"><b>Snowflake Marketplace</b><span>A public catalogue of shares from data companies: weather, exchange rates, company registers and more. You “get” a listing and it appears as a database in your account.</span><small>Data Products menu</small></div>
+    <div class="feature"><b>Same region by default</b><span>A share works directly between accounts on the same cloud and region. To share across regions or clouds, the provider replicates the data there first.</span><small>Replication</small></div>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Good to know</div><p>The sample database in your trial, SNOWFLAKE_SAMPLE_DATA, arrives through exactly this mechanism: Snowflake is the provider and your account is the consumer. You have been using a share since Lesson 1.1.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>A global bank holds card transactions for millions of customers. Several outside parties need some of that data, and none of them may see all of it.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Who</th><th>What they need</th><th>How the bank shares it</th></tr></thead>
+      <tbody>
+        <tr><td><b>Fraud analytics partner</b> (has Snowflake)</td><td>Transactions, but no names or card numbers</td><td>Secure view that hides those columns; added to a share; partner's account added as consumer</td></tr>
+        <tr><td><b>Regional audit firm</b> (no Snowflake)</td><td>Only one region's transactions</td><td>Secure view filtered by region; shared to a reader account the bank creates</td></tr>
+        <tr><td><b>Regulator</b></td><td>A monthly summary</td><td>Secure view over an aggregated table; the regulator's own account as consumer</td></tr>
+        <tr><td><b>The bank itself</b></td><td>Exchange rates from a data vendor</td><td>Gets the vendor's listing from the Marketplace; no files to load</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Nothing is exported, so nothing can be lost in transit. When the audit ends, the bank removes the reader account and access stops that second.</p>
+</section>
+
+<section class="sec" id="sql" data-toc="The SQL">
+  <h2>The SQL you will use</h2>
+  <p>The provider side is four steps: make a secure view if you need to hide something, create the share, grant it access, and add the consumer's account. Creating a share needs the ACCOUNTADMIN role by default.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- 1. Frost the glass: a secure view with only the rows and columns to share</span>
+<span class="kw">CREATE SECURE VIEW</span> ledger_db.public.mumbai_txns_v <span class="kw">AS</span>
+  <span class="kw">SELECT</span> txn_id, merchant_type, amount, txn_date
+  <span class="kw">FROM</span> ledger_db.public.card_transactions
+  <span class="kw">WHERE</span> city = 'Mumbai';
+
+<span class="cm">-- 2. Create the share (the window)</span>
+<span class="kw">CREATE SHARE</span> mumbai_share;
+
+<span class="cm">-- 3. Say what can be seen through it: database, schema, then the objects</span>
+<span class="kw">GRANT USAGE ON DATABASE</span> ledger_db <span class="kw">TO SHARE</span> mumbai_share;
+<span class="kw">GRANT USAGE ON SCHEMA</span> ledger_db.public <span class="kw">TO SHARE</span> mumbai_share;
+<span class="kw">GRANT SELECT ON VIEW</span> ledger_db.public.mumbai_txns_v <span class="kw">TO SHARE</span> mumbai_share;
+
+<span class="cm">-- 4. Say who may look through it (organisation name and account name of the consumer)</span>
+<span class="kw">ALTER SHARE</span> mumbai_share <span class="kw">ADD ACCOUNTS</span> = myorg.partner_account;
+
+<span class="cm">-- Check your work</span>
+<span class="kw">SHOW SHARES</span>;
+<span class="kw">DESC SHARE</span> mumbai_share;
+<span class="kw">SHOW GRANTS TO SHARE</span> mumbai_share;</pre></div>
+  <p>On the consumer side, the shared data is turned into a database and then queried like any other. For a partner with no Snowflake account, the provider creates a reader account instead and adds it to the share.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- Consumer: turn the share into a database (run in the consumer account)</span>
+<span class="kw">CREATE DATABASE</span> bank_mumbai <span class="kw">FROM SHARE</span> myorg.bank_account.mumbai_share;
+<span class="kw">SELECT COUNT</span>(*) <span class="kw">FROM</span> bank_mumbai.public.mumbai_txns_v;
+
+<span class="cm">-- Provider: a reader account for a partner without Snowflake (provider pays its compute)</span>
+<span class="kw">CREATE MANAGED ACCOUNT</span> audit_reader
+  ADMIN_NAME = audit_admin, ADMIN_PASSWORD = 'choose-a-strong-password', TYPE = READER;</pre></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>Real shares need two accounts, so this worksheet plays the provider. <code>card_transactions</code> is the full table only the bank can see. <code>share_consumers</code> lists four outside parties and the one city each may see. Writing the query that shows exactly one consumer's slice is the same job a secure view does. Open the <b>Schema</b> tab to see the columns.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: build a share and browse the Marketplace</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Secure data sharing in your trial account</h3>
+      <div class="meta"><span>About 15 min</span><span>Free trial (Enterprise edition)</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>Open a SQL worksheet as ACCOUNTADMIN, point it at the learning database and build the table to share.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE ROLE</span> ACCOUNTADMIN;
+<span class="kw">CREATE WAREHOUSE IF NOT EXISTS</span> learn_wh <span class="kw">WITH</span> WAREHOUSE_SIZE = XSMALL AUTO_SUSPEND = 60 AUTO_RESUME = TRUE;
+<span class="kw">CREATE DATABASE IF NOT EXISTS</span> learn_db;
+<span class="kw">USE WAREHOUSE</span> learn_wh;
+<span class="kw">USE SCHEMA</span> learn_db.public;
+
+<span class="kw">CREATE OR REPLACE TABLE</span> accounts (account_no NUMBER, customer_name VARCHAR, city VARCHAR, balance NUMBER);
+<span class="kw">INSERT INTO</span> accounts <span class="kw">VALUES</span>
+  (1001, 'Asha Rao', 'Mumbai', 52000),
+  (1002, 'Vikram Shah', 'Delhi', 210000),
+  (1003, 'Meera Iyer', 'Chennai', 34500),
+  (1004, 'Divya Kumar', 'Mumbai', 76000),
+  (1005, 'Arjun Das', 'Delhi', 61000);</pre></div>
+        <p class="expect">Expected: “5 rows inserted”.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Frost the glass. Make a secure view that shows Mumbai accounts only and hides customer names. Make a normal view too, so you can see the difference in a moment.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE OR REPLACE SECURE VIEW</span> accounts_mumbai_v <span class="kw">AS</span>
+  <span class="kw">SELECT</span> account_no, city, balance <span class="kw">FROM</span> accounts <span class="kw">WHERE</span> city = 'Mumbai';
+
+<span class="kw">CREATE OR REPLACE VIEW</span> accounts_plain_v <span class="kw">AS</span>
+  <span class="kw">SELECT</span> account_no, city, balance <span class="kw">FROM</span> accounts;
+
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> accounts_mumbai_v;</pre></div>
+        <p class="expect">Expected: 2 rows (1001 and 1004), three columns, no names.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Create the share and grant it the database, the schema and the secure view.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE SHARE</span> learn_share;
+<span class="kw">GRANT USAGE ON DATABASE</span> learn_db <span class="kw">TO SHARE</span> learn_share;
+<span class="kw">GRANT USAGE ON SCHEMA</span> learn_db.public <span class="kw">TO SHARE</span> learn_share;
+<span class="kw">GRANT SELECT ON VIEW</span> learn_db.public.accounts_mumbai_v <span class="kw">TO SHARE</span> learn_share;</pre></div>
+        <p class="expect">Expected: “Share LEARN_SHARE successfully created.” and “Statement executed successfully.” three times.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Now try to share the normal view. Snowflake refuses.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">GRANT SELECT ON VIEW</span> learn_db.public.accounts_plain_v <span class="kw">TO SHARE</span> learn_share;</pre></div>
+        <p class="expect">Expected: an error saying only secure views can be shared. That rule protects the provider: a normal view could reveal the tables and logic behind it.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Inspect the share.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SHOW SHARES</span>;
+<span class="kw">DESC SHARE</span> learn_share;
+<span class="kw">SHOW GRANTS TO SHARE</span> learn_share;</pre></div>
+        <p class="expect">Expected: SHOW SHARES lists LEARN_SHARE with kind OUTBOUND and an empty to-column (no consumers yet). You should also see an INBOUND share, the one that brings SNOWFLAKE_SAMPLE_DATA into your trial. DESC SHARE lists the database, schema and view with their kinds.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Adding a consumer is optional, because it needs a second Snowflake account in the same cloud region. If a colleague has one, ask for their organisation and account name and run the ALTER SHARE below; they can then run the CREATE DATABASE … FROM SHARE from the SQL section. If not, just read the command and move on.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- Only if you have a second account: replace with their org and account name</span>
+<span class="kw">ALTER SHARE</span> learn_share <span class="kw">ADD ACCOUNTS</span> = their_org.their_account;</pre></div>
+        <p class="expect">Expected (if run): “Statement executed successfully.” and the account now appears in the to-column of SHOW SHARES.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Browse the Marketplace. In the Snowsight left menu open <b>Data Products → Marketplace</b> (the menu name can vary slightly between account versions). Search for a free listing, for example weather or currency data, and open it. Read the description and the sample queries. You can select <b>Get</b> to add it as a database to your account; it costs nothing to add a free listing, and querying it uses your own warehouse.</p>
+        <p class="expect">Expected: the listing page shows the provider, the tables included and example SQL. If you get it, a new database appears under Data → Databases.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Clean up. Keep learn_db and learn_wh for the next lesson.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">DROP SHARE</span> learn_share;
+<span class="kw">DROP VIEW</span> accounts_plain_v;
+<span class="kw">DROP VIEW</span> accounts_mumbai_v;
+<span class="kw">DROP TABLE</span> accounts;</pre></div>
+        <p class="expect">Expected: “successfully dropped” four times. Dropping a share removes all consumers' access to it at once.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>A share is a glass window: the consumer reads your live data, nothing is copied, and they can never write. Frost the glass with a secure view to share only some rows or columns, use a reader account for partners without Snowflake, and shop the Marketplace instead of loading files.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Share</dt><dd>A named object in the provider account listing the database objects shared and the accounts allowed to read them.</dd>
+    <dt>Provider</dt><dd>The account that owns the data and creates the share.</dd>
+    <dt>Consumer</dt><dd>The account that reads shared data. Read-only, using its own compute.</dd>
+    <dt>Reader account</dt><dd>A Snowflake account the provider creates and pays for, so a partner without Snowflake can query a share.</dd>
+    <dt>Secure view</dt><dd>A view whose definition is hidden and which can be shared. Used to expose only chosen rows and columns.</dd>
+    <dt>Listing</dt><dd>A share packaged with a description, published privately or on the Marketplace.</dd>
+    <dt>Snowflake Marketplace</dt><dd>The public catalogue of data listings you can add to your account.</dd>
+    <dt>Inbound / outbound</dt><dd>A share you receive is inbound; one you create for others is outbound.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#2-5">2.5 Roles and access control →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "card_transactions": {
+        "columns": [
+          ["txn_id", "NUMBER"],
+          ["card_last4", "VARCHAR", "last 4 digits of the card"],
+          ["customer_name", "VARCHAR"],
+          ["city", "VARCHAR"],
+          ["merchant_type", "VARCHAR"],
+          ["amount", "NUMBER", "in rupees"],
+          ["txn_date", "DATE"]
+        ],
+        "rows": [
+          [1, "4412", "Asha Rao", "Mumbai", "Grocery", 3200, "2026-09-01"],
+          [2, "7781", "Vikram Shah", "Delhi", "Airline", 12500, "2026-09-01"],
+          [3, "9034", "Meera Iyer", "Chennai", "Clothing", 1800, "2026-09-02"],
+          [4, "4412", "Asha Rao", "Mumbai", "Pharmacy", 950, "2026-09-03"],
+          [5, "2260", "Priya Menon", "Bengaluru", "Electronics", 6700, "2026-09-03"],
+          [6, "5519", "Arjun Das", "Delhi", "Food delivery", 640, "2026-09-04"],
+          [7, "1187", "Sneha Pillai", "Chennai", "Electronics", 45000, "2026-09-05"],
+          [8, "2260", "Priya Menon", "Bengaluru", "Food delivery", 480, "2026-09-06"],
+          [9, "6673", "Divya Kumar", "Mumbai", "Electronics", 28900, "2026-09-07"],
+          [10, "7781", "Vikram Shah", "Delhi", "Hotel", 18000, "2026-09-08"],
+          [11, "3345", "Farah Khan", "Mumbai", "Clothing", 7300, "2026-09-09"],
+          [12, "9034", "Meera Iyer", "Chennai", "Fuel", 2500, "2026-09-10"]
+        ]
+      },
+      "share_consumers": {
+        "columns": [
+          ["consumer_name", "VARCHAR"],
+          ["consumer_kind", "VARCHAR", "SNOWFLAKE (own account) or READER"],
+          ["allowed_city", "VARCHAR", "the only city this consumer may see"],
+          ["share_name", "VARCHAR"]
+        ],
+        "rows": [
+          ["Mumbai Fraud Partner", "SNOWFLAKE", "Mumbai", "card_share_mumbai"],
+          ["Delhi Audit Firm", "READER", "Delhi", "card_share_delhi"],
+          ["Chennai Analytics Co", "READER", "Chennai", "card_share_chennai"],
+          ["Bengaluru Regulator Desk", "SNOWFLAKE", "Bengaluru", "card_share_bengaluru"]
+        ]
+      }
+    },
+    "starter": "SELECT txn_id, merchant_type, amount, txn_date\nFROM card_transactions\nWHERE city = 'Delhi'\nORDER BY txn_date",
+    "examples": [
+      { "label": "Full table (provider only)", "sql": "SELECT *\nFROM card_transactions\nORDER BY txn_id" },
+      { "label": "What Delhi sees", "sql": "SELECT txn_id, merchant_type, amount, txn_date\nFROM card_transactions\nWHERE city = 'Delhi'\nORDER BY txn_date" },
+      { "label": "Consumers", "sql": "SELECT consumer_name, consumer_kind, allowed_city\nFROM share_consumers\nORDER BY consumer_name" }
+    ],
+    "challenges": [
+      { "task": "Write the secure-view query for the Mumbai Fraud Partner: only Mumbai rows, and only txn_id, merchant_type, amount and txn_date (no names, no card digits).", "hint": "SELECT the four columns and filter WHERE city = 'Mumbai'.", "answer": "SELECT txn_id, merchant_type, amount, txn_date FROM card_transactions WHERE city = 'Mumbai'" },
+      { "task": "How many consumers use a reader account?", "hint": "COUNT(*) on share_consumers WHERE consumer_kind = 'READER'.", "answer": "SELECT COUNT(*) FROM share_consumers WHERE consumer_kind = 'READER'" },
+      { "task": "For each consumer, how many transactions would they see through their share? Return consumer_name and the count.", "hint": "JOIN share_consumers c to card_transactions t ON t.city = c.allowed_city, then GROUP BY c.consumer_name.", "answer": "SELECT c.consumer_name, COUNT(*) AS txns FROM share_consumers c JOIN card_transactions t ON t.city = c.allowed_city GROUP BY c.consumer_name" }
+    ]
+  },
+  "quiz": [
+    { "q": "When a provider shares a table, what happens to the data?", "options": ["A copy is sent to the consumer account", "Nothing moves; the consumer reads the provider's live data", "It is exported to a file each night"], "answer": 1, "why": "Secure data sharing copies nothing. The consumer queries the one copy in the provider account, so it is always current." },
+    { "q": "Can a consumer update rows in a shared table?", "options": ["Yes, if the provider allows it", "No; shared objects are read-only", "Only through a reader account"], "answer": 1, "why": "Shared objects are always read-only for the consumer. It is a glass window, not a door." },
+    { "q": "A partner has no Snowflake account but must query your share. What do you create?", "options": ["A reader account", "A clone", "A transient table"], "answer": 0, "why": "The provider creates a reader account (a managed account of type READER), owns it and pays for its compute; the partner logs in and queries." },
+    { "q": "You want to share transactions but hide customer names and card numbers. What do you add to the share?", "options": ["The whole table with a comment", "A normal view over the table", "A secure view that selects only the allowed columns"], "answer": 2, "why": "Only secure views can be shared. A secure view hides its definition and lets you pick exactly the rows and columns the consumer sees." },
+    { "q": "Who pays for the compute when a consumer queries shared data?", "options": ["The provider", "The consumer, with its own warehouse", "Snowflake, for free"], "answer": 1, "why": "The consumer runs queries on its own virtual warehouse and pays for that. The provider pays only storage. (Reader accounts are the exception: the provider pays their compute.)" },
+    { "q": "What is the Snowflake Marketplace?", "options": ["A catalogue of data listings you can add to your account", "A shop for buying virtual warehouses", "The place to download Snowsight"], "answer": 0, "why": "The Marketplace is where providers publish listings. Getting a listing adds it as a database in your account, with no files to load." }
+  ]
+}
+</script>

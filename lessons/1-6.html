@@ -1,0 +1,293 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Snowflake Fundamentals</span><span>Module 1 · Foundations</span><span>Lesson 1.6</span></div>
+  <h1>The three layers</h1>
+  <p class="lede">Look under the bonnet: how Snowflake stores data in tiny compressed boxes, how warehouses do the work, and how a front-desk manager plans every query and remembers recent answers.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>25 min</span>
+    <span class="badge">Beginner</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Name the three layers and say what each one does</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain micro-partitions and why a WHERE clause makes queries cheaper</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Describe the result cache and when a query is free</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Prove all of this in your own account with Query History</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">Snowflake is built from three separate layers: database storage (where data lives), query processing (virtual warehouses that do the work) and cloud services (the brain that plans, secures and coordinates everything).</p></div>
+  </div>
+  <p>Lesson 1.2 showed that storage and compute are separate. This lesson adds the third piece and looks inside each layer. Keeping them separate is the reason Snowflake can grow storage, compute and users independently, and why one team’s heavy query never slows another’s.</p>
+  <ul>
+    <li><b>Database storage</b>: your tables, held in cloud storage, compressed and split into micro-partitions.</li>
+    <li><b>Query processing</b>: virtual warehouses (Lesson 1.3) that read the data and compute answers.</li>
+    <li><b>Cloud services</b>: login and security, metadata about every table, the query optimiser and the result cache.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like shelves, librarians and the front-desk manager</h2>
+  <p>In the sky library, the books are not loose on the shelves. They are packed into <b>small labelled boxes</b>, each label saying “books dated 1 to 10 August”. The <b>librarians</b> are the teams who fetch and count books. And at the front desk sits the <b>manager</b>: she checks your ID badge, knows exactly which box holds what, plans the fastest route for the librarians, and, if someone asked the very same question this morning, simply repeats the answer without sending anyone to the shelves.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Labelled boxes on shelves</b><span>In Snowflake: micro-partitions in database storage</span></div>
+    <div><small>In the library</small><b>Teams of librarians</b><span>In Snowflake: virtual warehouses in the query processing layer</span></div>
+    <div><small>In the library</small><b>Front-desk manager</b><span>In Snowflake: the cloud services layer, including the result cache</span></div>
+  </div>
+  <p>Every query passes through all three: the manager checks and plans it, the librarians run it against the boxes, and the manager keeps the answer in case someone asks again.</p>
+</section>
+
+<section class="sec" id="storage" data-toc="Layer 1: storage">
+  <h2>Layer 1: database storage and micro-partitions</h2>
+  <p>When you load a table, Snowflake does not keep it as one giant file. It cuts the rows into <b>micro-partitions</b>: chunks holding 50 to 500 MB of uncompressed data each (much smaller on disk because everything is compressed). Inside each chunk the data is stored <b>by column</b>, not by row, and each column is compressed separately.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Storage idea</th><th>Plain meaning</th><th>Why it helps you</th></tr></thead>
+      <tbody>
+        <tr><td><b>Micro-partitions</b></td><td>Rows are packed into many small boxes, in the order they were loaded</td><td>Snowflake keeps the minimum and maximum value of every column in every box, so it can skip boxes that cannot contain what you asked for. This is called <b>pruning</b>.</td></tr>
+        <tr><td><b>Columnar</b></td><td>Inside a box, all values of one column sit together</td><td>A query that needs 3 columns out of 40 reads only those 3.</td></tr>
+        <tr><td><b>Compressed</b></td><td>Snowflake picks the best compression for each column automatically</td><td>You pay storage on the compressed size, and less data has to be read.</td></tr>
+        <tr><td><b>Immutable</b></td><td>A box is never edited in place; a change writes a new box</td><td>The old boxes are what Time Travel (Lesson 2.2) rewinds to.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>You never manage micro-partitions yourself. What you can do is write queries that let pruning work: filter on the columns your data was loaded in order by, such as a transaction date.</p>
+</section>
+
+<section class="sec" id="compute" data-toc="Layer 2: compute">
+  <h2>Layer 2: query processing with virtual warehouses</h2>
+  <p>This is the layer you already know from Lesson 1.3. A virtual warehouse is a team of librarians: it reads the micro-partitions the manager points it to, does the filtering, joining and summing, and returns the answer. Some things worth remembering:</p>
+  <ul>
+    <li>Warehouses never share work. Two warehouses reading the same table do not slow each other down.</li>
+    <li>A warehouse keeps a copy of the micro-partitions it recently read on its own fast disks. Repeat queries on the same data can be faster while the warehouse stays on. This local copy is lost when the warehouse suspends.</li>
+    <li>Only this layer is billed by the second while running. Storage is billed by the month, and cloud services are usually free (a small charge applies only if they exceed 10% of your daily compute).</li>
+  </ul>
+</section>
+
+<section class="sec" id="services" data-toc="Layer 3: cloud services">
+  <h2>Layer 3: cloud services, the front-desk manager</h2>
+  <p>You never switch this layer on or off; it is always running for every account. It does the jobs a good manager does before and after the librarians move.</p>
+  <div class="features">
+    <div class="feature"><b>Authentication and access control</b><span>Checks who you are (password, SSO, keys) and which ID badge (role) you hold before any query runs.</span><small>Lesson 2.5</small></div>
+    <div class="feature"><b>Metadata</b><span>Remembers every database, table, column, and the min/max of every column in every micro-partition. Some questions, like COUNT(*) on a table, are answered from metadata alone.</span><small>No warehouse needed</small></div>
+    <div class="feature"><b>Query optimiser</b><span>Reads your SQL, decides which micro-partitions to skip and the fastest order to do joins, then hands the plan to the warehouse.</span><small>Automatic</small></div>
+    <div class="feature"><b>Result cache</b><span>Keeps the answer to every query for 24 hours. Run exactly the same query again while the data has not changed, and Snowflake returns the stored answer instantly, with no warehouse time at all.</span><small>Free reruns</small></div>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Result cache rules</div><p>The rerun must be <b>character for character</b> the same query (even upper and lower case matter), the tables must be unchanged, your role must still have access, and the query must not use functions such as CURRENT_TIMESTAMP or RANDOM that give a different answer each time. Every reuse extends the 24-hour clock, up to 31 days from the first run. Any user in the account can benefit, not just the one who ran it first.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>Follow one query through a global bank’s account. A Risk analyst asks for total card spend on 15 August across a table of 2 billion transactions.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Step</th><th>Layer</th><th>What happens</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Cloud services</td><td>Checks the analyst’s role may read <code>analytics_db.cards.transactions</code>.</td></tr>
+        <tr><td>2</td><td>Cloud services</td><td>Looks up the metadata: of 40,000 micro-partitions, only 90 have a date range covering 15 August. The rest are pruned.</td></tr>
+        <tr><td>3</td><td>Query processing</td><td><code>RISK_WH</code> reads only those 90 partitions, and only the <code>amount</code> and <code>txn_date</code> columns, then sums them. Elapsed: about 4 seconds.</td></tr>
+        <tr><td>4</td><td>Cloud services</td><td>Stores the answer in the result cache.</td></tr>
+        <tr><td>5</td><td>Cloud services</td><td>The analyst’s manager runs the same query at lunch. Same answer, returned in well under a second, no warehouse used, no credits spent.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The SQL below is what the analyst ran, plus the two commands you will use in the lab to see the layers at work. <code>USE_CACHED_RESULT</code> switches the result cache off for your session, which is how you prove it exists.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- The analyst's question: the date filter lets pruning skip most micro-partitions</span>
+<span class="kw">SELECT SUM</span>(amount) <span class="kw">AS</span> card_spend
+<span class="kw">FROM</span> analytics_db.cards.transactions
+<span class="kw">WHERE</span> txn_date = '2026-08-15';
+
+<span class="cm">-- Turn the result cache off (or on) for this session only</span>
+<span class="kw">ALTER SESSION SET</span> USE_CACHED_RESULT = <span class="kw">FALSE</span>;
+
+<span class="cm">-- Recent queries with their elapsed time and bytes read: 0 bytes means a cached answer</span>
+<span class="kw">SELECT</span> query_text, total_elapsed_time, bytes_scanned
+<span class="kw">FROM TABLE</span>(information_schema.query_history())
+<span class="kw">ORDER BY</span> start_time <span class="kw">DESC</span>;</pre></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>Two small tables simulate what the front-desk manager sees. <code>micro_partitions</code> lists the boxes of a transactions table with the date range each box holds. <code>query_log</code> lists recent queries, how many partitions each read and whether the result cache answered it (<code>partitions_read</code> is 0 when it did). Open the <b>Schema</b> tab, then try the examples and challenges.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: watch the three layers work</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>See pruning, the result cache and Query History in your trial account</h3>
+      <div class="meta"><span>About 15 min</span><span>Uses about a minute of compute</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>Open a SQL worksheet and pick your warehouse. If you did not create <code>learn_wh</code> in Lesson 1.5, the first line makes it:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE WAREHOUSE IF NOT EXISTS</span> learn_wh <span class="kw">WAREHOUSE_SIZE</span> = XSMALL <span class="kw">AUTO_SUSPEND</span> = 60 <span class="kw">AUTO_RESUME</span> = <span class="kw">TRUE</span>;
+<span class="kw">USE WAREHOUSE</span> learn_wh;
+<span class="kw">SHOW WAREHOUSES</span>;</pre></div>
+        <p class="expect">Expected: a list with at least <code>COMPUTE_WH</code> and <code>LEARN_WH</code>. This is the query processing layer: each row is one team of librarians.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Ask a real question of the 1.5 million orders in the sample database. Note the elapsed time shown beside the results:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> o_orderpriority <span class="kw">AS</span> priority, <span class="kw">COUNT</span>(*) <span class="kw">AS</span> orders, <span class="kw">SUM</span>(o_totalprice) <span class="kw">AS</span> total_value
+<span class="kw">FROM</span> snowflake_sample_data.tpch_sf1.orders
+<span class="kw">GROUP BY</span> o_orderpriority
+<span class="kw">ORDER BY</span> priority;</pre></div>
+        <p class="expect">Expected: 5 rows (1-URGENT to 5-LOW), each with about 300,000 orders. The first run takes a second or two, longer if the warehouse had to wake up.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Run <b>exactly</b> the same query again (select the same text and press Run). Then look at the timing.</p>
+        <p class="expect">Expected: the same 5 rows, but almost instantly (typically well under 100 ms). The front-desk manager repeated the answer; no librarian moved.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Prove it from the manager’s own records. This lists your recent queries with elapsed milliseconds and bytes read from storage:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> query_text, total_elapsed_time <span class="kw">AS</span> ms, bytes_scanned
+<span class="kw">FROM TABLE</span>(information_schema.query_history())
+<span class="kw">WHERE</span> query_text <span class="kw">LIKE</span> '%o_orderpriority%'
+<span class="kw">ORDER BY</span> start_time <span class="kw">DESC</span>;</pre></div>
+        <p class="expect">Expected: two rows for the orders query. The newer one has <code>bytes_scanned</code> = 0 and a tiny <code>ms</code>: it came from the result cache. The older one scanned tens of megabytes. (Your own history query may also appear in the list; ignore it.)</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Now switch the cache off for your session and rerun the orders query from step 2. Then switch it back on.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">ALTER SESSION SET</span> USE_CACHED_RESULT = <span class="kw">FALSE</span>;
+<span class="cm">-- rerun the orders query from step 2 here, then:</span>
+<span class="kw">ALTER SESSION SET</span> USE_CACHED_RESULT = <span class="kw">TRUE</span>;</pre></div>
+        <p class="expect">Expected: with the cache off, the query goes back to the warehouse and takes a second or so again, and its <code>bytes_scanned</code> in Query History is above 0.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Finally, see pruning in the Query Profile. In the left menu open <b>Monitoring → Query History</b> (the exact label can vary by account), select the orders query from step 2, then open the <b>Query Profile</b> tab. Find the <b>TableScan</b> box and read <b>Partitions scanned</b> and <b>Partitions total</b>.</p>
+        <p class="expect">Expected: the profile shows how many micro-partitions the table has and how many were read. For this query with no WHERE clause they are equal. Add <code>WHERE o_orderdate = '1995-01-01'</code> to the query, run it, and compare: with a filter, Snowflake can skip partitions whose date range does not include that day.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Let the warehouse sleep:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">ALTER WAREHOUSE</span> learn_wh <span class="kw">SUSPEND</span>;</pre></div>
+        <p class="expect">Expected: “statement executed successfully”. Nothing else in this lab costs money once the warehouse is off.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>Storage keeps data in small compressed boxes, warehouses do the work, and the cloud services manager plans, secures and remembers. Filter well so boxes are skipped, and rerun identical queries for free within 24 hours.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Database storage layer</dt><dd>Where table data lives, in compressed columnar micro-partitions on cloud storage.</dd>
+    <dt>Micro-partition</dt><dd>A chunk of a table holding 50 to 500 MB of uncompressed data, with min/max metadata per column.</dd>
+    <dt>Pruning</dt><dd>Skipping micro-partitions that cannot contain the rows a query asks for.</dd>
+    <dt>Columnar storage</dt><dd>Storing all values of one column together, so a query reads only the columns it needs.</dd>
+    <dt>Query processing layer</dt><dd>The virtual warehouses that execute queries.</dd>
+    <dt>Cloud services layer</dt><dd>The always-on layer for login, security, metadata, query planning and the result cache.</dd>
+    <dt>Query optimiser</dt><dd>The part of cloud services that turns your SQL into the fastest plan.</dd>
+    <dt>Result cache</dt><dd>Stored query answers reused for 24 hours (extended on reuse, up to 31 days) when the query and data are unchanged.</dd>
+    <dt>Query History</dt><dd>The Snowsight page, and the query_history() function, listing past queries with timing and bytes scanned.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#2-1">2.1 Loading data →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "micro_partitions": {
+        "columns": [
+          ["partition_id", "NUMBER"],
+          ["min_txn_date", "DATE", "earliest transaction in the box"],
+          ["max_txn_date", "DATE", "latest transaction in the box"],
+          ["row_count", "NUMBER"],
+          ["size_mb", "NUMBER", "uncompressed"]
+        ],
+        "rows": [
+          [1, "2026-07-01", "2026-07-10", 48000, 60],
+          [2, "2026-07-11", "2026-07-20", 51000, 64],
+          [3, "2026-07-21", "2026-07-31", 55000, 70],
+          [4, "2026-08-01", "2026-08-10", 47000, 59],
+          [5, "2026-08-11", "2026-08-20", 62000, 78],
+          [6, "2026-08-21", "2026-08-31", 58000, 73],
+          [7, "2026-09-01", "2026-09-10", 44000, 55],
+          [8, "2026-09-11", "2026-09-20", 53000, 66]
+        ]
+      },
+      "query_log": {
+        "columns": [
+          ["query_id", "NUMBER"],
+          ["team", "VARCHAR"],
+          ["warehouse_name", "VARCHAR"],
+          ["run_seconds", "NUMBER"],
+          ["partitions_read", "NUMBER", "0 when the result cache answered"],
+          ["cache_hit", "VARCHAR", "YES or NO"],
+          ["run_date", "DATE"]
+        ],
+        "rows": [
+          [1, "RISK", "RISK_WH", 42, 8, "NO", "2026-09-21"],
+          [2, "RISK", "RISK_WH", 1, 0, "YES", "2026-09-21"],
+          [3, "FINANCE", "FIN_WH", 18, 3, "NO", "2026-09-21"],
+          [4, "FRAUD", "FRAUD_WH", 6, 1, "NO", "2026-09-21"],
+          [5, "FINANCE", "FIN_WH", 1, 0, "YES", "2026-09-22"],
+          [6, "FRAUD", "FRAUD_WH", 9, 2, "NO", "2026-09-22"],
+          [7, "RISK", "RISK_WH", 55, 8, "NO", "2026-09-22"],
+          [8, "COMPLIANCE", "FIN_WH", 12, 2, "NO", "2026-09-22"],
+          [9, "FRAUD", "FRAUD_WH", 1, 0, "YES", "2026-09-23"],
+          [10, "FINANCE", "FIN_WH", 21, 3, "NO", "2026-09-23"],
+          [11, "COMPLIANCE", "FIN_WH", 1, 0, "YES", "2026-09-23"],
+          [12, "RISK", "RISK_WH", 1, 0, "YES", "2026-09-23"]
+        ]
+      }
+    },
+    "starter": "SELECT partition_id, min_txn_date, max_txn_date\nFROM micro_partitions\nWHERE min_txn_date <= '2026-08-15' AND max_txn_date >= '2026-08-15'",
+    "examples": [
+      { "label": "All the boxes", "sql": "SELECT *\nFROM micro_partitions\nORDER BY partition_id" },
+      { "label": "Pruning: boxes for one day", "sql": "SELECT partition_id, min_txn_date, max_txn_date\nFROM micro_partitions\nWHERE min_txn_date <= '2026-08-15' AND max_txn_date >= '2026-08-15'" },
+      { "label": "Slowest queries", "sql": "SELECT team, warehouse_name, run_seconds, partitions_read, cache_hit\nFROM query_log\nORDER BY run_seconds DESC" }
+    ],
+    "challenges": [
+      { "task": "Which micro-partitions hold any data from August 2026? Show the partition_id only.", "hint": "A box overlaps August if its max_txn_date >= '2026-08-01' AND its min_txn_date <= '2026-08-31'.", "answer": "SELECT partition_id FROM micro_partitions WHERE max_txn_date >= '2026-08-01' AND min_txn_date <= '2026-08-31'" },
+      { "task": "How many queries were answered by the result cache and how many were not? Show cache_hit and the count.", "hint": "COUNT(*) with GROUP BY cache_hit.", "answer": "SELECT cache_hit, COUNT(*) FROM query_log GROUP BY cache_hit" },
+      { "task": "What is the average run time in seconds for each warehouse? Show warehouse_name and the average.", "hint": "AVG(run_seconds) with GROUP BY warehouse_name.", "answer": "SELECT warehouse_name, AVG(run_seconds) FROM query_log GROUP BY warehouse_name" }
+    ]
+  },
+  "quiz": [
+    { "q": "Which layer holds the result cache?", "options": ["Database storage", "Query processing", "Cloud services"], "answer": 2, "why": "The cloud services layer is the front-desk manager. It keeps every query result for 24 hours and hands it back for identical reruns." },
+    { "q": "How much uncompressed data does one micro-partition hold?", "options": ["About 1 KB", "50 to 500 MB", "Exactly 1 GB"], "answer": 1, "why": "Micro-partitions hold 50 to 500 MB of uncompressed data. On disk they are smaller because every column is compressed." },
+    { "q": "An analyst reruns the exact same query 2 hours later and nobody has changed the table. What happens?", "options": ["The warehouse reads all the data again", "Snowflake returns the stored answer instantly, using no warehouse time", "The query fails because results expire after 1 hour"], "answer": 1, "why": "Same query text, same data, within 24 hours: the result cache answers it. No warehouse credits are spent." },
+    { "q": "Why does WHERE txn_date = '2026-08-15' make a query on a huge table cheaper?", "options": ["Snowflake skips micro-partitions whose date range cannot include that day", "Snowflake deletes the other rows", "It does not; every query reads everything"], "answer": 0, "why": "Metadata records the min and max of each column per micro-partition. The optimiser prunes boxes that cannot match, so the warehouse reads far less." },
+    { "q": "Which layer do you pay for by the second while it runs?", "options": ["Cloud services", "Query processing (virtual warehouses)", "Database storage"], "answer": 1, "why": "Warehouses are billed per second while running. Storage is billed monthly by compressed size, and cloud services are normally free unless they exceed 10% of daily compute." },
+    { "q": "Which of these would stop the result cache from being reused?", "options": ["Changing one letter of the query text", "Running it from a different worksheet", "Waiting 5 minutes"], "answer": 0, "why": "The query must match character for character. Different worksheets and short waits are fine, as long as the data is unchanged and the 24-hour window has not passed." }
+  ]
+}
+</script>

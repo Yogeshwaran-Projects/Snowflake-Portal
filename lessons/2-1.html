@@ -1,0 +1,313 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Snowflake Fundamentals</span><span>Module 2 · Working with data</span><span>Lesson 2.1</span></div>
+  <h1>Loading data</h1>
+  <p class="lede">How files get from a bank’s systems into Snowflake tables: stages, file formats, the COPY INTO command, Snowpipe for a steady stream, and plain INSERT for a few rows.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 min</span>
+    <span class="badge">Beginner</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain what a stage is and name the four kinds</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Choose between CSV, JSON and Parquet, and describe a file with a file format</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Load files with COPY INTO and read its result table</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Say when to use PUT, the Snowsight upload, Snowpipe or INSERT</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">Loading data means moving files into a stage (a holding area Snowflake can see), then running COPY INTO to read those files into a table. Snowpipe does the COPY automatically as new files arrive.</p></div>
+  </div>
+  <p>Almost every Snowflake project starts here. The bank’s core systems produce files every night (or every minute), and someone has to get them into tables before anyone can query them. The three moving parts are always the same:</p>
+  <ul>
+    <li><b>Stage</b>: where the files wait. Inside Snowflake (internal) or in your own cloud bucket (external).</li>
+    <li><b>File format</b>: a description of the files: CSV or JSON, which separator, whether there is a header row.</li>
+    <li><b>COPY INTO</b>: the command that reads staged files into a table, checking every row against the column types.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a loading dock</h2>
+  <p>New books arrive at the sky library in trucks. They do not go straight onto shelves; they wait at the <b>loading dock</b>. A note on each crate says how it is packed (“one book per line, titles separated by commas, first line is the packing list”). Then the librarians <b>unload the crates onto the shelves</b>, rejecting any book that does not fit the shelf. For a supplier who delivers all day long, the library installs a <b>conveyor belt</b> that unloads each crate the moment it lands.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Loading dock</b><span>In Snowflake: a stage holding the files</span></div>
+    <div><small>In the library</small><b>Unloading crates onto shelves</b><span>In Snowflake: COPY INTO reading files into a table</span></div>
+    <div><small>In the library</small><b>Conveyor belt</b><span>In Snowflake: Snowpipe loading files automatically as they arrive</span></div>
+  </div>
+  <p>The packing note is the <b>file format</b>. Without it the librarians would not know where one title ends and the next begins.</p>
+</section>
+
+<section class="sec" id="stages" data-toc="Stages">
+  <h2>Stages: four kinds of loading dock</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Stage</th><th>You write</th><th>Where files live</th><th>Use it when</th></tr></thead>
+      <tbody>
+        <tr><td><b>User stage</b></td><td><code>@~</code></td><td>Inside Snowflake, private to you</td><td>You alone load files into several tables. Cannot be dropped or given a file format.</td></tr>
+        <tr><td><b>Table stage</b></td><td><code>@%customers</code></td><td>Inside Snowflake, attached to one table</td><td>Several people load one table. Cannot be granted separately.</td></tr>
+        <tr><td><b>Named internal stage</b></td><td><code>@txn_stage</code></td><td>Inside Snowflake, a real object you create</td><td>Regular loads by many people into many tables. The usual choice.</td></tr>
+        <tr><td><b>Named external stage</b></td><td><code>@s3_txn_stage</code></td><td>Your bucket on S3, Azure Blob or Google Cloud Storage</td><td>Files already land in your cloud bucket. Snowflake reads them in place; nothing is copied into Snowflake until COPY runs.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Files on internal stages count as Snowflake storage. Files on external stages stay in your bucket and are billed by your cloud provider. Both are listed with the same command: <code>LIST @stage_name;</code></p>
+</section>
+
+<section class="sec" id="formats" data-toc="File formats">
+  <h2>File formats: CSV, JSON, Parquet</h2>
+  <div class="features">
+    <div class="feature"><b>CSV</b><span>Plain text, one row per line, columns separated by a comma (or a pipe, or a tab). What most bank batch systems export. Needs you to say the separator and whether to skip a header.</span><small>TYPE = 'CSV'</small></div>
+    <div class="feature"><b>JSON</b><span>Nested text with names and values. What APIs and event streams send, such as card authorisation messages. Loads into a VARIANT column.</span><small>TYPE = 'JSON'</small></div>
+    <div class="feature"><b>Parquet</b><span>A compact binary format that already stores data by column with types. Common from data lakes and Spark jobs. Fast to load, smaller to store.</span><small>TYPE = 'PARQUET'</small></div>
+    <div class="feature"><b>Also supported</b><span>Avro, ORC and XML. Compressed files (.gz and others) are detected and unzipped automatically.</span><small>Less common</small></div>
+  </div>
+  <p>A <b>named file format</b> saves these choices once so every COPY and stage can reuse them:</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE FILE FORMAT</span> csv_with_header
+  <span class="kw">TYPE</span> = 'CSV'
+  <span class="kw">FIELD_DELIMITER</span> = ','
+  <span class="kw">SKIP_HEADER</span> = 1
+  <span class="kw">NULL_IF</span> = ('', 'NULL');</pre></div>
+</section>
+
+<section class="sec" id="methods" data-toc="Ways to load">
+  <h2>Ways to get data in</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Method</th><th>What it does</th><th>Good for</th></tr></thead>
+      <tbody>
+        <tr><td><b>PUT</b> (SnowSQL or the Snowflake CLI)</td><td>Uploads a file from your laptop to an internal stage. Runs from a command-line tool, not from a Snowsight worksheet.</td><td>Engineers scripting loads from a server or laptop</td></tr>
+        <tr><td><b>Snowsight “Load data”</b></td><td>A point-and-click upload: pick a file, pick or create a table, done. Up to 250 files of up to 250 MB each. It stages the file and runs COPY for you.</td><td>One-off files, quick tests, reference data</td></tr>
+        <tr><td><b>COPY INTO</b></td><td>Reads every new file on a stage into a table. Remembers which files it has loaded for 64 days, so rerunning it never loads the same file twice.</td><td>Scheduled batch loads, the workhorse</td></tr>
+        <tr><td><b>Snowpipe</b></td><td>A pipe object wrapping a COPY. When a file lands in the bucket, a cloud notification triggers the load within about a minute. Uses Snowflake’s own serverless compute, so you do not run a warehouse for it.</td><td>Continuous feeds: card events, payments, logs</td></tr>
+        <tr><td><b>INSERT</b></td><td>Writes rows you type in SQL, or the result of a SELECT.</td><td>A handful of rows, lookups, fixes. Not for millions of rows.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Good to know</div><p>COPY INTO needs a running warehouse and is billed like any query. Snowpipe is billed by the amount of data it loads instead. Both write a result table telling you, file by file, how many rows loaded and how many failed; always read it.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>A global bank’s core banking system drops a pipe-separated file of the day’s transactions into an S3 bucket every night at 02:00. Card authorisations arrive as JSON files every few seconds. Here is the real SQL behind both flows.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- 1. Describe the nightly file once</span>
+<span class="kw">CREATE FILE FORMAT</span> raw_db.core_banking.txn_csv
+  <span class="kw">TYPE</span> = 'CSV' <span class="kw">FIELD_DELIMITER</span> = '|' <span class="kw">SKIP_HEADER</span> = 1;
+
+<span class="cm">-- 2. Point an external stage at the bucket (credentials are usually via a storage integration)</span>
+<span class="kw">CREATE STAGE</span> raw_db.core_banking.txn_stage
+  <span class="kw">URL</span> = 's3://bank-landing/transactions/'
+  <span class="kw">STORAGE_INTEGRATION</span> = s3_landing_int
+  <span class="kw">FILE_FORMAT</span> = txn_csv;
+
+<span class="cm">-- 3. Nightly batch: load whatever is new. Already-loaded files are skipped automatically.</span>
+<span class="kw">COPY INTO</span> raw_db.core_banking.transactions
+  <span class="kw">FROM</span> @raw_db.core_banking.txn_stage
+  <span class="kw">PATTERN</span> = '.*txns_.*[.]csv'
+  <span class="kw">ON_ERROR</span> = 'ABORT_STATEMENT';
+
+<span class="cm">-- 4. Continuous feed: Snowpipe loads each JSON file as it lands</span>
+<span class="kw">CREATE PIPE</span> raw_db.cards.card_events_pipe <span class="kw">AUTO_INGEST</span> = <span class="kw">TRUE AS</span>
+  <span class="kw">COPY INTO</span> raw_db.cards.card_events
+  <span class="kw">FROM</span> @raw_db.cards.card_stage
+  <span class="kw">FILE_FORMAT</span> = (<span class="kw">TYPE</span> = 'JSON');
+
+<span class="cm">-- 5. A few reference rows by hand</span>
+<span class="kw">INSERT INTO</span> raw_db.core_banking.branches (branch_code, branch_name, city)
+<span class="kw">VALUES</span> ('MUM001', 'Fort', 'Mumbai'), ('DEL002', 'Connaught Place', 'Delhi');</pre></div>
+  <p><code>ON_ERROR</code> decides what happens to bad rows: <code>ABORT_STATEMENT</code> (the default) stops the whole load, <code>CONTINUE</code> loads the good rows and skips the bad ones, and <code>SKIP_FILE</code> drops any file that has an error. A bank usually aborts and investigates, because a silently missing transaction is worse than a late file.</p>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>The <code>load_history</code> table is the kind of log a data engineer watches every morning: one row per file, which stage and method brought it in, and how many rows loaded or failed. Open the <b>Schema</b> tab, run the examples, then solve the challenges.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: load real files with COPY INTO</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Load Snowflake’s public tutorial files from S3, no upload needed</h3>
+      <div class="meta"><span>About 20 min</span><span>Uses a few seconds of compute</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>Open a SQL worksheet and set your context. The files we load are the ones Snowflake’s own tutorial uses, in a public bucket, so no cloud credentials are needed:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE WAREHOUSE IF NOT EXISTS</span> learn_wh <span class="kw">WAREHOUSE_SIZE</span> = XSMALL <span class="kw">AUTO_SUSPEND</span> = 60 <span class="kw">AUTO_RESUME</span> = <span class="kw">TRUE</span>;
+<span class="kw">CREATE DATABASE IF NOT EXISTS</span> learn_db;
+<span class="kw">USE WAREHOUSE</span> learn_wh;
+<span class="kw">USE SCHEMA</span> learn_db.public;</pre></div>
+        <p class="expect">Expected: “statement executed successfully” for each line.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Create the target shelf, the packing note and the loading dock. The tutorial files are pipe-separated with a header row:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE OR REPLACE TABLE</span> contacts (
+  id <span class="kw">INTEGER</span>, last_name <span class="kw">STRING</span>, first_name <span class="kw">STRING</span>, company <span class="kw">STRING</span>, email <span class="kw">STRING</span>,
+  workphone <span class="kw">STRING</span>, cellphone <span class="kw">STRING</span>, streetaddress <span class="kw">STRING</span>, city <span class="kw">STRING</span>, postalcode <span class="kw">STRING</span>);
+
+<span class="kw">CREATE OR REPLACE FILE FORMAT</span> pipe_csv
+  <span class="kw">TYPE</span> = 'CSV' <span class="kw">FIELD_DELIMITER</span> = '|' <span class="kw">SKIP_HEADER</span> = 1;
+
+<span class="kw">CREATE OR REPLACE STAGE</span> docs_stage
+  <span class="kw">URL</span> = 's3://snowflake-docs'
+  <span class="kw">FILE_FORMAT</span> = pipe_csv;
+
+<span class="kw">LIST</span> @docs_stage/tutorials/dataloading/;</pre></div>
+        <p class="expect">Expected: a list of files including <code>contacts1.csv</code> to <code>contacts5.csv</code> and <code>contacts.json</code>, each with its size. You have just looked at the loading dock without moving anything.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Unload one crate onto the shelf:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">COPY INTO</span> contacts
+  <span class="kw">FROM</span> @docs_stage/tutorials/dataloading/contacts1.csv
+  <span class="kw">ON_ERROR</span> = 'skip_file';</pre></div>
+        <p class="expect">Expected: one result row: <code>contacts1.csv</code>, status <code>LOADED</code>, rows_parsed 5, rows_loaded 5.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Now load every file matching a pattern. One of them is deliberately broken:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">COPY INTO</span> contacts
+  <span class="kw">FROM</span> @docs_stage/tutorials/dataloading/
+  <span class="kw">PATTERN</span> = '.*contacts[1-5].csv'
+  <span class="kw">ON_ERROR</span> = 'skip_file';</pre></div>
+        <p class="expect">Expected: 4 rows. <code>contacts2</code>, <code>contacts4</code> and <code>contacts5</code> are <code>LOADED</code> (5, 5 and 6 rows). <code>contacts3</code> is <code>LOAD_FAILED</code> with an error about the number of columns. <code>contacts1</code> is missing from the list on purpose: COPY remembers it was loaded in step 3 and skips it, which is how reruns never double-load.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Check the shelf, then add two rows by hand with INSERT:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT COUNT</span>(*) <span class="kw">AS</span> loaded_rows <span class="kw">FROM</span> contacts;
+
+<span class="kw">INSERT INTO</span> contacts (id, last_name, first_name, company, email, city)
+<span class="kw">VALUES</span> (101, 'Rao', 'Asha', 'Fort Branch', 'asha.rao@example.com', 'Mumbai'),
+       (102, 'Shah', 'Vikram', 'CP Branch', 'vikram.shah@example.com', 'Delhi');
+
+<span class="kw">SELECT</span> id, first_name, last_name, city <span class="kw">FROM</span> contacts <span class="kw">ORDER BY</span> id <span class="kw">DESC LIMIT</span> 3;</pre></div>
+        <p class="expect">Expected: the count is 21 (5 + 5 + 5 + 6). After the INSERT, the last query shows Vikram Shah (102) and Asha Rao (101) at the top.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Optional: try the point-and-click route. On your computer create a text file called <code>branches.csv</code> containing:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre>branch_code,branch_name,city
+MUM001,Fort,Mumbai
+DEL002,Connaught Place,Delhi
+CHE003,Anna Salai,Chennai</pre></div>
+        <p>In Snowsight open <b>Data → Databases → LEARN_DB → PUBLIC</b>, then use <b>Create → Table → From File</b> (on some accounts it is <b>Ingestion → Add Data → Load data into a Table</b>). Pick the file, name the table <code>branches</code>, keep the header option on, and load. Snowflake stages the file and runs COPY for you.</p>
+        <p class="expect">Expected: a new <code>branches</code> table with 3 rows. <code>SELECT * FROM branches;</code> shows Fort, Connaught Place and Anna Salai.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Tidy up. The external stage stored nothing inside Snowflake, so the only cost was a few seconds of warehouse time:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">DROP STAGE IF EXISTS</span> docs_stage;
+<span class="kw">DROP FILE FORMAT IF EXISTS</span> pipe_csv;
+<span class="kw">DROP TABLE IF EXISTS</span> contacts;
+<span class="kw">DROP TABLE IF EXISTS</span> branches;
+<span class="kw">ALTER WAREHOUSE</span> learn_wh <span class="kw">SUSPEND</span>;</pre></div>
+        <p class="expect">Expected: “statement executed successfully” for each. Keep <code>learn_db</code> for the next lesson.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>Files wait on a stage, a file format describes them, COPY INTO unloads them into a table and never loads the same file twice. Snowpipe is COPY on a conveyor belt; INSERT is for a few rows by hand.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Stage</dt><dd>A holding area for files that Snowflake can read. Internal (in Snowflake) or external (your cloud bucket).</dd>
+    <dt>User / table / named stage</dt><dd>The three internal stages: @~ for you, @%table for one table, @name for a shared object you create.</dd>
+    <dt>External stage</dt><dd>A named stage pointing at S3, Azure Blob or Google Cloud Storage.</dd>
+    <dt>File format</dt><dd>A description of the files: type, delimiter, header, null handling. Can be saved as a named object.</dd>
+    <dt>PUT</dt><dd>The command that uploads a local file to an internal stage. Runs from SnowSQL or the Snowflake CLI, not from Snowsight.</dd>
+    <dt>COPY INTO</dt><dd>The command that loads staged files into a table and reports per-file results.</dd>
+    <dt>Load metadata</dt><dd>Snowflake’s 64-day memory of which files a table has already loaded, so COPY skips them.</dd>
+    <dt>ON_ERROR</dt><dd>The COPY option deciding whether bad rows abort the load, are skipped, or drop their whole file.</dd>
+    <dt>Snowpipe</dt><dd>A pipe object that runs COPY automatically when new files arrive, on Snowflake-managed compute.</dd>
+    <dt>Parquet</dt><dd>A compact binary, column-oriented file format common in data lakes.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#2-2">2.2 Time Travel &amp; Fail-safe →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "load_history": {
+        "columns": [
+          ["load_id", "NUMBER"],
+          ["file_name", "VARCHAR"],
+          ["stage_name", "VARCHAR"],
+          ["file_format", "VARCHAR", "CSV, JSON or PARQUET"],
+          ["load_method", "VARCHAR", "COPY or SNOWPIPE"],
+          ["rows_loaded", "NUMBER"],
+          ["rows_failed", "NUMBER"],
+          ["load_status", "VARCHAR", "LOADED, PARTIALLY_LOADED or LOAD_FAILED"],
+          ["load_date", "DATE"]
+        ],
+        "rows": [
+          [1, "txns_2026_09_01.csv", "@txn_stage", "CSV", "COPY", 120000, 0, "LOADED", "2026-09-01"],
+          [2, "txns_2026_09_02.csv", "@txn_stage", "CSV", "COPY", 118500, 0, "LOADED", "2026-09-02"],
+          [3, "cards_2026_09_02.json", "@card_stage", "JSON", "SNOWPIPE", 40200, 0, "LOADED", "2026-09-02"],
+          [4, "txns_2026_09_03.csv", "@txn_stage", "CSV", "COPY", 0, 350, "LOAD_FAILED", "2026-09-03"],
+          [5, "cards_2026_09_03.json", "@card_stage", "JSON", "SNOWPIPE", 39800, 0, "LOADED", "2026-09-03"],
+          [6, "branches.csv", "@ref_stage", "CSV", "COPY", 1200, 0, "LOADED", "2026-09-03"],
+          [7, "txns_2026_09_03_fixed.csv", "@txn_stage", "CSV", "COPY", 121300, 0, "LOADED", "2026-09-04"],
+          [8, "cards_2026_09_04.json", "@card_stage", "JSON", "SNOWPIPE", 41000, 12, "PARTIALLY_LOADED", "2026-09-04"],
+          [9, "loans_q3.parquet", "@loan_stage", "PARQUET", "COPY", 8600, 0, "LOADED", "2026-09-05"],
+          [10, "txns_2026_09_05.csv", "@txn_stage", "CSV", "COPY", 119900, 0, "LOADED", "2026-09-05"],
+          [11, "cards_2026_09_05.json", "@card_stage", "JSON", "SNOWPIPE", 40500, 0, "LOADED", "2026-09-05"],
+          [12, "fx_rates.csv", "@ref_stage", "CSV", "COPY", 180, 0, "LOADED", "2026-09-05"]
+        ]
+      }
+    },
+    "starter": "SELECT file_name, load_method, rows_loaded, rows_failed, load_status\nFROM load_history\nORDER BY load_date, load_id",
+    "examples": [
+      { "label": "All loads", "sql": "SELECT file_name, load_method, rows_loaded, rows_failed, load_status\nFROM load_history\nORDER BY load_date, load_id" },
+      { "label": "Rows per day", "sql": "SELECT load_date, SUM(rows_loaded) AS rows_loaded\nFROM load_history\nGROUP BY load_date\nORDER BY load_date" },
+      { "label": "Files by format", "sql": "SELECT file_format, COUNT(*) AS files, SUM(rows_loaded) AS rows_loaded\nFROM load_history\nGROUP BY file_format\nORDER BY rows_loaded DESC" }
+    ],
+    "challenges": [
+      { "task": "How many rows did each load method bring in? Show load_method and the total rows_loaded.", "hint": "SUM(rows_loaded) with GROUP BY load_method.", "answer": "SELECT load_method, SUM(rows_loaded) FROM load_history GROUP BY load_method" },
+      { "task": "Which files did not load cleanly? Show file_name and load_status for every row whose status is not LOADED.", "hint": "WHERE load_status <> 'LOADED' (the <> means 'not equal').", "answer": "SELECT file_name, load_status FROM load_history WHERE load_status <> 'LOADED'" },
+      { "task": "How many files came through each stage? Show stage_name and the count.", "hint": "COUNT(*) with GROUP BY stage_name.", "answer": "SELECT stage_name, COUNT(*) FROM load_history GROUP BY stage_name" }
+    ]
+  },
+  "quiz": [
+    { "q": "In the library analogy, what is a stage?", "options": ["The loading dock where crates wait", "The shelf where books are stored", "The librarian who counts books"], "answer": 0, "why": "A stage holds files before they are loaded. COPY INTO is the act of unloading them onto the shelf (table)." },
+    { "q": "Which command reads staged files into a table?", "options": ["PUT", "COPY INTO", "LIST"], "answer": 1, "why": "PUT uploads a file to an internal stage, LIST shows what is on a stage, and COPY INTO loads the files into a table." },
+    { "q": "You rerun last night’s COPY INTO by mistake. What happens to files it already loaded?", "options": ["They are loaded again, creating duplicates", "They are skipped because Snowflake remembers them for 64 days", "The table is emptied first"], "answer": 1, "why": "COPY keeps load metadata per table for 64 days and skips files it has already loaded, unless you set FORCE = TRUE." },
+    { "q": "Card authorisation messages arrive as JSON files every few seconds. Which tool fits best?", "options": ["INSERT statements", "The Snowsight Load data button", "Snowpipe"], "answer": 2, "why": "Snowpipe is the conveyor belt: it loads each file automatically as it lands, using Snowflake-managed compute." },
+    { "q": "Where do the files of an external stage live?", "options": ["Inside Snowflake storage", "In your own cloud bucket (S3, Azure Blob or Google Cloud Storage)", "On your laptop"], "answer": 1, "why": "An external stage only points at your bucket. Snowflake reads the files there; nothing is copied until COPY INTO runs." },
+    { "q": "Which PUT statement is true?", "options": ["PUT runs from a Snowsight worksheet", "PUT runs from SnowSQL or the Snowflake CLI to upload a local file to an internal stage", "PUT loads a file straight into a table"], "answer": 1, "why": "PUT is a client-side command that copies a local file to a stage. Snowsight offers the Load data button instead. Loading into the table is still COPY INTO’s job." }
+  ]
+}
+</script>

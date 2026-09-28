@@ -1,0 +1,324 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Snowflake Fundamentals</span><span>Module 3 · AI and development</span><span>Lesson 3.2</span></div>
+  <h1>Cortex AI functions</h1>
+  <p class="lede">Ask an AI to read, judge, sort, summarise and translate text straight from SQL, without the data ever leaving Snowflake.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>35 min</span>
+    <span class="badge">Intermediate</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain what Snowflake Cortex is and why a bank is allowed to use it</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Call AI_SENTIMENT, AI_CLASSIFY, AI_SUMMARIZE_AGG, AI_TRANSLATE and AI_COMPLETE in SQL</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Tell apart Cortex AI functions, Cortex Analyst, Cortex Search and Cortex Agents</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Say how AI usage is billed and what cross-region inference means</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">Snowflake Cortex is the set of AI features built into Snowflake. Cortex AI functions are SQL functions that send text to a large language model (LLM) running inside Snowflake and return the answer as a column.</p></div>
+  </div>
+  <p>An <b>LLM</b> (large language model) is the kind of AI behind chat assistants. It can read a sentence and tell you what it means, how the writer feels, which category it belongs to, or say it again in another language. Normally you would copy your data into a separate AI tool to get that. With Cortex you do not: the model runs <b>inside</b> Snowflake, next to your tables.</p>
+  <p>That matters enormously for a bank. Customer complaints, call notes and emails are private data. With Cortex they stay under the same roles, masking policies and audit logs as every other table. Nothing is copied to an outside service, and Snowflake states that your data is not used to train the models.</p>
+  <ul>
+    <li><b>Call it like any function</b>: <code>SELECT AI_SENTIMENT(feedback_text) FROM complaints</code>, one result per row.</li>
+    <li><b>No setup</b>: no API keys, no servers, no model to download. You need a role with the right database role granted (see the lab).</li>
+    <li><b>Pay by tokens</b>: you pay for the amount of text read and written, not per user.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a smart reader in the library</h2>
+  <p>Our sky library now has a new member of staff: a <b>smart reader librarian</b>. Hand her any book from any shelf and she reads it on the spot. Ask her “Is this reader angry or happy?”, “Which topic is this about: fees, cards, loans or service?”, “Give me the short version”, or “Say this in Hindi”. She answers in seconds, and the book never leaves the building. Your ID badge still decides which shelves you may bring her books from.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Smart reader librarian</b><span>In Snowflake: the Cortex AI functions (AI_SENTIMENT, AI_CLASSIFY, AI_SUMMARIZE_AGG, AI_TRANSLATE, AI_COMPLETE)</span></div>
+    <div><small>In the library</small><b>Her reading time</b><span>In Snowflake: tokens. Longer text costs more; you pay per million tokens, by model</span></div>
+    <div><small>In the library</small><b>The book stays inside</b><span>In Snowflake: data is governed by your roles, masking and audit logs as usual</span></div>
+  </div>
+  <p>Two helpers work beside her and we meet them later in this lesson: <b>Cortex Analyst</b>, who turns a plain-English question into a proper request slip using the official catalogue, and <b>Cortex Search</b>, a super index that finds passages by meaning, not just exact words.</p>
+</section>
+
+<section class="sec" id="functions" data-toc="The AI functions">
+  <h2>The AI functions you will use</h2>
+  <p>Snowflake calls this family <b>Cortex AI Functions</b> (older docs say AISQL or LLM functions). Their names start with <code>AI_</code>. The most useful ones for a bank project:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Function</th><th>What it does</th><th>Shape of the call</th><th>Returns</th></tr></thead>
+      <tbody>
+        <tr><td><code>AI_SENTIMENT</code></td><td>Judges the mood of text, overall and per topic if you list topics</td><td><code>AI_SENTIMENT(text [, categories])</code></td><td>Object: <code>positive</code>, <code>negative</code>, <code>neutral</code>, <code>mixed</code> or <code>unknown</code> per category</td></tr>
+        <tr><td><code>AI_CLASSIFY</code></td><td>Puts text (or an image) into categories you name</td><td><code>AI_CLASSIFY(text, ['A','B','C'])</code></td><td>Object with a <code>labels</code> array</td></tr>
+        <tr><td><code>AI_FILTER</code></td><td>Answers a yes/no question about text, for use in WHERE</td><td><code>AI_FILTER(PROMPT('… {0}', col))</code></td><td>BOOLEAN</td></tr>
+        <tr><td><code>AI_SUMMARIZE_AGG</code></td><td>Summarises a whole column across many rows</td><td><code>AI_SUMMARIZE_AGG(text)</code> with GROUP BY</td><td>One summary string per group</td></tr>
+        <tr><td><code>AI_AGG</code></td><td>Like SUMMARIZE_AGG but you give the instruction</td><td><code>AI_AGG(text, 'instruction')</code></td><td>String</td></tr>
+        <tr><td><code>AI_TRANSLATE</code></td><td>Translates text; empty source code means auto-detect</td><td><code>AI_TRANSLATE(text, 'en', 'hi')</code></td><td>String</td></tr>
+        <tr><td><code>AI_EXTRACT</code></td><td>Pulls named facts out of text or a document</td><td><code>AI_EXTRACT(text =&gt; …, responseFormat =&gt; {…})</code></td><td>Object with a <code>response</code> field</td></tr>
+        <tr><td><code>AI_COMPLETE</code></td><td>General chat with a model you choose; do anything the others cannot</td><td><code>AI_COMPLETE('model', prompt)</code></td><td>String (or object with details)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Other members of the family: <code>AI_SUMMARIZE</code> (one row at a time, preview), <code>AI_EMBED</code> and <code>AI_SIMILARITY</code> (compare meaning), <code>AI_PARSE_DOCUMENT</code> (read PDFs), <code>AI_TRANSCRIBE</code> (audio), <code>AI_REDACT</code> (remove personal data) and <code>AI_COUNT_TOKENS</code> (estimate cost before you run).</p>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Older names you will see in existing code</div><p>The first generation lived in the <code>SNOWFLAKE.CORTEX</code> schema: <code>SNOWFLAKE.CORTEX.COMPLETE</code>, <code>SUMMARIZE</code>, <code>SENTIMENT</code>, <code>TRANSLATE</code>, <code>CLASSIFY_TEXT</code>, <code>EXTRACT_ANSWER</code>. They still run, but the docs say to start new work with the <code>AI_</code> versions, and the legacy <code>COMPLETE</code> is due to be deprecated by the end of 2026. One difference to remember: <code>SNOWFLAKE.CORTEX.SENTIMENT</code> returns a <b>number from −1 to 1</b>, while <code>AI_SENTIMENT</code> returns <b>labels</b> such as positive or negative.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="syntax" data-toc="Syntax">
+  <h2>Real syntax</h2>
+  <p>Read these like sentences to the smart reader. Each runs on one row at a time unless it ends in <code>_AGG</code>.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- 1. Mood of each complaint (overall label lives at categories[0].sentiment)</span>
+<span class="kw">SELECT</span> feedback_text,
+       AI_SENTIMENT(feedback_text):categories[0]:sentiment::<span class="kw">STRING</span> <span class="kw">AS</span> mood
+<span class="kw">FROM</span> learn_db.public.customer_feedback;
+
+<span class="cm">-- 2. Sort into bank topics you choose</span>
+<span class="kw">SELECT</span> feedback_text,
+       AI_CLASSIFY(feedback_text, ['Fees','Card','Loan','Service']):labels[0]::<span class="kw">STRING</span> <span class="kw">AS</span> topic
+<span class="kw">FROM</span> learn_db.public.customer_feedback;
+
+<span class="cm">-- 3. Keep only rows where the AI says yes</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> learn_db.public.customer_feedback
+<span class="kw">WHERE</span> AI_FILTER(PROMPT('The customer is asking for a refund: {0}', feedback_text));
+
+<span class="cm">-- 4. One summary per city</span>
+<span class="kw">SELECT</span> city, AI_SUMMARIZE_AGG(feedback_text) <span class="kw">AS</span> city_summary
+<span class="kw">FROM</span> learn_db.public.customer_feedback
+<span class="kw">GROUP BY</span> city;
+
+<span class="cm">-- 5. Translate, and free-form chat with a model you name</span>
+<span class="kw">SELECT</span> AI_TRANSLATE(feedback_text, 'en', 'hi') <span class="kw">AS</span> hindi,
+       AI_COMPLETE('llama3.1-8b', 'Reply in one polite sentence to: ' || feedback_text) <span class="kw">AS</span> draft_reply
+<span class="kw">FROM</span> learn_db.public.customer_feedback;</pre></div>
+  <p>Notice the <code>:categories[0]:sentiment::STRING</code> and <code>:labels[0]::STRING</code> parts. <code>AI_SENTIMENT</code> and <code>AI_CLASSIFY</code> return a small JSON object, and this is how Snowflake reaches inside it to pull out one plain value. <code>||</code> joins text together, so the prompt in query 5 changes for every row.</p>
+</section>
+
+<section class="sec" id="family" data-toc="The wider Cortex family">
+  <h2>The wider Cortex family</h2>
+  <p>AI functions are the part you call from SQL. Snowflake Cortex also includes bigger building blocks. You will mostly hear their names on the project rather than build them yourself, so recognise what each one is for.</p>
+  <div class="features">
+    <div class="feature"><b>Cortex Analyst</b><span>Lets a business user ask “What were total deposits in Mumbai last month?” in plain English. It writes the SQL using a <b>semantic view</b>, a catalogue that explains what each table and column means, then runs it and returns the answer. Billed per message when used on its own.</span><small>The helper with the official catalogue</small></div>
+    <div class="feature"><b>Cortex Search</b><span>A managed search service over text columns. It finds passages by <b>meaning</b> (vector search) and by keywords together, so “card stuck in machine” also finds “ATM kept my debit card”. Created with <code>CREATE CORTEX SEARCH SERVICE</code>; billed by indexed size and tokens.</span><small>The super index</small></div>
+    <div class="feature"><b>Cortex Agents</b><span>An agent combines Analyst, Search and custom tools, plans several steps and answers a complex question. Cost is the sum of the tools it calls.</span><small>A helper who sends other helpers</small></div>
+    <div class="feature"><b>Snowflake CoWork</b><span>The ready-made chat screen where business users talk to agents. It was called <b>Snowflake Intelligence</b> until 2026, and you will hear both names.</span><small>The front desk where the public asks</small></div>
+  </div>
+</section>
+
+<section class="sec" id="cost" data-toc="Cost and regions">
+  <h2>Cost, roles and regions</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Topic</th><th>What to know</th></tr></thead>
+      <tbody>
+        <tr><td><b>Tokens</b></td><td>A token is roughly four characters. AI functions are billed in credits <b>per million tokens</b>, and the rate depends on the model. For functions that write text back (COMPLETE, CLASSIFY, SUMMARIZE, TRANSLATE) both input and output tokens count.</td></tr>
+        <tr><td><b>Warehouse still runs</b></td><td>The query still needs a virtual warehouse, so the librarians’ wages apply as usual. Snowflake advises a warehouse no larger than <b>Medium</b>: bigger ones do not speed the AI up.</td></tr>
+        <tr><td><b>Who may call them</b></td><td>Your role needs the <code>SNOWFLAKE.CORTEX_USER</code> database role (or <code>AI_FUNCTIONS_USER</code>). Admins grant it; on a bank project ask your team lead which roles have it.</td></tr>
+        <tr><td><b>Where to see the bill</b></td><td>The views <code>SNOWFLAKE.ACCOUNT_USAGE.CORTEX_FUNCTIONS_USAGE_HISTORY</code> and <code>CORTEX_FUNCTIONS_QUERY_USAGE_HISTORY</code> show tokens and credits per function and per query.</td></tr>
+        <tr><td><b>Regions</b></td><td>Each model is hosted in certain cloud regions. If your account’s region does not host the model you asked for, the call fails unless <b>cross-region inference</b> is switched on.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Cross-region inference</div><p>An <code>ACCOUNTADMIN</code> can run <code>ALTER ACCOUNT SET CORTEX_ENABLED_CROSS_REGION = 'ANY_REGION';</code> (or a narrower value such as <code>'AWS_EU'</code> or <code>'AWS_US'</code>; <code>'DISABLED'</code> turns it off). The request is then processed in another region while your data stays stored in your home region. A bank may forbid this for data-residency reasons, so <b>never change it yourself on a client account</b>: check with the project team.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>A global bank receives thousands of pieces of free text every day. Before Cortex, a team read samples by hand. Now one SQL query does the first pass over every row:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Text arriving</th><th>Function</th><th>What the bank gets</th></tr></thead>
+      <tbody>
+        <tr><td>Complaints from app, phone, email and branch</td><td><code>AI_CLASSIFY</code> into Fees, Card, Loan, Service</td><td>A complaint count per topic per week, so the right team owns each pile</td></tr>
+        <tr><td>Survey answers after a branch visit</td><td><code>AI_SENTIMENT</code></td><td>A mood score per branch and city; falling scores trigger a visit</td></tr>
+        <tr><td>Call-centre notes, thousands per day</td><td><code>AI_SUMMARIZE_AGG</code> grouped by product</td><td>One paragraph per product for the Monday management pack</td></tr>
+        <tr><td>Feedback in Hindi, Tamil, Spanish</td><td><code>AI_TRANSLATE</code></td><td>Everything in English for the central quality team</td></tr>
+        <tr><td>“Which customers threatened to close their account?”</td><td><code>AI_FILTER</code> in WHERE</td><td>A short list for the retention team, same morning</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Because the text never leaves Snowflake, the compliance team approves this far more easily than a plan to send complaints to an outside AI service. The usual masking policies still apply, so a role that cannot see the customer name still cannot see it here.</p>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>This worksheet cannot call an AI, so the <code>customer_feedback</code> table already holds the AI’s answers: <code>ai_score</code> (−1 to 1, from <code>SNOWFLAKE.CORTEX.SENTIMENT</code>), <code>ai_sentiment</code> (label from <code>AI_SENTIMENT</code>) and <code>ai_category</code> (from <code>AI_CLASSIFY</code>). Your job is what an analyst does next: query those outputs. Open the <b>Schema</b> tab to see the columns.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: run real AI functions on your own table</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Sentiment, classification, summary and translation in Snowsight</h3>
+      <div class="meta"><span>About 20 min</span><span>Free trial (Enterprise)</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>Sign in to your trial and open a SQL worksheet. Check you have the right role and that AI functions are allowed in your region. Trial accounts may need a credit card added by the admin before AI features are switched on; if step 4 fails with a permission or region error, that is the first thing to check.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE ROLE</span> ACCOUNTADMIN;
+<span class="kw">USE WAREHOUSE</span> COMPUTE_WH;
+<span class="kw">SELECT</span> CURRENT_REGION();</pre></div>
+        <p class="expect">Expected: one row naming your region, for example AWS_AP_SOUTHEAST_1.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Create a small learning database and a feedback table, then insert a few rows of fictional bank feedback.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE DATABASE IF NOT EXISTS</span> learn_db;
+<span class="kw">CREATE OR REPLACE TABLE</span> learn_db.public.customer_feedback (
+  feedback_id <span class="kw">NUMBER</span>, city <span class="kw">VARCHAR</span>, feedback_text <span class="kw">VARCHAR</span>);
+
+<span class="kw">INSERT INTO</span> learn_db.public.customer_feedback <span class="kw">VALUES</span>
+  (1, 'Mumbai',  'The app crashed twice while I was paying my credit card bill'),
+  (2, 'Delhi',   'Staff at the branch were friendly and sorted my loan papers quickly'),
+  (3, 'Chennai', 'I was charged an annual fee I was never told about'),
+  (4, 'Mumbai',  'Transfers are instant now, great update'),
+  (5, 'Delhi',   'Waited 40 minutes on hold to block my lost card');</pre></div>
+        <p class="expect">Expected: “Table CUSTOMER_FEEDBACK successfully created” then “number of rows inserted: 5”.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Optional, only on <b>your own trial</b>: if your region does not host the models, allow cross-region inference. Never run this on a client account without approval.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">ALTER ACCOUNT SET</span> CORTEX_ENABLED_CROSS_REGION = 'ANY_REGION';</pre></div>
+        <p class="expect">Expected: “Statement executed successfully.” Requires ACCOUNTADMIN.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Ask the smart reader for the mood and the topic of every row.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> feedback_id, feedback_text,
+       AI_SENTIMENT(feedback_text):categories[0]:sentiment::<span class="kw">STRING</span> <span class="kw">AS</span> mood,
+       AI_CLASSIFY(feedback_text, ['Fees','Card','Loan','Service']):labels[0]::<span class="kw">STRING</span> <span class="kw">AS</span> topic
+<span class="kw">FROM</span> learn_db.public.customer_feedback
+<span class="kw">ORDER BY</span> feedback_id;</pre></div>
+        <p class="expect">Expected: 5 rows. Rows 2 and 4 should be positive, the rest negative; row 3 should be Fees and rows 1 and 5 Card. AI answers can vary slightly between runs, which is normal. If you see “Unknown function AI_SENTIMENT” or a region message, re-check step 1 and step 3, or ask an admin.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Summarise per city and translate one row. Then chat with a named model.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> city, AI_SUMMARIZE_AGG(feedback_text) <span class="kw">AS</span> city_summary
+<span class="kw">FROM</span> learn_db.public.customer_feedback
+<span class="kw">GROUP BY</span> city;
+
+<span class="kw">SELECT</span> AI_TRANSLATE(feedback_text, 'en', 'hi') <span class="kw">AS</span> hindi
+<span class="kw">FROM</span> learn_db.public.customer_feedback <span class="kw">WHERE</span> feedback_id = 4;
+
+<span class="kw">SELECT</span> AI_COMPLETE('llama3.1-8b',
+  'In one sentence, explain to a new bank analyst what a token is in Snowflake Cortex.') <span class="kw">AS</span> answer;</pre></div>
+        <p class="expect">Expected: 3 city rows with a short paragraph each; one row of Hindi text; one plain-English sentence. If <code>llama3.1-8b</code> is not offered in your region, try <code>claude-sonnet-4-5</code> with cross-region inference on, or check the model availability page in the docs.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>See what it cost. Usage appears in the account usage view after a delay of up to a few hours, so come back later if it is empty.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> function_name, model_name, token_credits, tokens
+<span class="kw">FROM</span> snowflake.account_usage.cortex_functions_usage_history
+<span class="kw">ORDER BY</span> start_time <span class="kw">DESC</span>
+<span class="kw">LIMIT</span> 20;</pre></div>
+        <p class="expect">Expected: one row per function and model you called, with tiny credit amounts. This is the view a bank’s FinOps team watches.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Clean up so the trial does not keep anything you no longer need.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">DROP TABLE IF EXISTS</span> learn_db.public.customer_feedback;</pre></div>
+        <p class="expect">Expected: “CUSTOMER_FEEDBACK successfully dropped.” Keep <code>learn_db</code>; the next lesson uses it.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>Cortex AI functions are a smart reader inside the library: call <code>AI_SENTIMENT</code>, <code>AI_CLASSIFY</code>, <code>AI_SUMMARIZE_AGG</code>, <code>AI_TRANSLATE</code> or <code>AI_COMPLETE</code> from plain SQL, the data never leaves Snowflake, and you pay by the tokens read and written.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Snowflake Cortex</dt><dd>The umbrella name for AI features inside Snowflake: AI functions, Analyst, Search, Agents and CoCo.</dd>
+    <dt>LLM</dt><dd>Large language model: an AI that reads and writes text. Cortex hosts several, from Snowflake, Meta, Mistral, Anthropic, OpenAI and others.</dd>
+    <dt>AI function</dt><dd>A SQL function whose name starts with AI_ and whose answer comes from an LLM.</dd>
+    <dt>Token</dt><dd>The unit AI is billed in, roughly four characters of text.</dd>
+    <dt>Prompt</dt><dd>The instruction you give the model, for example the text after AI_COMPLETE’s model name.</dd>
+    <dt>Semantic view</dt><dd>A catalogue that explains tables and columns in business words so Cortex Analyst can write correct SQL.</dd>
+    <dt>Cross-region inference</dt><dd>Letting Snowflake process an AI request in another region when your own region lacks the model. Set by ACCOUNTADMIN.</dd>
+    <dt>CORTEX_USER</dt><dd>The database role a user needs before AI functions will run for them.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#3-3">3.3 Cortex Code (CoCo) →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "customer_feedback": {
+        "columns": [
+          ["feedback_id", "NUMBER"],
+          ["customer_name", "VARCHAR"],
+          ["city", "VARCHAR"],
+          ["channel", "VARCHAR", "App, Phone, Email or Branch"],
+          ["feedback_text", "VARCHAR"],
+          ["ai_score", "NUMBER", "-1 to 1, pre-computed by SNOWFLAKE.CORTEX.SENTIMENT"],
+          ["ai_sentiment", "VARCHAR", "positive, negative or mixed, pre-computed by AI_SENTIMENT"],
+          ["ai_category", "VARCHAR", "Fees, Card, Loan or Service, pre-computed by AI_CLASSIFY"]
+        ],
+        "rows": [
+          [1, "Asha Rao", "Mumbai", "App", "The app crashed twice while I was paying my credit card bill", -0.7, "negative", "Card"],
+          [2, "Vikram Shah", "Delhi", "Branch", "Staff at the branch were friendly and sorted my loan papers quickly", 0.8, "positive", "Loan"],
+          [3, "Meera Iyer", "Chennai", "Phone", "I was charged an annual fee I was never told about", -0.9, "negative", "Fees"],
+          [4, "Rahul Nair", "Mumbai", "App", "Transfers are instant now, great update", 0.9, "positive", "Service"],
+          [5, "Priya Menon", "Bengaluru", "Email", "My home loan rate went up without any notice", -0.8, "negative", "Loan"],
+          [6, "Arjun Das", "Delhi", "Phone", "Waited 40 minutes on hold to block my lost card", -0.6, "negative", "Card"],
+          [7, "Sneha Pillai", "Chennai", "Branch", "The new branch is clean and the queue moved fast", 0.7, "positive", "Service"],
+          [8, "Karthik Reddy", "Bengaluru", "App", "The card works fine but the fee for foreign use is too high", -0.2, "mixed", "Fees"],
+          [9, "Divya Kumar", "Mumbai", "Email", "Loan approved in two days, very happy", 0.9, "positive", "Loan"],
+          [10, "Nikhil Joshi", "Delhi", "App", "The statement download button does nothing", -0.5, "negative", "Service"],
+          [11, "Farah Khan", "Mumbai", "Phone", "ATM fee was refunded after one call, thank you", 0.6, "positive", "Fees"],
+          [12, "Lakshmi Bose", "Chennai", "App", "Card delivery took three weeks", -0.4, "negative", "Card"]
+        ]
+      }
+    },
+    "starter": "SELECT ai_category, COUNT(*) AS feedback_count\nFROM customer_feedback\nGROUP BY ai_category\nORDER BY feedback_count DESC",
+    "examples": [
+      { "label": "All rows", "sql": "SELECT *\nFROM customer_feedback" },
+      { "label": "Moods counted", "sql": "SELECT ai_sentiment, COUNT(*) AS how_many\nFROM customer_feedback\nGROUP BY ai_sentiment\nORDER BY how_many DESC" },
+      { "label": "Complaints by channel", "sql": "SELECT channel, COUNT(*) AS complaints\nFROM customer_feedback\nWHERE ai_sentiment = 'negative'\nGROUP BY channel\nORDER BY complaints DESC" }
+    ],
+    "challenges": [
+      { "task": "What is the average ai_score for each city? Show city and the average, happiest city first.", "hint": "AVG(ai_score) with GROUP BY city, then ORDER BY the average DESC.", "answer": "SELECT city, AVG(ai_score) AS avg_score FROM customer_feedback GROUP BY city ORDER BY avg_score DESC" },
+      { "task": "How many negative pieces of feedback are there in each ai_category? Show the category and the count.", "hint": "Filter WHERE ai_sentiment = 'negative' before you GROUP BY ai_category.", "answer": "SELECT ai_category, COUNT(*) AS negatives FROM customer_feedback WHERE ai_sentiment = 'negative' GROUP BY ai_category" },
+      { "task": "Show the customer_name and feedback_text of the single most negative piece of feedback (the lowest ai_score).", "hint": "ORDER BY ai_score ASC and keep one row with LIMIT 1.", "answer": "SELECT customer_name, feedback_text FROM customer_feedback ORDER BY ai_score ASC LIMIT 1" }
+    ]
+  },
+  "quiz": [
+    { "q": "Where does the AI model run when you call AI_SENTIMENT in Snowflake?", "options": ["Inside Snowflake, next to your data", "On your laptop", "On a separate AI website that receives a copy of the data"], "answer": 0, "why": "Cortex models run inside Snowflake. The text never leaves the platform, which is why a bank’s compliance team can approve it." },
+    { "q": "Which function would you use to put each complaint into Fees, Card, Loan or Service?", "options": ["AI_TRANSLATE", "AI_CLASSIFY", "AI_SUMMARIZE_AGG"], "answer": 1, "why": "AI_CLASSIFY takes the text and a list of categories you name and returns the matching label." },
+    { "q": "How are Cortex AI functions billed?", "options": ["Per user per month", "By the number of tokens processed, at a rate that depends on the model", "They are free"], "answer": 1, "why": "You pay credits per million tokens, and the rate varies by model. The warehouse running the query is billed as usual on top." },
+    { "q": "AI_SUMMARIZE_AGG(feedback_text) with GROUP BY city returns…", "options": ["One summary for every row", "One summary per city", "A number from −1 to 1"], "answer": 1, "why": "Functions ending in _AGG work like SUM or COUNT: they combine many rows into one answer per group." },
+    { "q": "What does Cortex Analyst need in order to answer a plain-English question about tables?", "options": ["A semantic view describing the tables and columns", "A copy of the data on the user’s laptop", "Nothing; it guesses"], "answer": 0, "why": "Cortex Analyst reads a semantic view (the official catalogue) so the SQL it writes uses the right tables, columns and business definitions." },
+    { "q": "Your region does not host the model you asked for. Who should change CORTEX_ENABLED_CROSS_REGION on a bank’s account?", "options": ["You, straight away", "An ACCOUNTADMIN, after the project team confirms data-residency rules allow it", "Nobody; the setting does not exist"], "answer": 1, "why": "Only ACCOUNTADMIN can set it, and a bank may forbid processing outside its home region. Always check with the project team first." }
+  ]
+}
+</script>

@@ -1,0 +1,259 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>SQL: Beginner to Advanced</span><span>Module 3 · Advanced</span><span>Lesson 3.4</span></div>
+  <h1>Recursive CTEs, gaps and islands</h1>
+  <p class="lede">Climb an org chart one step at a time, build a calendar out of nothing, and find streaks and missing days in a balance history.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>35 min</span>
+    <span class="badge">Advanced</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice: 6 questions</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Write a recursive CTE with an anchor and a step</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Walk a manager tree to any depth and find everyone under one person</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Generate a calendar and find the dates that are missing</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Use the "date minus row number" trick to find streaks (islands)</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">A recursive CTE is a WITH query that refers to itself. It starts from an anchor row set and repeats a step that adds more rows, until the step adds nothing. "Gaps and islands" is the task of finding missing values (gaps) and unbroken runs (islands) in a sequence.</p></div>
+  </div>
+  <p>You met ordinary CTEs in Lesson 2.5. A recursive one has two parts joined by <code>UNION ALL</code>: the <b>anchor</b> (where to start) and the <b>recursive step</b> (how to get from the rows you have to the next rows). The engine repeats the step until it returns no new rows.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like climbing a family tree one step at a time</h2>
+  <p>To list all of your ancestors you do not need to know them all at once. You start with your parents (the anchor). Then you ask "who are their parents?" (the step). Then you ask it again for those people, and again, until someone has no parent recorded. A recursive CTE does exactly this with rows. Gaps and islands is a different game: you look at a calendar of days you went to the gym and circle each streak of consecutive days (islands) and each break (gaps).</p>
+  <div class="map">
+    <div><small>In the family tree</small><b>Your parents</b><span>In SQL: the anchor query, the rows you start from.</span></div>
+    <div><small>In the family tree</small><b>"And their parents?"</b><span>In SQL: the recursive step, a JOIN from the CTE back to the table.</span></div>
+    <div><small>On the gym calendar</small><b>Circled streaks</b><span>In SQL: islands found by grouping on date minus row number.</span></div>
+  </div>
+</section>
+
+<section class="sec" id="syntax" data-toc="Syntax">
+  <h2>Syntax, step by step</h2>
+  <p><b>Step 1: the smallest recursive CTE.</b> Count from 1 to 5. The anchor gives 1. The step takes the previous row and adds one, while the number is below 5.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">WITH RECURSIVE</span> n <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> 1 <span class="kw">AS</span> num                      <span class="cm">-- anchor</span>
+  <span class="kw">UNION ALL</span>
+  <span class="kw">SELECT</span> num + 1 <span class="kw">FROM</span> n <span class="kw">WHERE</span> num &lt; 5  <span class="cm">-- step, with a stop condition</span>
+)
+<span class="kw">SELECT</span> num <span class="kw">FROM</span> n;</pre></div>
+  <p>The stop condition matters. Without <code>WHERE num &lt; 5</code> the query would run forever (engines stop it with an error after a limit).</p>
+  <p><b>Step 2: walk a tree.</b> The anchor is the top manager (no manager_id). The step joins employees to the rows found so far, matching each employee's manager to a known person, and adds 1 to the level.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">WITH RECURSIVE</span> org <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> emp_id, emp_name, 1 <span class="kw">AS</span> lvl
+  <span class="kw">FROM</span> employees <span class="kw">WHERE</span> manager_id <span class="kw">IS NULL</span>
+  <span class="kw">UNION ALL</span>
+  <span class="kw">SELECT</span> e.emp_id, e.emp_name, o.lvl + 1
+  <span class="kw">FROM</span> employees e <span class="kw">JOIN</span> org o <span class="kw">ON</span> e.manager_id = o.emp_id
+)
+<span class="kw">SELECT</span> emp_id, emp_name, lvl <span class="kw">FROM</span> org;</pre></div>
+  <p><b>Step 3: islands with the row-number trick.</b> Sort the dates and number them 1, 2, 3. In an unbroken run, the date goes up by one and the row number goes up by one, so <i>date minus row number</i> stays the same. When a day is missing the date jumps but the row number does not, so the difference changes. Group by that difference and each group is one island.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">WITH</span> marked <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> acct_id, bal_date,
+         <span class="kw">DATEDIFF</span>('day', <span class="kw">DATE</span> '2000-01-01', bal_date)
+           - <span class="kw">ROW_NUMBER</span>() <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> acct_id <span class="kw">ORDER BY</span> bal_date) <span class="kw">AS</span> grp
+  <span class="kw">FROM</span> daily_balances
+)
+<span class="kw">SELECT</span> acct_id, <span class="kw">MIN</span>(bal_date) <span class="kw">AS</span> island_start, <span class="kw">MAX</span>(bal_date) <span class="kw">AS</span> island_end, <span class="kw">COUNT</span>(*) <span class="kw">AS</span> days
+<span class="kw">FROM</span> marked
+<span class="kw">GROUP BY</span> acct_id, grp;</pre></div>
+  <p>DATEDIFF turns the date into a plain day number so we can subtract the row number from it. The fixed start date does not matter; any date works.</p>
+</section>
+
+<section class="sec" id="examples" data-toc="Worked examples">
+  <h2>Worked examples</h2>
+  <p><b>Example 1: everyone under Suresh Babu (emp_id 2), at any depth.</b> The anchor is "people whose manager is 2". The step keeps adding their reports.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">WITH RECURSIVE</span> team <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> emp_id, emp_name <span class="kw">FROM</span> employees <span class="kw">WHERE</span> manager_id = 2
+  <span class="kw">UNION ALL</span>
+  <span class="kw">SELECT</span> e.emp_id, e.emp_name <span class="kw">FROM</span> employees e <span class="kw">JOIN</span> team t <span class="kw">ON</span> e.manager_id = t.emp_id
+)
+<span class="kw">SELECT</span> emp_id, emp_name <span class="kw">FROM</span> team;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>emp_id</th><th>emp_name</th></tr></thead>
+      <tbody>
+        <tr><td>4</td><td>Mohan Lal</td></tr>
+        <tr><td>5</td><td>Rekha Nair</td></tr>
+        <tr><td>7</td><td>Anita Desai</td></tr>
+        <tr><td>8</td><td>Bala Murugan</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Anita and Bala report to Mohan, who reports to Suresh. A normal join would only find Mohan and Rekha.</p>
+
+  <p><b>Example 2: which days are missing for account 101?</b> Build a calendar with a recursive CTE, then keep the dates that have no balance row.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">WITH RECURSIVE</span> cal <span class="kw">AS</span> (
+  <span class="kw">SELECT DATE</span> '2026-03-01' <span class="kw">AS</span> d
+  <span class="kw">UNION ALL</span>
+  <span class="kw">SELECT</span> d + 1 <span class="kw">FROM</span> cal <span class="kw">WHERE</span> d &lt; <span class="kw">DATE</span> '2026-03-12'
+)
+<span class="kw">SELECT</span> d <span class="kw">AS</span> missing_date
+<span class="kw">FROM</span> cal
+<span class="kw">WHERE NOT EXISTS</span> (<span class="kw">SELECT</span> 1 <span class="kw">FROM</span> daily_balances b <span class="kw">WHERE</span> b.acct_id = 101 <span class="kw">AND</span> b.bal_date = cal.d);</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>missing_date</th></tr></thead>
+      <tbody>
+        <tr><td>2026-03-06</td></tr>
+        <tr><td>2026-03-07</td></tr>
+        <tr><td>2026-03-11</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p><b>Example 3: islands of consecutive days per account.</b> Running the Step 3 query gives one row per unbroken run.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>acct_id</th><th>island_start</th><th>island_end</th><th>days</th></tr></thead>
+      <tbody>
+        <tr><td>101</td><td>2026-03-01</td><td>2026-03-05</td><td>5</td></tr>
+        <tr><td>101</td><td>2026-03-08</td><td>2026-03-10</td><td>3</td></tr>
+        <tr><td>101</td><td>2026-03-12</td><td>2026-03-12</td><td>1</td></tr>
+        <tr><td>103</td><td>2026-03-01</td><td>2026-03-04</td><td>4</td></tr>
+        <tr><td>103</td><td>2026-03-07</td><td>2026-03-12</td><td>6</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>A bank uses this to ask "how many days in a row was this account below its minimum balance?" Add a WHERE on the balance before numbering the rows, and the islands become streaks of low days.</p>
+</section>
+
+<section class="sec" id="mistakes" data-toc="Common mistakes">
+  <h2>Common mistakes</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Watch out</div><p><b>No stop condition.</b> A step without a WHERE (or a tree with a cycle) runs until the engine kills it.</p>
+    <p><b>UNION instead of UNION ALL.</b> UNION removes duplicates on every pass and is much slower. Use UNION ALL unless you really need duplicates removed.</p>
+    <p><b>Different column lists.</b> The anchor and the step must return the same number of columns in the same order with matching types.</p>
+    <p><b>Numbering rows across accounts.</b> For islands per account, the ROW_NUMBER must have PARTITION BY acct_id, or account 103's rows continue account 101's count and the trick breaks.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="snowflake" data-toc="On Snowflake">
+  <h2>On Snowflake</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Two spellings, same idea</div><p>Snowflake accepts both <code>WITH RECURSIVE</code> and plain <code>WITH</code> for a recursive CTE. The practice editor (DuckDB) requires the word <code>RECURSIVE</code>, so the lessons always write it; that form works on both.</p>
+    <p>Snowflake also offers <code>CONNECT BY</code> for trees and a built-in <code>GENERATOR</code> table function for making rows from nothing (<code>TABLE(GENERATOR(ROWCOUNT =&gt; 31))</code>). Both are Snowflake-only; the recursive CTE works everywhere. Snowflake stops runaway recursion after 100 iterations by default; DuckDB keeps going until memory is exhausted, so always write a stop condition.</p>
+    <p><code>DATEDIFF('day', a, b)</code> and <code>date + 1</code> behave the same on both engines.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="Practice">
+  <h2>Practice</h2>
+  <p>Tables: <code>employees</code> (a manager tree with 9 people) and <code>daily_balances</code> (two accounts, some days missing). Grading compares values only. Island questions want one row per island.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>Recursive CTE = anchor UNION ALL step, with a stop condition. It climbs trees and builds calendars. For streaks, number the sorted rows and group by date minus row number: equal differences mean an unbroken island.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Recursive CTE</dt><dd>A WITH query that refers to its own name to repeat a step.</dd>
+    <dt>Anchor</dt><dd>The first SELECT: the starting rows.</dd>
+    <dt>Recursive step</dt><dd>The SELECT after UNION ALL that builds the next rows from the current ones.</dd>
+    <dt>Stop condition</dt><dd>The WHERE in the step that eventually returns zero rows.</dd>
+    <dt>Gap</dt><dd>A value that should be in a sequence but is missing.</dd>
+    <dt>Island</dt><dd>An unbroken run of consecutive values.</dd>
+    <dt>Calendar table</dt><dd>One row per date, used to find missing days.</dd>
+    <dt>DATEDIFF</dt><dd>Number of units (days, months) between two dates.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#sql/3-5">3.5 JSON and semi-structured data →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "employees": {
+        "columns": [["emp_id","NUMBER"], ["emp_name","VARCHAR"], ["manager_id","NUMBER","NULL for the top manager"]],
+        "rows": [
+          [1,"Nandini Rao",null],
+          [2,"Suresh Babu",1],
+          [3,"Kavita Jain",1],
+          [4,"Mohan Lal",2],
+          [5,"Rekha Nair",2],
+          [6,"Tarun Mehta",3],
+          [7,"Anita Desai",4],
+          [8,"Bala Murugan",4],
+          [9,"Pooja Singh",6]
+        ]
+      },
+      "daily_balances": {
+        "columns": [["acct_id","NUMBER"], ["bal_date","DATE"], ["closing_balance","NUMBER","in rupees; some days are missing"]],
+        "rows": [
+          [101,"2026-03-01",20000],
+          [101,"2026-03-02",15000],
+          [101,"2026-03-03",15000],
+          [101,"2026-03-04",15000],
+          [101,"2026-03-05",15000],
+          [101,"2026-03-08",27000],
+          [101,"2026-03-09",27000],
+          [101,"2026-03-10",27000],
+          [101,"2026-03-12",19000],
+          [103,"2026-03-01",50000],
+          [103,"2026-03-02",35000],
+          [103,"2026-03-03",35000],
+          [103,"2026-03-04",35000],
+          [103,"2026-03-07",60000],
+          [103,"2026-03-08",60000],
+          [103,"2026-03-09",100000],
+          [103,"2026-03-10",100000],
+          [103,"2026-03-11",100000],
+          [103,"2026-03-12",90000]
+        ]
+      }
+    },
+    "starter": "WITH RECURSIVE org AS (\n  SELECT emp_id, emp_name, 1 AS lvl\n  FROM employees WHERE manager_id IS NULL\n  UNION ALL\n  SELECT e.emp_id, e.emp_name, o.lvl + 1\n  FROM employees e JOIN org o ON e.manager_id = o.emp_id\n)\nSELECT emp_id, emp_name, lvl FROM org ORDER BY lvl, emp_id",
+    "examples": [
+      { "label": "Calendar with gaps", "sql": "WITH RECURSIVE cal AS (\n  SELECT DATE '2026-03-01' AS d\n  UNION ALL\n  SELECT d + 1 FROM cal WHERE d < DATE '2026-03-12'\n)\nSELECT cal.d, b.closing_balance\nFROM cal LEFT JOIN daily_balances b ON b.acct_id = 101 AND b.bal_date = cal.d\nORDER BY cal.d" },
+      { "label": "Org levels", "sql": "WITH RECURSIVE org AS (\n  SELECT emp_id, emp_name, 1 AS lvl\n  FROM employees WHERE manager_id IS NULL\n  UNION ALL\n  SELECT e.emp_id, e.emp_name, o.lvl + 1\n  FROM employees e JOIN org o ON e.manager_id = o.emp_id\n)\nSELECT emp_id, emp_name, lvl FROM org ORDER BY lvl, emp_id" },
+      { "label": "Islands per account", "sql": "WITH marked AS (\n  SELECT acct_id, bal_date,\n         DATEDIFF('day', DATE '2000-01-01', bal_date) - ROW_NUMBER() OVER (PARTITION BY acct_id ORDER BY bal_date) AS grp\n  FROM daily_balances\n)\nSELECT acct_id, MIN(bal_date) AS island_start, MAX(bal_date) AS island_end, COUNT(*) AS days\nFROM marked\nGROUP BY acct_id, grp\nORDER BY acct_id, island_start" }
+    ],
+    "challenges": [
+      { "level": "Easy", "task": "Use a recursive CTE to build the dates 2026-03-01 to 2026-03-05 (one row each). For each date return the date and the closing_balance of account 101 on that date (NULL when the account has no row that day).", "hint": "Anchor SELECT DATE '2026-03-01' AS d, step SELECT d + 1 FROM cal WHERE d < DATE '2026-03-05'. Then LEFT JOIN daily_balances ON acct_id = 101 AND bal_date = d.", "answer": "WITH RECURSIVE cal AS (SELECT DATE '2026-03-01' AS d UNION ALL SELECT d + 1 FROM cal WHERE d < DATE '2026-03-05') SELECT cal.d, b.closing_balance FROM cal LEFT JOIN daily_balances b ON b.acct_id = 101 AND b.bal_date = cal.d ORDER BY cal.d" },
+      { "level": "Easy", "task": "Return every employee with their level in the tree: the top manager (manager_id IS NULL) is level 1, their reports are level 2, and so on. Return emp_id, emp_name and the level.", "hint": "Anchor on manager_id IS NULL with 1 AS lvl; the step joins employees e to the CTE on e.manager_id = cte.emp_id and adds 1.", "answer": "WITH RECURSIVE org AS (SELECT emp_id, emp_name, 1 AS lvl FROM employees WHERE manager_id IS NULL UNION ALL SELECT e.emp_id, e.emp_name, o.lvl + 1 FROM employees e JOIN org o ON e.manager_id = o.emp_id) SELECT emp_id, emp_name, lvl FROM org ORDER BY emp_id" },
+      { "level": "Medium", "task": "Return everyone who reports to Suresh Babu (emp_id 2) directly or indirectly, at any depth. Return emp_id and emp_name. Do not include Suresh himself.", "hint": "Anchor WHERE manager_id = 2, then keep joining on manager_id = emp_id of the rows found so far.", "answer": "WITH RECURSIVE team AS (SELECT emp_id, emp_name FROM employees WHERE manager_id = 2 UNION ALL SELECT e.emp_id, e.emp_name FROM employees e JOIN team t ON e.manager_id = t.emp_id) SELECT emp_id, emp_name FROM team ORDER BY emp_id" },
+      { "level": "Medium", "task": "Build a calendar from 2026-03-01 to 2026-03-12 with a recursive CTE, and return each date on which account 101 has NO row in daily_balances. Return one column: the missing date.", "hint": "Calendar CTE with d + 1, then WHERE NOT EXISTS (SELECT 1 FROM daily_balances b WHERE b.acct_id = 101 AND b.bal_date = cal.d).", "answer": "WITH RECURSIVE cal AS (SELECT DATE '2026-03-01' AS d UNION ALL SELECT d + 1 FROM cal WHERE d < DATE '2026-03-12') SELECT d AS missing_date FROM cal WHERE NOT EXISTS (SELECT 1 FROM daily_balances b WHERE b.acct_id = 101 AND b.bal_date = cal.d) ORDER BY d" },
+      { "level": "Hard", "task": "For account 101, find every streak of consecutive days where closing_balance < 20000. Return one row per streak with streak_start (first date), streak_end (last date) and days (number of days in the streak).", "hint": "Filter the low days first, then group by DATEDIFF('day', DATE '2000-01-01', bal_date) - ROW_NUMBER() OVER (ORDER BY bal_date).", "answer": "WITH low AS (SELECT bal_date, DATEDIFF('day', DATE '2000-01-01', bal_date) - ROW_NUMBER() OVER (ORDER BY bal_date) AS grp FROM daily_balances WHERE acct_id = 101 AND closing_balance < 20000) SELECT MIN(bal_date) AS streak_start, MAX(bal_date) AS streak_end, COUNT(*) AS days FROM low GROUP BY grp ORDER BY streak_start" },
+      { "level": "Hard", "task": "For each account, return only its LONGEST island of consecutive dates in daily_balances (if two islands tie, take the earlier one). Return acct_id, island_start, island_end and days.", "hint": "Build all islands per account (PARTITION BY acct_id in the ROW_NUMBER), then QUALIFY ROW_NUMBER() OVER (PARTITION BY acct_id ORDER BY days DESC, island_start) = 1.", "answer": "WITH marked AS (SELECT acct_id, bal_date, DATEDIFF('day', DATE '2000-01-01', bal_date) - ROW_NUMBER() OVER (PARTITION BY acct_id ORDER BY bal_date) AS grp FROM daily_balances), islands AS (SELECT acct_id, MIN(bal_date) AS island_start, MAX(bal_date) AS island_end, COUNT(*) AS days FROM marked GROUP BY acct_id, grp) SELECT acct_id, island_start, island_end, days FROM islands QUALIFY ROW_NUMBER() OVER (PARTITION BY acct_id ORDER BY days DESC, island_start) = 1 ORDER BY acct_id" }
+    ]
+  },
+  "quiz": [
+    { "q": "What are the two parts of a recursive CTE?", "options": ["SELECT and WHERE", "An anchor and a recursive step joined by UNION ALL", "A JOIN and a GROUP BY"], "answer": 1, "why": "The anchor gives the starting rows; the step uses the CTE's own name to produce the next rows." },
+    { "q": "What happens if the recursive step has no stop condition?", "options": ["It returns one row", "It runs until the engine stops it", "It returns no rows"], "answer": 1, "why": "Each pass creates new rows forever. Snowflake stops after 100 iterations by default; always write a WHERE in the step." },
+    { "q": "Why use UNION ALL rather than UNION in a recursive CTE?", "options": ["UNION is not allowed", "UNION ALL is faster and keeps all rows; UNION removes duplicates each pass", "There is no difference"], "answer": 1, "why": "Duplicate removal on every iteration is slow and is almost never what you want." },
+    { "q": "In the islands trick, why is date minus row number constant inside a streak?", "options": ["Because both go up by one each row", "Because dates are stored as text", "Because row numbers restart each day"], "answer": 0, "why": "In a run of consecutive days both the date and the row number increase by exactly one, so their difference does not change." },
+    { "q": "How do you find missing dates for an account?", "options": ["GROUP BY bal_date", "Generate a calendar and keep dates with no matching row (NOT EXISTS)", "Use LAG on the balance"], "answer": 1, "why": "You cannot select rows that are not there. A calendar provides every date; an anti-join shows which ones have no data." },
+    { "q": "A normal JOIN on manager_id finds Suresh's direct reports. What finds reports of reports too?", "options": ["A second JOIN, then a third...", "A recursive CTE", "DISTINCT"], "answer": 1, "why": "A recursive CTE keeps joining until no new rows appear, so it reaches any depth without knowing it in advance." }
+  ]
+}
+</script>

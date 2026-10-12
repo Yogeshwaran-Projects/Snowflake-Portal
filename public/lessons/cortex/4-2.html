@@ -1,0 +1,330 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Cortex Masterclass</span><span>Module 4 · ML and masterclass</span><span>Lesson 4.2</span></div>
+  <h1>Evaluation and fine-tuning</h1>
+  <p class="lede">Prove your AI answers are right before a bank relies on them: build a golden set, grade answers with an LLM judge, track scores, and know when fine-tuning is worth it.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 min</span>
+    <span class="badge">Advanced</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Simulator + worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Build a golden set and name the five standard RAG quality metrics</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Write an LLM-as-judge query with AI_COMPLETE and a structured response</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain AI Observability, TruLens and the Evaluations page in Snowsight</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Run Cortex Fine-tuning with FINETUNE and decide when it is the right tool</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">Evaluation is measuring the quality of AI output against agreed questions and answers, with scores you can track over time. Fine-tuning is training a copy of a base model on your own prompt and answer examples so it behaves the way you need.</p></div>
+  </div>
+  <p>A data scientist would never ship a model without a test set and a metric. GenAI is the same, only the output is text. Without evaluation, “it looked fine in the demo” is the only evidence, and that does not pass a bank's model risk review.</p>
+  <ul>
+    <li><b>Golden set</b>: 30 to 100 real questions with reference answers written or approved by experts.</li>
+    <li><b>Judge</b>: a person, a rule (for example “answer contains the right number”), or a strong LLM that scores answers against a rubric.</li>
+    <li><b>Regression test</b>: rerun the same golden set after every change to the prompt, model, semantic view or search service.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like marking the reader's homework</h2>
+  <p>The smart reader in our library writes answers all day. Once a week, a teacher gives her a fixed homework sheet (the golden set) with an answer key. A marking assistant (the judge) grades each answer: is it correct, did she only use the books she looked up, did she answer the actual question? The marks go in a report card, so everyone can see if she is getting better or worse. If she keeps making the same kind of mistake, she goes on a training course (fine-tuning).</p>
+  <div class="map">
+    <div><small>In the library</small><b>Homework sheet with answer key</b><span>In Snowflake: the golden set table</span></div>
+    <div><small>In the library</small><b>Marking assistant</b><span>In Snowflake: LLM-as-judge with AI_COMPLETE, or AI Observability</span></div>
+    <div><small>In the library</small><b>Training course</b><span>In Snowflake: SNOWFLAKE.CORTEX.FINETUNE</span></div>
+  </div>
+</section>
+
+<section class="sec" id="metrics" data-toc="What to measure">
+  <h2>What to measure</h2>
+  <p>Snowflake's AI Observability uses these five LLM-judged metrics, each scored from 0 to 1 with an explanation:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Metric</th><th>Question it answers</th><th>Needs</th></tr></thead>
+      <tbody>
+        <tr><td><b>Context relevance</b></td><td>Did search retrieve complaints that fit the question?</td><td>Question, retrieved text</td></tr>
+        <tr><td><b>Groundedness</b></td><td>Is every claim supported by the retrieved text? (no hallucination)</td><td>Retrieved text, answer</td></tr>
+        <tr><td><b>Answer relevance</b></td><td>Does the answer address the question?</td><td>Question, answer</td></tr>
+        <tr><td><b>Correctness</b></td><td>Does it match the reference answer?</td><td>Question, reference, answer</td></tr>
+        <tr><td><b>Coherence</b></td><td>Is it logical, without gaps or contradictions?</td><td>Answer</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Add <b>cost</b> (tokens) and <b>latency</b> per answer, and for agents the <b>tool choice</b> (lesson 3.3). For Cortex Analyst, the best check is simple: run the generated SQL and compare the number with the verified query's result.</p>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">AI Observability and TruLens</div><p>For your own apps (for example the RAG pipeline from P5), the TruLens Python SDK instruments each step and registers the app as an <b>External Agent</b> object that holds metadata only. Traces and scores land in <code>SNOWFLAKE.LOCAL.AI_OBSERVABILITY_EVENTS</code>, and runs appear in Snowsight under <b>AI &amp; ML » Evaluations</b>. The default judge is <code>llama3.1-70b</code> (this may change). You need CORTEX_USER, CREATE EXTERNAL AGENT and CREATE TASK on the schema, and EXECUTE TASK on the account. Cortex Agents also show threads, traces, user feedback and evaluations in Snowsight. Report spend from the usage views, not from the events table, because trace delivery is best effort.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="syntax" data-toc="Syntax">
+  <h2>Real syntax</h2>
+  <p><b>LLM-as-judge</b> in pure SQL. <code>response_format</code> forces the judge to return a typed object instead of free text.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> question_id,
+  AI_COMPLETE(
+    model =&gt; 'llama3.1-70b',
+    prompt =&gt; 'You grade answers from a bank complaints assistant. '
+      || 'Compare the CANDIDATE with the REFERENCE. Score 1 if it states the same facts, '
+      || '0.5 if partly, 0 if wrong or invented. Be strict about numbers.\n'
+      || 'QUESTION: ' || question || '\nREFERENCE: ' || reference_answer
+      || '\nCANDIDATE: ' || candidate_answer,
+    response_format =&gt; <span class="kw">TYPE OBJECT</span>(score <span class="kw">NUMBER</span>, verdict <span class="kw">STRING</span>, reason <span class="kw">STRING</span>)
+  ) <span class="kw">AS</span> judgement
+<span class="kw">FROM</span> BANK_AI.COMPLAINTS.EVAL_CASES;</pre></div>
+  <p>Judge rules that make scores trustworthy: use a <b>stronger</b> model than the one being judged, keep temperature at its default of 0, give a written rubric, and spot-check 10% of verdicts by hand.</p>
+  <p><b>Fine-tuning.</b> Training data is any query returning columns named <code>prompt</code> and <code>completion</code>.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- Start a job (returns a job ID)</span>
+<span class="kw">SELECT</span> SNOWFLAKE.CORTEX.FINETUNE(
+  'CREATE',
+  'BANK_AI.COMPLAINTS.REPLY_DRAFTER',               <span class="cm">-- name of the new model</span>
+  'llama3.1-8b',                                     <span class="cm">-- base model</span>
+  'SELECT complaint_text AS prompt, approved_reply AS completion FROM BANK_AI.COMPLAINTS.REPLY_TRAIN',
+  'SELECT complaint_text AS prompt, approved_reply AS completion FROM BANK_AI.COMPLAINTS.REPLY_VALID'
+);
+
+<span class="kw">SELECT</span> SNOWFLAKE.CORTEX.FINETUNE('DESCRIBE', '&lt;job_id&gt;');   <span class="cm">-- progress, status, trained tokens</span>
+<span class="kw">SELECT</span> SNOWFLAKE.CORTEX.FINETUNE('SHOW');                <span class="cm">-- all jobs in the account</span>
+<span class="kw">SELECT</span> SNOWFLAKE.CORTEX.FINETUNE('CANCEL', '&lt;job_id&gt;');
+
+<span class="cm">-- Use it like any model</span>
+<span class="kw">SELECT</span> AI_COMPLETE('BANK_AI.COMPLAINTS.REPLY_DRAFTER', 'My UPI payment failed but money was debited.');</pre></div>
+</section>
+
+<section class="sec" id="finetune" data-toc="When to fine-tune">
+  <h2>When to fine-tune (and when not)</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Problem</th><th>Best first fix</th></tr></thead>
+      <tbody>
+        <tr><td>The model does not know our complaints</td><td><b>RAG</b> (Cortex Search). Fine-tuning does not teach fresh facts well.</td></tr>
+        <tr><td>Wrong numbers from questions</td><td><b>Semantic view and verified queries</b> (Cortex Analyst)</td></tr>
+        <tr><td>Format or tone is off</td><td><b>Prompt engineering</b> and response_format</td></tr>
+        <tr><td>A big model does it well but is too slow or costly at volume</td><td><b>Fine-tune a small model</b> on the big model's approved outputs</td></tr>
+        <tr><td>A narrow, repeated task with a fixed house style</td><td><b>Fine-tuning</b> with a few hundred approved examples</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Fine-tuning facts</div><p>Cortex Fine-tuning is generally available, with training in a few regions (AWS US West 2, AWS US East 1, AWS Europe Central 1 and Azure East US 2 at the time of writing). The docs currently list <code>llama3.1-8b</code> as the supported base model (24K context; up to 50K rows at the default 3 epochs). Training is billed per trained token (input tokens × epochs), inference by AI_COMPLETE tokens, and storage as usual; see <code>SNOWFLAKE.ACCOUNT_USAGE.CORTEX_FINE_TUNING_USAGE_HISTORY</code>. You need CREATE MODEL on the target schema and CORTEX_USER. Fine-tuned models do not work with cross-region inference, and stop working if the base model is retired. Start with a few hundred examples; more adds time with little gain.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>Banks treat GenAI like any other model under model risk management. A typical evidence pack for the Complaint Intelligence agent contains: the golden set (owned by the complaints team), scores per release for correctness, groundedness and routing accuracy, a threshold such as “groundedness of at least 0.9 on 95% of questions”, human review of every failed case, and a sign-off before each prompt or model change goes live. Evaluation is not a one-off: the same set reruns every release.</p>
+</section>
+
+<section class="sec" id="simulator" data-toc="Simulator">
+  <h2>Simulator: grade, compare, fine-tune</h2>
+  <div data-simulator="cortex-4-2-eval"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p><code>eval_results</code> holds judge scores (0 to 1) for 6 golden questions answered by two configurations: <code>v1</code> (old prompt) and <code>v2</code> (new prompt with the ONLY-use-context rule). Decide whether v2 can ship.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: your first LLM judge</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Golden set and judge in BANK_AI.COMPLAINTS</h3>
+      <div class="meta"><span>About 15 min</span><span>Uses LEARN_WH</span></div>
+    </div>
+    <ol class="steps">
+      <li><div><p>Create a tiny golden set with candidate answers. Case 3 is deliberately wrong.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE WAREHOUSE</span> LEARN_WH;
+<span class="kw">CREATE OR REPLACE TABLE</span> BANK_AI.COMPLAINTS.EVAL_CASES (
+  question_id <span class="kw">NUMBER</span>, question <span class="kw">VARCHAR</span>, reference_answer <span class="kw">VARCHAR</span>, candidate_answer <span class="kw">VARCHAR</span>);
+<span class="kw">INSERT INTO</span> BANK_AI.COMPLAINTS.EVAL_CASES <span class="kw">VALUES</span>
+ (1, 'Main UPI problem?', 'Payments fail but the money is still debited', 'Customers mostly say money left their account but the payment failed'),
+ (2, 'Which product has the most complaints?', 'CREDIT_CARD, 15 of 60', 'Credit cards, with 15 complaints'),
+ (3, 'Which channel has the most complaints?', 'APP, 28 of 60', 'The branch channel has the most complaints');</pre></div>
+        <p class="expect">Expected: 3 rows inserted.</p><label><input type="checkbox"> Done</label></div></li>
+      <li><div><p>Run the LLM-as-judge query from the Syntax section, then flatten the result:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> question_id, judgement:score::<span class="kw">FLOAT</span> <span class="kw">AS</span> score, judgement:verdict::<span class="kw">STRING</span> <span class="kw">AS</span> verdict
+<span class="kw">FROM</span> (<span class="cm">/* paste the judge query here */</span>);</pre></div>
+        <p class="expect">Expected: scores close to 1, 1 and 0. Question 3 is marked wrong with a reason naming APP versus branch.</p><label><input type="checkbox"> Done</label></div></li>
+      <li><div><p>Mutation check: change candidate 2 to “Home loans, with 8 complaints” and rerun. The score must drop. A judge that never fails anything is not a judge.</p><label><input type="checkbox"> Done</label></div></li>
+      <li><div><p>Optional, only if your region supports it and you accept the cost: run <code>SELECT SNOWFLAKE.CORTEX.FINETUNE('SHOW');</code> to confirm fine-tuning is available. Do not start a training job in a trial.</p><label><input type="checkbox"> Done</label></div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>Mark the homework every release: a golden set, a strict judge and tracked scores for correctness and groundedness. Fix knowledge with RAG, numbers with semantic views, format with prompts, and fine-tune only for narrow, high-volume tasks.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Golden set</dt><dd>Fixed test questions with expert-approved reference answers.</dd>
+    <dt>LLM-as-judge</dt><dd>Using a strong LLM with a rubric to score other answers.</dd>
+    <dt>Groundedness</dt><dd>How well every claim is supported by the retrieved text.</dd>
+    <dt>Context relevance</dt><dd>How well the retrieved text fits the question.</dd>
+    <dt>AI Observability</dt><dd>Snowflake features for tracing, evaluating and costing GenAI apps.</dd>
+    <dt>TruLens</dt><dd>Open-source Python SDK used to instrument and evaluate apps in AI Observability.</dd>
+    <dt>Fine-tuning</dt><dd>Training a base model on prompt and completion pairs to specialise it.</dd>
+    <dt>Epoch</dt><dd>One full pass over the training data.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#cortex/4-3">4.3 Governance, guardrails and cost →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "simulators": [
+    {
+      "id": "cortex-4-2-eval",
+      "title": "Judge the RAG answers, then consider fine-tuning",
+      "tool": "cortex",
+      "steps": [
+        {
+          "prompt": "SELECT question_id, AI_COMPLETE(model => 'llama3.1-70b', prompt => '...rubric...' || question || reference_answer || candidate_answer, response_format => TYPE OBJECT(score NUMBER, verdict STRING, reason STRING)) AS judgement FROM EVAL_CASES;",
+          "say": "The judge returned a typed object per row, so you can query the score like a column.",
+          "output": {
+            "columns": ["QUESTION_ID", "JUDGEMENT"],
+            "rows": [
+              [1, "{ \"score\": 1, \"verdict\": \"correct\", \"reason\": \"Same fact in other words.\" }"],
+              [2, "{ \"score\": 1, \"verdict\": \"correct\", \"reason\": \"Same product and the same count.\" }"],
+              [3, "{ \"score\": 0, \"verdict\": \"wrong\", \"reason\": \"Reference says APP, candidate says branch.\" }"]
+            ]
+          },
+          "check": ["Spot-check a verdict by hand.", "Mutation check: break an answer and confirm the score drops."]
+        },
+        {
+          "prompt": "SELECT config, ROUND(AVG(correctness),2) AS correctness, ROUND(AVG(groundedness),2) AS groundedness FROM eval_results GROUP BY config;",
+          "say": "The new prompt (v2) is more grounded and slightly more correct. That is the evidence for the release note.",
+          "output": {"columns": ["CONFIG", "CORRECTNESS", "GROUNDEDNESS"], "rows": [["v1", 0.68, 0.71], ["v2", 0.84, 0.95]]},
+          "check": ["Look at the worst single question too, not only the average."]
+        },
+        {
+          "prompt": "SELECT SNOWFLAKE.CORTEX.FINETUNE('CREATE', 'BANK_AI.COMPLAINTS.REPLY_DRAFTER', 'llama3.1-8b', 'SELECT complaint_text AS prompt, approved_reply AS completion FROM REPLY_TRAIN', 'SELECT complaint_text AS prompt, approved_reply AS completion FROM REPLY_VALID');",
+          "say": "A training job started for a reply-drafting model. It returns a job ID you use with DESCRIBE.",
+          "outputText": "ft_6c1f2a8e-4b1d-4f0e-9a52-1d7d3c0b9e11",
+          "check": ["Are the approved replies free of customer PII? Training data is part of the model.", "Did you try prompting and RAG first?"]
+        },
+        {
+          "prompt": "SELECT AI_COMPLETE('BANK_AI.COMPLAINTS.REPLY_DRAFTER', 'My UPI payment failed but money was debited.');",
+          "say": "The small fine-tuned model writes in the bank's approved style, faster and cheaper than a large model. Evaluate it on the golden set before use.",
+          "outputText": "We are sorry your UPI payment did not go through. Failed payments are usually reversed automatically within 5 working days. If the amount has not returned by then, reply with your transaction reference and we will raise it with priority.",
+          "check": ["Facts such as '5 working days' must come from policy; verify with the business.", "Score it with the same judge as the base model."]
+        }
+      ]
+    }
+  ],
+  "worksheet": {
+    "tables": {
+      "eval_results": {
+        "columns": [
+          ["question_id", "NUMBER"],
+          ["config", "VARCHAR", "v1 = old prompt, v2 = new prompt"],
+          ["correctness", "NUMBER", "0 to 1"],
+          ["groundedness", "NUMBER", "0 to 1"],
+          ["answer_relevance", "NUMBER", "0 to 1"],
+          ["tokens", "NUMBER"]
+        ],
+        "rows": [
+          [1, "v1", 0.9, 0.8, 0.9, 1450],
+          [2, "v1", 0.5, 0.6, 0.8, 1610],
+          [3, "v1", 0.4, 0.5, 0.7, 1390],
+          [4, "v1", 1.0, 0.9, 1.0, 1520],
+          [5, "v1", 0.6, 0.7, 0.9, 1480],
+          [6, "v1", 0.7, 0.8, 0.8, 1550],
+          [1, "v2", 1.0, 1.0, 1.0, 1620],
+          [2, "v2", 0.8, 0.9, 0.9, 1700],
+          [3, "v2", 0.5, 0.9, 0.8, 1580],
+          [4, "v2", 1.0, 1.0, 1.0, 1660],
+          [5, "v2", 0.8, 0.9, 0.9, 1640],
+          [6, "v2", 0.9, 0.9, 0.9, 1690]
+        ]
+      }
+    },
+    "starter": "SELECT config, ROUND(AVG(correctness), 2) AS correctness, ROUND(AVG(groundedness), 2) AS groundedness\nFROM eval_results\nGROUP BY config\nORDER BY config",
+    "examples": [
+      {"label": "All scores", "sql": "SELECT *\nFROM eval_results\nORDER BY question_id, config"},
+      {"label": "Token cost per config", "sql": "SELECT config, SUM(tokens) AS total_tokens\nFROM eval_results\nGROUP BY config\nORDER BY config"}
+    ],
+    "challenges": [
+      {
+        "task": "Release gate: for v2, which question_ids have groundedness below 0.9 OR correctness below 0.6?",
+        "hint": "WHERE config = 'v2' AND (groundedness < 0.9 OR correctness < 0.6). Mind the brackets.",
+        "answer": "SELECT question_id, correctness, groundedness FROM eval_results WHERE config = 'v2' AND (groundedness < 0.9 OR correctness < 0.6) ORDER BY question_id"
+      },
+      {
+        "task": "Show the worst single correctness score per config.",
+        "hint": "MIN(correctness) with GROUP BY config.",
+        "answer": "SELECT config, MIN(correctness) AS worst_correctness FROM eval_results GROUP BY config ORDER BY config"
+      },
+      {
+        "task": "Per question, how much did correctness change from v1 to v2? Show question_id and the difference (v2 minus v1).",
+        "hint": "Join eval_results to itself on question_id, one side config = 'v1', the other 'v2'.",
+        "answer": "SELECT a.question_id, ROUND(b.correctness - a.correctness, 2) AS score_change FROM eval_results a JOIN eval_results b ON a.question_id = b.question_id WHERE a.config = 'v1' AND b.config = 'v2' ORDER BY a.question_id"
+      }
+    ]
+  },
+  "quiz": [
+    {
+      "q": "What is a golden set?",
+      "options": ["Fixed test questions with expert-approved reference answers", "The most expensive model", "A backup of the data"],
+      "answer": 0,
+      "why": "It is the answer key you rerun on every release to track quality."
+    },
+    {
+      "q": "Which metric checks for hallucination in a RAG answer?",
+      "options": ["Coherence", "Groundedness", "Latency"],
+      "answer": 1,
+      "why": "Groundedness checks that every claim is supported by the retrieved text."
+    },
+    {
+      "q": "Why use response_format in an LLM-judge call?",
+      "options": ["To make the judge return a typed object you can query, such as a numeric score", "To make it cheaper", "To translate"],
+      "answer": 0,
+      "why": "Structured output turns free text into columns like score and verdict."
+    },
+    {
+      "q": "The assistant does not know last week's complaints. Best fix?",
+      "options": ["Fine-tune every week", "RAG with Cortex Search", "Increase temperature"],
+      "answer": 1,
+      "why": "Fine-tuning does not teach fresh facts well; retrieval brings current data into the prompt."
+    },
+    {
+      "q": "What columns must FINETUNE training data have?",
+      "options": ["question and answer", "prompt and completion", "input and label"],
+      "answer": 1,
+      "why": "The training and validation queries must return columns named prompt and completion."
+    },
+    {
+      "q": "Where do AI Observability evaluation runs appear in Snowsight?",
+      "options": ["AI & ML » Evaluations", "Admin » Billing", "Data » Databases"],
+      "answer": 0,
+      "why": "Runs registered through TruLens or Snowsight show under AI & ML » Evaluations."
+    }
+  ]
+}
+</script>

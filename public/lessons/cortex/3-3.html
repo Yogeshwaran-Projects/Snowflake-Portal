@@ -1,0 +1,367 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Cortex Masterclass</span><span>Module 3 · Cortex services</span><span>Lesson 3.3</span></div>
+  <h1>Cortex Agents</h1>
+  <p class="lede">Combine numbers and text in one assistant: an agent that plans, decides whether to ask Cortex Analyst, Cortex Search or both, and writes one grounded answer.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>35 min</span>
+    <span class="badge">Advanced</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Simulator + worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab + project step P7</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain how an agent plans, uses tools, reflects and answers</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Write CREATE AGENT with a YAML specification, two tools and instructions</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Call it from Snowsight, from SQL with DATA_AGENT_RUN and over REST, with threads</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Test it with number, text and mixed questions</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">A Cortex Agent is a Snowflake object that takes a question, plans the steps, calls tools such as Cortex Analyst and Cortex Search, checks the results and returns one answer. It runs a loop of planning, tool use and reflection.</p></div>
+  </div>
+  <p>Analyst is great at numbers. Search is great at text. Real questions need both: “Urgent UPI complaints doubled; what are people saying?” needs a count <b>and</b> the reasons. An agent splits the question into parts, sends each part to the right tool, reads what comes back and writes one answer.</p>
+  <ul>
+    <li><b>Tools</b>: Cortex Analyst (semantic views), Cortex Search, custom tools (stored procedures and UDFs), data-to-chart, code execution, MCP connectors, web search and more.</li>
+    <li><b>Threads</b>: a thread keeps the conversation, so follow-up questions work. Each request is a <b>run</b>.</li>
+    <li><b>Interfaces</b>: Snowsight playground, Snowflake CoWork (lesson 3.4), the REST API, and SQL.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like the head librarian</h2>
+  <p>You ask the head librarian a big question. She does not run to the shelves herself. She makes a plan: “First I need the count, so I will ask the catalogue helper. Then I need what readers wrote, so I will ask the super index.” She reads both answers, checks they fit together, and only then replies to you, saying where each part came from. If something is missing, she asks one more helper or asks you to clarify.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Head librarian</b><span>In Snowflake: the agent's orchestration model</span></div>
+    <div><small>In the library</small><b>Her helpers</b><span>In Snowflake: tools, here Cortex Analyst and Cortex Search</span></div>
+    <div><small>In the library</small><b>Her job description</b><span>In Snowflake: the instructions in the agent specification</span></div>
+  </div>
+</section>
+
+<section class="sec" id="how" data-toc="How it works">
+  <h2>How an agent run works</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Stage</th><th>What happens</th><th>Our example</th></tr></thead>
+      <tbody>
+        <tr><td><b>1. Plan</b></td><td>Breaks the request into subtasks and picks tools</td><td>“Need the count (Analyst) and the reasons (Search)”</td></tr>
+        <tr><td><b>2. Use tools</b></td><td>Calls each tool with a focused request</td><td>Analyst writes SQL on COMPLAINTS_SV; Search returns 5 complaints</td></tr>
+        <tr><td><b>3. Reflect</b></td><td>Checks the results; may call another tool or ask a clarifying question</td><td>“Counts are by month; reasons match UPI. Enough.”</td></tr>
+        <tr><td><b>4. Respond</b></td><td>Writes the answer with the SQL, citations and optional chart</td><td>“6 urgent UPI complaints in September, mostly debited-but-failed payments [2][32]”</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The <b>specification</b> is YAML inside <code>CREATE AGENT … FROM SPECIFICATION $$ … $$</code> (limit 100,000 bytes). Its main keys:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Key</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>models.orchestration</code></td><td>The planning model. <code>auto</code> lets Snowflake choose; or name one, such as <code>claude-sonnet-4-6</code>.</td></tr>
+        <tr><td><code>orchestration.budget</code></td><td>Caps one run by <code>seconds</code> and <code>tokens</code>, a cost guardrail</td></tr>
+        <tr><td><code>instructions.response</code></td><td>How to write answers (tone, length, citations)</td></tr>
+        <tr><td><code>instructions.orchestration</code></td><td>When to use which tool. This is where most quality comes from.</td></tr>
+        <tr><td><code>instructions.sample_questions</code></td><td>Starter questions shown to users</td></tr>
+        <tr><td><code>tools</code></td><td>Each <code>tool_spec</code> has a <code>type</code> (<code>cortex_analyst_text_to_sql</code>, <code>cortex_search</code>…), a <code>name</code> and a <code>description</code></td></tr>
+        <tr><td><code>tool_resources</code></td><td>Per tool name: the <code>semantic_view</code> and warehouse, or the <code>search_service</code>, <code>max_results</code>, <code>id_column</code>, <code>title_column</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Cost and access</div><p>You pay for orchestration tokens, plus each tool: Analyst by tokens when called from an agent, Search by its index, and warehouse time for SQL and custom tools. Track it in <code>SNOWFLAKE.ACCOUNT_USAGE.CORTEX_AGENT_USAGE_HISTORY</code>. To create an agent you need CREATE AGENT on the schema. To use one, a role needs <code>SNOWFLAKE.CORTEX_USER</code> or <code>SNOWFLAKE.CORTEX_AGENT_USER</code>, USAGE on the agent, and access to every tool's objects. The agent runs with the <b>caller's</b> role, so a user never sees data their role cannot see.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="syntax" data-toc="Syntax">
+  <h2>Real syntax</h2>
+  <p><b>1. Create the agent.</b> The tool descriptions and orchestration instructions are the most important lines: the model reads them to decide which helper to call.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE OR REPLACE AGENT</span> BANK_AI.COMPLAINTS.COMPLAINT_AGENT
+  <span class="kw">COMMENT</span> = 'Complaint Intelligence: numbers and customer voice in one place'
+  <span class="kw">PROFILE</span> = '{"display_name": "Complaint Intelligence"}'
+  <span class="kw">FROM SPECIFICATION</span>
+  $$
+  models:
+    orchestration: auto
+  orchestration:
+    budget:
+      seconds: 60
+      tokens: 16000
+  instructions:
+    response: "Answer in at most 6 sentences. Give numbers first, then reasons. Cite complaint IDs in square brackets. Say clearly when data is missing."
+    orchestration: "Use ComplaintMetrics for counts, shares, trends and rankings. Use ComplaintSearch for what customers say, examples and reasons. If a question asks how many AND why, use both: first ComplaintMetrics, then ComplaintSearch."
+    sample_questions:
+      - question: "How many urgent complaints did each product get?"
+      - question: "What are customers saying about UPI failures?"
+      - question: "Which channel has the most negative complaints, and what are they about?"
+  tools:
+    - tool_spec:
+        type: "cortex_analyst_text_to_sql"
+        name: "ComplaintMetrics"
+        description: "Counts and shares of bank complaints by product, category, channel, sentiment and date."
+    - tool_spec:
+        type: "cortex_search"
+        name: "ComplaintSearch"
+        description: "Searches the English text of customer complaints to find what customers say."
+  tool_resources:
+    ComplaintMetrics:
+      semantic_view: "BANK_AI.COMPLAINTS.COMPLAINTS_SV"
+      execution_environment:
+        type: "warehouse"
+        warehouse: "LEARN_WH"
+    ComplaintSearch:
+      search_service: "BANK_AI.COMPLAINTS.COMPLAINT_SEARCH"
+      max_results: 5
+      id_column: "COMPLAINT_ID"
+      title_column: "PRODUCT"
+  $$;</pre></div>
+  <p><b>2. Ask it from SQL</b> with <code>SNOWFLAKE.CORTEX.DATA_AGENT_RUN</code>. It returns a non-streaming JSON string, so wrap it in <code>TRY_PARSE_JSON</code>.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> TRY_PARSE_JSON(SNOWFLAKE.CORTEX.DATA_AGENT_RUN(
+  'BANK_AI.COMPLAINTS.COMPLAINT_AGENT',
+  $${"messages": [{"role": "user", "content": [
+      {"type": "text", "text": "How many urgent UPI complaints are there, and what are they about?"}]}]}$$
+)) <span class="kw">AS</span> resp;</pre></div>
+  <p>The answer is in <code>resp:content</code>, an array of items: <code>thinking</code>, <code>tool_use</code>, tool results and finally <code>text</code>. A top-level <code>warnings</code> array appears if, for example, your role cannot use one of the tools.</p>
+  <p><b>3. Over REST</b> (apps): <code>POST /api/v2/databases/BANK_AI/schemas/COMPLAINTS/agents/COMPLAINT_AGENT:run</code>. The response streams by default as server-sent events (<code>response.text.delta</code> and so on, ending with a <code>response</code> event). For follow-ups, create a <b>thread</b> and send <code>thread_id</code> with <code>parent_message_id</code> (0 for the first message).</p>
+  <p><b>4. Manage it.</b> <code>SHOW AGENTS IN SCHEMA BANK_AI.COMPLAINTS;</code>, <code>DESCRIBE AGENT COMPLAINT_AGENT;</code>, <code>DROP AGENT …;</code>. You can also build and edit agents in Snowsight under <b>AI &amp; ML » Agents</b>.</p>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Question from the business</th><th>Tools the agent should pick</th></tr></thead>
+      <tbody>
+        <tr><td>How many complaints per channel last month?</td><td>Analyst only</td></tr>
+        <tr><td>What do customers say about card blocks abroad?</td><td>Search only</td></tr>
+        <tr><td>Negative share for credit cards is rising. Why?</td><td>Analyst (trend), then Search (reasons)</td></tr>
+        <tr><td>Draft a weekly complaints note for the COO</td><td>Both, plus a chart; review before sending</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Banks test agents with a fixed list of questions like these, checking the <b>tool choice</b> as well as the answer. A right number from the wrong tool is luck, not quality.</p>
+</section>
+
+<section class="sec" id="simulator" data-toc="Simulator">
+  <h2>Simulator: one agent, three kinds of question</h2>
+  <div data-simulator="cortex-3-3-agent"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>Agents leave a trace of every run. <code>agent_runs</code> holds 12 test runs of COMPLAINT_AGENT: which tools it used, the tools it <b>should</b> have used, tokens, time and whether a reviewer accepted the answer.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: create and test the agent</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>From CREATE AGENT to the Snowsight playground</h3>
+      <div class="meta"><span>About 20 min</span><span>Needs P5 and P6</span></div>
+    </div>
+    <ol class="steps">
+      <li><div><p>Check both tools exist.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE WAREHOUSE</span> LEARN_WH;
+<span class="kw">SHOW CORTEX SEARCH SERVICES IN SCHEMA</span> BANK_AI.COMPLAINTS;
+<span class="kw">SHOW SEMANTIC VIEWS IN SCHEMA</span> BANK_AI.COMPLAINTS;</pre></div>
+        <p class="expect">Expected: COMPLAINT_SEARCH and COMPLAINTS_SV, one row each.</p><label><input type="checkbox"> Done</label></div></li>
+      <li><div><p>Run the <code>CREATE OR REPLACE AGENT</code> statement from the Syntax section.</p>
+        <p class="expect">Expected: “Agent COMPLAINT_AGENT successfully created.” A YAML indentation error means a space is off: keep two spaces per level.</p><label><input type="checkbox"> Done</label></div></li>
+      <li><div><p>Run the <code>DATA_AGENT_RUN</code> query. Click the result cell to open the JSON.</p>
+        <p class="expect">Expected: a <code>content</code> array with a ComplaintMetrics tool call (with SQL), a ComplaintSearch tool call (with complaint IDs) and a final text answer.</p><label><input type="checkbox"> Done</label></div></li>
+      <li><div><p>Open <b>AI &amp; ML » Agents » COMPLAINT_AGENT</b> and use the playground. Expand the steps under each answer to see the plan and tool calls. Ask a follow-up such as “only for the app channel” to see the thread keep context.</p><label><input type="checkbox"> Done</label></div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="project" data-toc="Project step P7">
+  <h2>Project step P7: Combine both in a Cortex Agent</h2>
+  <div class="callout project">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V4h11l-2 4 2 4H5"/></svg>
+    <div><div class="label">Project step P7 · Complaint Intelligence</div><p>Goal: agent <code>BANK_AI.COMPLAINTS.COMPLAINT_AGENT</code> with ComplaintMetrics (Analyst on COMPLAINTS_SV) and ComplaintSearch (COMPLAINT_SEARCH), tested with questions that need numbers, text and both.</p></div>
+  </div>
+  <ol class="steps">
+    <li><div><p>Create the agent (lab steps 1 and 2).</p><label><input type="checkbox"> Done</label></div></li>
+    <li><div><p>Ask these six in the playground and write down, for each, the tools used and whether the answer is right:</p>
+      <ul>
+        <li>Numbers: “How many urgent complaints per product?” and “Share of negative complaints by channel?” (expect ComplaintMetrics only)</li>
+        <li>Text: “What do customers say about refunds?” and “Give three example complaints about card blocks” (expect ComplaintSearch only)</li>
+        <li>Both: “Which product has the most urgent complaints, and what are they about?” and “Is the call centre worse than the app, and why?” (expect both)</li>
+      </ul>
+      <p class="expect">Expected: 6 of 6 with the right tools. If a text question goes to Analyst, sharpen the tool descriptions and orchestration instructions, re-run CREATE OR REPLACE AGENT and test again.</p><label><input type="checkbox"> Done</label></div></li>
+    <li><div><p>Keep the agent. Lesson 3.4 puts it in CoWork, and P8 calls it from the Streamlit app.</p><label><input type="checkbox"> Done</label></div></li>
+  </ol>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>An agent is the head librarian: it plans, sends Analyst for numbers and Search for words, checks the results and writes one cited answer. Clear tool descriptions and orchestration instructions decide its quality.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Cortex Agent</dt><dd>A Snowflake object that orchestrates tools to answer a request.</dd>
+    <dt>Orchestration</dt><dd>Planning which tools to call, in what order, and when to stop.</dd>
+    <dt>Tool</dt><dd>A capability the agent can call: Analyst, Search, a stored procedure and others.</dd>
+    <dt>Specification</dt><dd>The YAML that defines models, instructions, tools and tool resources.</dd>
+    <dt>Thread</dt><dd>A saved conversation, so follow-up questions keep context.</dd>
+    <dt>Run</dt><dd>One request to the agent and its response.</dd>
+    <dt>DATA_AGENT_RUN</dt><dd>SQL function that runs an agent and returns JSON, without streaming.</dd>
+    <dt>Budget (orchestration)</dt><dd>Seconds and tokens limits for a single run.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#cortex/3-4">3.4 Snowflake CoWork →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "simulators": [
+    {
+      "id": "cortex-3-3-agent",
+      "title": "COMPLAINT_AGENT picks its tools",
+      "tool": "cortex",
+      "intro": "Playground in AI & ML » Agents » COMPLAINT_AGENT. Expand the steps to see the plan.",
+      "steps": [
+        {
+          "prompt": "How many urgent complaints did each product get?",
+          "say": "Plan: a counting question, so only ComplaintMetrics. The agent sent the question to Cortex Analyst, which used the urgent_count metric.",
+          "code": {
+            "lang": "sql",
+            "text": "SELECT product, urgent_count\nFROM SEMANTIC_VIEW(BANK_AI.COMPLAINTS.COMPLAINTS_SV\n  DIMENSIONS complaints.product METRICS complaints.urgent_count)\nORDER BY urgent_count DESC;"
+          },
+          "output": {"columns": ["PRODUCT", "URGENT_COUNT"], "rows": [["UPI", 6], ["CREDIT_CARD", 4], ["MOBILE_APP", 3], ["PERSONAL_LOAN", 2], ["SAVINGS", 2], ["HOME_LOAN", 0]]},
+          "check": ["Tool used: ComplaintMetrics only. Correct.", "Total 17 urgent complaints out of 60. HOME_LOAN has none."]
+        },
+        {
+          "prompt": "What do customers say about refunds?",
+          "say": "Plan: a 'what do they say' question, so only ComplaintSearch. It retrieved 5 complaints and summarised them with citations.",
+          "outputText": "Refund complaints share one pattern: money left the account but the service failed, and the refund has not arrived. Examples: a failed UPI merchant payment still not refunded after 5 days [2], a UPI payment the shopkeeper never received [32], a mobile recharge that was debited but not done [20], a transfer stuck on processing [43] and a personal loan EMI debited twice [7].",
+          "check": ["Tool used: ComplaintSearch only. Correct.", "Every claim has an ID you can open."]
+        },
+        {
+          "prompt": "Which product has the most urgent complaints, and what are they about?",
+          "say": "Plan: two parts. Step 1 ComplaintMetrics found UPI with 6 urgent complaints. Step 2 ComplaintSearch with filter PRODUCT = UPI found the reasons. Reflection: both parts answered, so it responded.",
+          "outputText": "UPI has the most urgent complaints: 6 of 17. Customers say payments fail while the money is still debited [2][32], they cannot set a UPI PIN [55], a UPI Lite balance vanished after a phone change [47], money went to a wrong UPI ID [16], and one reports a prize-scam collect request [39].",
+          "check": ["Two tools, in the order the orchestration instructions asked.", "The number matches the first step; the reasons are cited."]
+        },
+        {
+          "prompt": "SELECT TRY_PARSE_JSON(SNOWFLAKE.CORTEX.DATA_AGENT_RUN('BANK_AI.COMPLAINTS.COMPLAINT_AGENT', $${\"messages\":[...]}$$)):warnings AS w;",
+          "say": "Run as a role WITHOUT USAGE on COMPLAINT_SEARCH. The agent still answers with the numbers, and warns that one tool was not accessible.",
+          "outputText": "[ { \"code\": 399569, \"message\": \"(ComplaintSearch not accessible to the current role; exact wording varies)\" } ]",
+          "check": ["Agents run with the caller's role: no access, no data.", "Fix by granting USAGE on the service, not by giving the user ACCOUNTADMIN."]
+        }
+      ]
+    }
+  ],
+  "worksheet": {
+    "tables": {
+      "agent_runs": {
+        "columns": [
+          ["run_id", "NUMBER"],
+          ["question", "VARCHAR"],
+          ["tools_used", "VARCHAR", "ANALYST, SEARCH or BOTH"],
+          ["expected_tools", "VARCHAR", "What a reviewer says it should use"],
+          ["tokens", "NUMBER"],
+          ["latency_ms", "NUMBER"],
+          ["accepted", "NUMBER", "1 = reviewer accepted the answer"]
+        ],
+        "rows": [
+          [1, "Urgent complaints per product", "ANALYST", "ANALYST", 3100, 4200, 1],
+          [2, "Share of negative complaints by channel", "ANALYST", "ANALYST", 2900, 3900, 1],
+          [3, "What do customers say about refunds", "SEARCH", "SEARCH", 4200, 3100, 1],
+          [4, "Three example complaints about card blocks", "SEARCH", "SEARCH", 3800, 2800, 1],
+          [5, "Top product by urgent complaints and why", "BOTH", "BOTH", 7900, 8800, 1],
+          [6, "Is the call centre worse than the app, and why", "ANALYST", "BOTH", 3300, 4500, 0],
+          [7, "Complaints per month", "ANALYST", "ANALYST", 2700, 3600, 1],
+          [8, "Why are home loan customers unhappy", "ANALYST", "SEARCH", 3000, 4100, 0],
+          [9, "What do customers say about UPI timeouts", "SEARCH", "SEARCH", 4100, 3000, 1],
+          [10, "Negative share for credit cards and reasons", "BOTH", "BOTH", 8300, 9400, 1],
+          [11, "Which category grew most and what changed", "BOTH", "BOTH", 8800, 10200, 0],
+          [12, "How many complaints mention fees", "SEARCH", "ANALYST", 3900, 3300, 0]
+        ]
+      }
+    },
+    "starter": "SELECT tools_used, COUNT(*) AS runs, ROUND(AVG(latency_ms)) AS avg_ms\nFROM agent_runs\nGROUP BY tools_used\nORDER BY avg_ms",
+    "examples": [
+      {"label": "All runs", "sql": "SELECT *\nFROM agent_runs\nORDER BY run_id"},
+      {"label": "Acceptance rate", "sql": "SELECT ROUND(AVG(accepted), 2) AS acceptance_rate\nFROM agent_runs"},
+      {"label": "Tokens by tool choice", "sql": "SELECT tools_used, SUM(tokens) AS total_tokens\nFROM agent_runs\nGROUP BY tools_used\nORDER BY total_tokens DESC"}
+    ],
+    "challenges": [
+      {
+        "task": "Find the routing mistakes: show run_id, question, tools_used and expected_tools where the agent picked the wrong tools.",
+        "hint": "WHERE tools_used <> expected_tools.",
+        "answer": "SELECT run_id, question, tools_used, expected_tools FROM agent_runs WHERE tools_used <> expected_tools ORDER BY run_id"
+      },
+      {
+        "task": "What is the routing accuracy? Return the share of runs where tools_used = expected_tools, rounded to 2 decimals.",
+        "hint": "AVG(CASE WHEN tools_used = expected_tools THEN 1 ELSE 0 END).",
+        "answer": "SELECT ROUND(AVG(CASE WHEN tools_used = expected_tools THEN 1 ELSE 0 END), 2) AS routing_accuracy FROM agent_runs"
+      },
+      {
+        "task": "Among runs with correct routing, which were still not accepted? Show run_id and question.",
+        "hint": "Two conditions: tools_used = expected_tools AND accepted = 0.",
+        "answer": "SELECT run_id, question FROM agent_runs WHERE tools_used = expected_tools AND accepted = 0 ORDER BY run_id"
+      }
+    ]
+  },
+  "quiz": [
+    {
+      "q": "What does an agent do that Cortex Analyst alone cannot?",
+      "options": ["Write SQL", "Plan across several tools, such as Analyst and Search, and combine the results", "Store data"],
+      "answer": 1,
+      "why": "An agent orchestrates tools. Analyst alone only turns questions into SQL."
+    },
+    {
+      "q": "Where do you tell the agent when to use Search versus Analyst?",
+      "options": ["instructions.orchestration and the tool descriptions", "The warehouse size", "The table comment"],
+      "answer": 0,
+      "why": "The orchestration model reads the orchestration instructions and each tool's description to choose."
+    },
+    {
+      "q": "In tool_resources, what does the cortex_analyst_text_to_sql tool point to?",
+      "options": ["A search_service", "A semantic_view", "A stage"],
+      "answer": 1,
+      "why": "Analyst tools take a semantic_view (plus a warehouse to run SQL). Search tools take a search_service."
+    },
+    {
+      "q": "Whose permissions does an agent use when it queries data?",
+      "options": ["The agent owner's", "The caller's role", "ACCOUNTADMIN's"],
+      "answer": 1,
+      "why": "Agents run with the caller's role. A missing tool privilege causes a warning or an error, not a data leak."
+    },
+    {
+      "q": "What keeps follow-up questions in context?",
+      "options": ["A thread", "A bigger budget", "A new agent"],
+      "answer": 0,
+      "why": "Threads store the conversation. Pass thread_id and parent_message_id for each new message."
+    },
+    {
+      "q": "What does orchestration.budget limit?",
+      "options": ["Monthly credits for the account", "Seconds and tokens for one run", "Number of users"],
+      "answer": 1,
+      "why": "The orchestration budget caps a single run. Monthly spend is controlled with resource budgets (lesson 4.3)."
+    }
+  ]
+}
+</script>

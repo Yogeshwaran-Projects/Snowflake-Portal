@@ -1,0 +1,254 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>CoCo Masterclass</span><span>Module 4 · Masterclass</span><span>Lesson 4.2</span></div>
+  <h1>CLI power workflows</h1>
+  <p class="lede">Work with CoCo from your terminal: named connections, Plan Mode, slash commands, a git repository with real diffs, reusable skills and headless runs. Learn what each permission setting really allows, so speed never costs you safety.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 min</span>
+    <span class="badge">Advanced</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Set up a named connection in <code>connections.toml</code> without a password in the file</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Use Plan Mode and the key slash commands</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Run CoCo inside a git repo and review every change with a diff before you commit</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Know which features are generally available and which are preview</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">The CoCo CLI is CoCo in a terminal, started with the command <code>cortex</code>. It connects to Snowflake through a named connection, and it can also read and edit files in your project folder, run shell commands, and work with git, always asking permission according to your settings.</p></div>
+  </div>
+  <p>Snowsight CoCo sees your account. CLI CoCo sees your account <b>and</b> your laptop folder. That is its power and its risk: it can write a dbt model, a notebook file and a test in one go, and it can also run a command you did not expect. Plan Mode, permissions and diffs keep you in charge.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like the robot coming to your home office</h2>
+  <p>Until now the robot assistant worked only inside the library. With the CLI, it also comes to your home office: it can read your notes, write new files and use your tools. Before it starts, you tell it which library card to use (the connection). For big jobs you ask it to <b>write the plan on a whiteboard first</b> (Plan Mode) and you tick it. And it never puts anything in the final folder without showing you a <b>before-and-after page</b> (the diff).</p>
+  <div class="map">
+    <div><small>At home</small><b>Which library card</b><span>In the CLI: a named connection in <code>~/.snowflake/connections.toml</code></span></div>
+    <div><small>At home</small><b>Plan on the whiteboard</b><span>In the CLI: Plan Mode, <code>/plan</code> or <code>cortex --plan</code></span></div>
+    <div><small>At home</small><b>Before-and-after page</b><span>In the CLI: <code>/diff</code> and <code>git diff</code> before every commit</span></div>
+  </div>
+</section>
+
+<section class="sec" id="setup" data-toc="Connections">
+  <h2>Connections, the safe way</h2>
+  <p>The CLI reads the same <code>~/.snowflake/connections.toml</code> as the Snowflake CLI. One block per connection:</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm"># ~/.snowflake/connections.toml  (your own trial only)</span>
+[bank_trial]
+account = <span class="kw">"myorg-myaccount"</span>
+user = <span class="kw">"YOUR_USER"</span>
+authenticator = <span class="kw">"externalbrowser"</span>   <span class="cm"># browser sign-in, no password stored</span>
+role = <span class="kw">"ACCOUNTADMIN"</span>
+warehouse = <span class="kw">"LEARN_WH"</span>
+database = <span class="kw">"BANK_DS"</span>
+schema = <span class="kw">"FEATURES"</span></pre></div>
+  <div class="code"><button class="copy" type="button">Copy</button><pre>chmod 0600 ~/.snowflake/connections.toml   <span class="cm"># only you can read it</span>
+cortex -c bank_trial                        <span class="cm"># start with that connection</span>
+cortex -c bank_trial --plan                 <span class="cm"># start in Plan Mode</span></pre></div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">On a client project</div><p>Never put a password in this file, never commit it, and never paste a key into a prompt. Use browser sign-in (SSO) or key-pair authentication as the client’s security team specifies. Install the CLI on a client laptop only when the project lead confirms it is approved.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="commands" data-toc="Slash commands">
+  <h2>Slash commands worth knowing</h2>
+  <p>Type these inside a session. This is a selection from the CLI reference; type <code>/help</code> for the full list on your version.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Command</th><th>What it does</th><th>When you use it</th></tr></thead>
+      <tbody>
+        <tr><td><code>/help</code>, <code>/status</code></td><td>Lists commands; shows connection, model and mode</td><td>Start of every session: check you are on the right account and role</td></tr>
+        <tr><td><code>/model</code></td><td>Shows or switches the model</td><td>Try a different model for a hard task</td></tr>
+        <tr><td><code>/plan</code>, <code>/plan-off</code></td><td>Turns Plan Mode on and off</td><td>Any multi-step or risky change</td></tr>
+        <tr><td><code>/sql</code>, <code>/table</code>, <code>/connections</code></td><td>Run SQL, look at a table, switch connection</td><td>Quick checks without leaving the session</td></tr>
+        <tr><td><code>/diff</code>, <code>/changes</code>, <code>/review</code></td><td>Show file changes; ask for a review of them</td><td>Before every commit</td></tr>
+        <tr><td><code>/worktree</code></td><td>Work in a separate git worktree</td><td>Keep experiments away from your main branch</td></tr>
+        <tr><td><code>/skills</code>, <code>/mcp</code>, <code>/hooks</code></td><td>List skills, MCP servers and hooks</td><td>Check what extra powers the session has</td></tr>
+        <tr><td><code>/clear</code>, <code>/new</code>, <code>/resume</code></td><td>Fresh context, new session, continue an old one</td><td>Switching tasks; long chats cost more tokens</td></tr>
+        <tr><td><code>! git status</code></td><td>Runs a shell command</td><td>Quick look at the repo without leaving</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="features">
+    <div class="feature"><b>Permissions</b><span>Each tool call is asked, allowed or denied by your settings (<code>defaultMode</code> of <code>ask</code>, <code>allow</code> or <code>deny</code> in <code>~/.snowflake/cortex/permissions.json</code>). Admins can enforce policy with managed settings.</span><small>Keep “ask” on bank work</small></div>
+    <div class="feature"><b>Bypass</b><span><code>/bypass</code> or <code>--dangerously-allow-all-tool-calls</code> runs everything without asking.</span><small>Never on client data</small></div>
+    <div class="feature"><b>Skills</b><span>A folder with a <code>SKILL.md</code> (name, description, steps). Project skills live in <code>.cortex/skills/</code>. Many are bundled: dbt, notebooks, Streamlit, machine learning, dynamic tables, governance, cost.</span><small>Team recipes</small></div>
+    <div class="feature"><b>Headless runs</b><span><code>cortex -p "..."</code> or <code>cortex exec</code> runs one prompt without the chat window, for scripts. Slash commands do not work there.</span><small>Automation</small></div>
+    <div class="feature"><b>Sandbox</b><span>Limits file, network and process access. Turn on with <code>/sandbox</code>. Marked experimental in the docs.</span><small>Experimental</small></div>
+    <div class="feature"><b>MCP, Agent SDK, plugins, automations</b><span>Connect external tools, build on CoCo from code, schedule CoCo runs. All marked <b>preview</b> at the time of writing.</span><small>Preview: check before use</small></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>A data science team keeps its churn project in a git repository: SQL for features, the notebook, the Streamlit app and a dbt project. Each person works on a branch. They run CoCo in Plan Mode with permissions on “ask”, review its diff with <code>/diff</code>, run tests, then commit and open a pull request that a colleague reviews. A shared project skill describes the team’s rules (“always fully qualify table names; never select PII columns into the app”), so every CoCo session follows them. Bypass mode is banned by policy on any connection that reaches client data.</p>
+</section>
+
+<section class="sec" id="sim" data-toc="Simulator: a CLI session">
+  <h2>Simulator: a CLI session in a git repo</h2>
+  <p>Read each output as if it were your terminal. Example text only; the exact wording varies by version.</p>
+  <div data-simulator="coco-4-2-cli"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p><code>cli_runs</code> is a simplified audit of CoCo CLI requests by a team, shaped like the account usage view <code>CORTEX_CODE_CLI_USAGE_HISTORY</code> plus the mode each run used. A lead reviews it weekly.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: Plan Mode and diffs in a repo</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Own laptop and own trial only</h3>
+      <div class="meta"><span>About 20 min</span><span>Needs git</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>Install, then add the <code>bank_trial</code> block above to <code>~/.snowflake/connections.toml</code>:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre>curl -LsS https://ai.snowflake.com/static/cc-scripts/install.sh | sh
+mkdir churn-repo &amp;&amp; cd churn-repo &amp;&amp; git init
+cortex -c bank_trial</pre></div>
+        <p class="expect">Expected: a session opens. Type <code>/status</code> and check the account, role and warehouse.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Type <code>/plan</code>, then: “Create sql/customer_features.sql with the SELECT that builds BANK_DS.FEATURES.CUSTOMER_FEATURES, reading the live definition from Snowflake. Add a README line about it.”</p>
+        <p class="expect">Expected: a numbered plan and no file changes yet. Approve it only if it reads the definition (for example with GET_DDL) rather than inventing it.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>After it runs, type <code>/diff</code>. Then <code>! git status</code>.</p>
+        <p class="expect">Expected: two new files. Read the diff line by line before you <code>git add</code> and <code>git commit</code> yourself.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Try one headless run from your normal terminal:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre>cortex -c bank_trial -p "How many rows are in BANK_DS.ML.CHURN_SCORES? Answer with the number only."</pre></div>
+        <p class="expect">Expected: one number, about 5000. Exit the interactive session with <code>/quit</code>.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>The CLI brings the robot into your home office. Pick the right card (connection), ask for a plan first, keep permissions on ask, read every diff, and commit yourself. Treat preview features as preview.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>cortex</dt><dd>The command that starts the CoCo CLI.</dd>
+    <dt>connections.toml</dt><dd>File at ~/.snowflake/connections.toml holding named Snowflake connections.</dd>
+    <dt>Plan Mode</dt><dd>CoCo writes a plan and waits for approval before changing anything.</dd>
+    <dt>Slash command</dt><dd>A session command starting with /, such as /diff or /model.</dd>
+    <dt>Diff</dt><dd>The lines added and removed in each file.</dd>
+    <dt>Skill</dt><dd>A reusable folder of instructions (SKILL.md) CoCo follows for a kind of task.</dd>
+    <dt>MCP</dt><dd>Model Context Protocol: a way to plug extra tools into CoCo. Preview.</dd>
+    <dt>Headless</dt><dd>Running one prompt from a script, with no interactive window.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#coco/4-3">4.3 Governance and safety on bank data →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "cli_runs": {
+        "columns": [["request_id", "NUMBER"], ["user_name", "VARCHAR"], ["usage_date", "DATE"], ["run_mode", "VARCHAR", "ask, plan or bypass"], ["tokens", "NUMBER"], ["token_credits", "NUMBER"]],
+        "rows": [
+          [1, "ANITA", "2026-10-05", "plan", 18200, 0.21], [2, "ANITA", "2026-10-05", "ask", 9400, 0.11], [3, "RAVI", "2026-10-05", "ask", 22100, 0.26],
+          [4, "RAVI", "2026-10-06", "bypass", 61000, 0.72], [5, "MEERA", "2026-10-06", "plan", 15300, 0.18], [6, "ANITA", "2026-10-07", "ask", 7800, 0.09],
+          [7, "MEERA", "2026-10-07", "ask", 30500, 0.36], [8, "RAVI", "2026-10-08", "plan", 12700, 0.15], [9, "MEERA", "2026-10-08", "bypass", 4400, 0.05],
+          [10, "ANITA", "2026-10-09", "plan", 26900, 0.32]
+        ]
+      }
+    },
+    "starter": "-- You asked CoCo: 'Credits by user this week, biggest first.'\nSELECT user_name, SUM(token_credits) AS credits, COUNT(*) AS requests\nFROM cli_runs\nGROUP BY user_name\nORDER BY credits DESC",
+    "examples": [
+      { "label": "Requests per mode", "sql": "SELECT run_mode, COUNT(*) AS requests\nFROM cli_runs\nGROUP BY run_mode\nORDER BY requests DESC, run_mode" },
+      { "label": "Biggest single requests", "sql": "SELECT request_id, user_name, tokens\nFROM cli_runs\nORDER BY tokens DESC\nLIMIT 3" }
+    ],
+    "challenges": [
+      { "task": "You asked CoCo: 'List every bypass-mode request with the user and date.' Write the SQL it should produce.", "hint": "WHERE run_mode = 'bypass'.", "answer": "SELECT request_id, user_name, usage_date FROM cli_runs WHERE run_mode = 'bypass' ORDER BY request_id" },
+      { "task": "You asked CoCo: 'Total credits per day.' Write the SQL it should produce (usage_date, credits).", "hint": "GROUP BY usage_date, SUM(token_credits).", "answer": "SELECT usage_date, SUM(token_credits) AS credits FROM cli_runs GROUP BY usage_date ORDER BY usage_date" },
+      { "task": "You asked CoCo: 'What share of requests used Plan Mode?' Write the SQL it should produce (one number between 0 and 1).", "hint": "AVG(CASE WHEN run_mode = 'plan' THEN 1.0 ELSE 0.0 END).", "answer": "SELECT AVG(CASE WHEN run_mode = 'plan' THEN 1.0 ELSE 0.0 END) AS plan_share FROM cli_runs" }
+    ]
+  },
+  "simulators": [
+    {
+      "id": "coco-4-2-cli",
+      "title": "CoCo CLI in a git repository",
+      "tool": "coco",
+      "intro": "Terminal in ~/churn-repo (a git repo). Started with: cortex -c bank_trial",
+      "steps": [
+        {
+          "prompt": "/status",
+          "say": "Session status.",
+          "outputText": "Connection: bank_trial\nRole: ACCOUNTADMIN   Warehouse: LEARN_WH   Database: BANK_DS\nMode: ask (Plan Mode off)\nWorking directory: ~/churn-repo",
+          "check": ["Right account and role before any work", "On a client project the role should be your project role, never ACCOUNTADMIN"]
+        },
+        {
+          "prompt": "/plan then: Add a dbt-style SQL file models/churn_risk_by_segment.sql that averages CHURN_PROBABILITY by SEGMENT from ML.CHURN_SCORES joined to FEATURES.CUSTOMER_FEATURES, plus a test that row count > 0.",
+          "say": "Plan Mode is on. Nothing will change until you approve.",
+          "outputText": "Plan:\n1. Read columns of BANK_DS.ML.CHURN_SCORES and BANK_DS.FEATURES.CUSTOMER_FEATURES (read-only SQL)\n2. Create models/churn_risk_by_segment.sql\n3. Create tests/churn_risk_by_segment_not_empty.sql\n4. Run the SELECT once with LIMIT 10 to verify\nApprove? (y/n)",
+          "check": ["Step 1 is read-only", "Only two new files, no edits elsewhere", "A verification step is included"]
+        },
+        {
+          "prompt": "y",
+          "say": "Done. Two files created and the query returned 3 segments.",
+          "code": { "lang": "sql", "text": "-- models/churn_risk_by_segment.sql\nSELECT f.SEGMENT,\n       AVG(s.CHURN_PROBABILITY) AS AVG_CHURN_PROBABILITY,\n       COUNT(*) AS CUSTOMERS\nFROM BANK_DS.ML.CHURN_SCORES s\nJOIN BANK_DS.FEATURES.CUSTOMER_FEATURES f ON f.CUSTOMER_ID = s.CUSTOMER_ID\nGROUP BY f.SEGMENT" },
+          "output": { "columns": ["SEGMENT", "AVG_CHURN_PROBABILITY", "CUSTOMERS"], "rows": [["Retail", 0.34, 3120], ["Premium", 0.22, 1405], ["Private", 0.18, 475]] },
+          "check": ["Segments are examples; yours come from P1 data", "Read the file, not just the result"]
+        },
+        {
+          "prompt": "/diff",
+          "say": "Changes since the last commit.",
+          "outputText": "+ models/churn_risk_by_segment.sql   (new, 7 lines)\n+ tests/churn_risk_by_segment_not_empty.sql   (new, 3 lines)\n0 files modified, 0 deleted",
+          "check": ["No unexpected files (no connections.toml, no .env)", "No deleted or modified files you did not ask for", "Now commit yourself: ! git add models tests && git commit"]
+        },
+        {
+          "prompt": "From a shell script: cortex -c bank_trial -p \"Row count of BANK_DS.ML.CHURN_SCORES, number only\"",
+          "say": "Headless mode answers one prompt and exits. Useful in scripts; keep permissions strict because nobody is watching.",
+          "outputText": "5000",
+          "check": ["Headless runs still use your connection and role", "Slash commands do not work in headless mode", "Never combine headless runs with bypass on client data"]
+        }
+      ]
+    }
+  ],
+  "quiz": [
+    { "q": "Which command starts the CoCo CLI with a named connection?", "options": ["cortex -c bank_trial", "snow coco start", "coco --login"], "answer": 0, "why": "The CLI command is cortex; -c or --connection picks a connection from connections.toml." },
+    { "q": "What does Plan Mode do?", "options": ["Runs faster", "Writes a plan and waits for your approval before changing anything", "Uses a cheaper model"], "answer": 1, "why": "Plan Mode (/plan or --plan) makes CoCo plan first. /plan-off turns it off." },
+    { "q": "Which is the safest way to authenticate in connections.toml on a client project?", "options": ["Store the password in the file", "Browser SSO or key-pair auth as the client’s security team specifies", "Paste the password into the CoCo prompt"], "answer": 1, "why": "No secrets in files or prompts. Use SSO or key pairs, and keep the file private (chmod 0600)." },
+    { "q": "What should you do right before committing CoCo’s changes?", "options": ["Nothing, it tested them", "Read the diff with /diff or git diff and check for unexpected files", "Turn on bypass"], "answer": 1, "why": "The diff shows exactly what changed. You own every line you commit." },
+    { "q": "Which of these is marked preview in the CoCo docs?", "options": ["Snowsight CoCo", "MCP support", "The CLI itself"], "answer": 1, "why": "Snowsight, Desktop and CLI are generally available; MCP, the Agent SDK, plugins and automations are preview." },
+    { "q": "Where do project skills live?", "options": ["In .cortex/skills/ inside the project, each with a SKILL.md", "In the Snowflake account only", "In connections.toml"], "answer": 0, "why": "Skills are folders with a SKILL.md. Project skills go in .cortex/skills/; personal ones in ~/.snowflake/cortex/skills/." }
+  ]
+}
+</script>

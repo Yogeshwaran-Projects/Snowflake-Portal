@@ -127,6 +127,9 @@ export default function Worksheet({ config }: Props) {
   };
 
   const ready = boot.kind === 'ready';
+  // The SQL course grades its questions Easy → Hard; Fundamentals' plain
+  // challenges carry no level and keep their original "Challenges" heading.
+  const leveled = config.challenges?.some(c => c.level !== undefined) ?? false;
   const statusText = boot.kind === 'starting' ? 'Starting the SQL engine…' : boot.kind === 'failed' ? 'SQL engine failed' : null;
 
   return (
@@ -160,12 +163,12 @@ export default function Worksheet({ config }: Props) {
       </div>
       {config.challenges && config.challenges.length > 0 && (
         <div className="panel">
-          <div className="panel-head"><h3>Challenges</h3><span className="overline">Write the SQL above, then check</span></div>
+          <div className="panel-head"><h3>{leveled ? `Practice questions (${config.challenges.length})` : 'Challenges'}</h3><span className="overline">Write the SQL above, then check</span></div>
           {config.challenges.map((c, i) => {
             const v = verdicts[i];
             return (
               <div className="challenge" key={i}>
-                <div><p><b>{i + 1}.</b> {c.task}</p><p className="hint">Hint: {c.hint}</p></div>
+                <div><p>{c.level && <span className={`level level-${c.level.toLowerCase()}`} data-level={c.level}>{c.level}</span>}<b>{i + 1}.</b> {c.task}</p><p className="hint">Hint: {c.hint}</p></div>
                 <button className="btn btn-secondary" type="button" data-check={i} disabled={!ready} onClick={() => { void check(i); }}>Check my answer</button>
                 <div className={v ? `verdict ${v.ok ? 'ok' : 'bad'}` : 'verdict'} hidden={!v}>{v?.text}</div>
               </div>

@@ -1,0 +1,378 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Cortex Masterclass</span><span>Module 4 · ML and masterclass</span><span>Lesson 4.1</span></div>
+  <h1>ML functions: forecast, anomaly, classify</h1>
+  <p class="lede">Predict tomorrow's complaint volume, catch a sudden spike and score which complaints may escalate, with classic machine learning you train in one SQL statement.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>35 min</span>
+    <span class="badge">Intermediate</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Simulator + worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Tell apart ML functions (numbers, patterns) and LLM functions (language)</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Train and use SNOWFLAKE.ML.FORECAST, ANOMALY_DETECTION and CLASSIFICATION</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Read prediction intervals, anomaly flags and class probabilities</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Check model quality with evaluation metrics and feature importance</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">Snowflake ML functions are built-in machine learning models you train and use from SQL: FORECAST predicts future values of a time series, ANOMALY_DETECTION flags values that are far from what was expected, and CLASSIFICATION sorts rows into classes using their columns.</p></div>
+  </div>
+  <p>You already know these ideas as a data scientist. What is new is the packaging: no Python, no feature pipeline, no model server. One <code>CREATE</code> statement trains a model object in your schema, and one method call (<code>!FORECAST</code>, <code>!DETECT_ANOMALIES</code>, <code>!PREDICT</code>) uses it.</p>
+  <ul>
+    <li><b>Not LLMs</b>: these models learn from numbers and categories in your table. They do not read text and there are no tokens to pay for.</li>
+    <li><b>Cost</b>: compute while training and predicting, plus a little storage for each model. Drop models you no longer use.</li>
+    <li><b>Immutable</b>: a model cannot be updated in place. To retrain, create it again.</li>
+    <li>A fourth function, <b>Top Insights</b>, finds which dimensions explain a change in a metric.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like three new library staff</h2>
+  <p>The sky library hires three specialists. The <b>weather forecaster</b> studies how many visitors came each day and says “tomorrow about 52, most likely between 44 and 60”. The <b>smoke alarm</b> knows what a normal day looks like and rings when something is far outside it. The <b>sorting hat</b> looks at each new letter and says which pile it belongs in, and how sure it is.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Weather forecaster</b><span>In Snowflake: SNOWFLAKE.ML.FORECAST</span></div>
+    <div><small>In the library</small><b>Smoke alarm</b><span>In Snowflake: SNOWFLAKE.ML.ANOMALY_DETECTION</span></div>
+    <div><small>In the library</small><b>Sorting hat</b><span>In Snowflake: SNOWFLAKE.ML.CLASSIFICATION</span></div>
+  </div>
+</section>
+
+<section class="sec" id="how" data-toc="How it works">
+  <h2>How each one works</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Function</th><th>You give it</th><th>You get back</th><th>Bank example</th></tr></thead>
+      <tbody>
+        <tr><td><code>FORECAST</code></td><td>A timestamp column and a target number; optional series column and extra features</td><td>SERIES, TS, FORECAST, LOWER_BOUND, UPPER_BOUND</td><td>Daily complaint volume for the next 14 days, for staffing</td></tr>
+        <tr><td><code>ANOMALY_DETECTION</code></td><td>History to learn from, then new rows to check; optional label column of known anomalies</td><td>TS, Y, FORECAST, bounds, IS_ANOMALY, PERCENTILE, DISTANCE</td><td>A sudden jump in complaints or in card transactions for one merchant</td></tr>
+        <tr><td><code>CLASSIFICATION</code></td><td>Rows with feature columns and a target class column</td><td>An object with <code>class</code> and <code>probability</code> per class</td><td>Will this complaint escalate to the ombudsman?</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Under the hood</div><p>FORECAST by default uses an ensemble of Prophet, ARIMA, exponential smoothing and a gradient boosting machine; the <code>'fast'</code> method uses only the gradient boosting machine with lags, rolling averages and calendar features. Each series needs at least 12 rows; with 2 to 11 rows you get a naive forecast that repeats the last value. The default prediction interval is 0.95 for FORECAST and 0.99 for anomaly detection (a higher value flags fewer anomalies). ANOMALY_DETECTION can only check timestamps after its training data. To create a model your role needs, for example, <code>CREATE SNOWFLAKE.ML.FORECAST</code> on the schema.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="syntax" data-toc="Syntax">
+  <h2>Real syntax</h2>
+  <p><b>Forecast</b>: train, predict 14 days, then check quality.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE OR REPLACE</span> SNOWFLAKE.ML.FORECAST BANK_AI.COMPLAINTS.VOLUME_FORECAST(
+  INPUT_DATA       =&gt; <span class="kw">TABLE</span>(BANK_AI.COMPLAINTS.DAILY_VOLUME_TRAIN),
+  TIMESTAMP_COLNAME =&gt; 'DAY_TS',
+  TARGET_COLNAME    =&gt; 'VOLUME'
+);
+
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> <span class="kw">TABLE</span>(BANK_AI.COMPLAINTS.VOLUME_FORECAST!FORECAST(
+  FORECASTING_PERIODS =&gt; 14,
+  CONFIG_OBJECT       =&gt; {'prediction_interval': 0.9}));
+
+<span class="kw">CALL</span> BANK_AI.COMPLAINTS.VOLUME_FORECAST!SHOW_EVALUATION_METRICS();
+<span class="kw">CALL</span> BANK_AI.COMPLAINTS.VOLUME_FORECAST!EXPLAIN_FEATURE_IMPORTANCE();</pre></div>
+  <p>Many series at once (one per product)? Add <code>SERIES_COLNAME =&gt; 'PRODUCT'</code>. Extra columns in the input become features, and then you must supply their future values when forecasting.</p>
+  <p><b>Anomaly detection</b>: learn normal, then check new days. <code>LABEL_COLNAME =&gt; ''</code> means unsupervised.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE OR REPLACE</span> SNOWFLAKE.ML.ANOMALY_DETECTION BANK_AI.COMPLAINTS.VOLUME_ALARM(
+  INPUT_DATA        =&gt; <span class="kw">TABLE</span>(BANK_AI.COMPLAINTS.DAILY_VOLUME_TRAIN),
+  TIMESTAMP_COLNAME =&gt; 'DAY_TS',
+  TARGET_COLNAME    =&gt; 'VOLUME',
+  LABEL_COLNAME     =&gt; '');
+
+<span class="kw">CALL</span> BANK_AI.COMPLAINTS.VOLUME_ALARM!DETECT_ANOMALIES(
+  INPUT_DATA        =&gt; <span class="kw">TABLE</span>(BANK_AI.COMPLAINTS.DAILY_VOLUME_TEST),
+  TIMESTAMP_COLNAME =&gt; 'DAY_TS',
+  TARGET_COLNAME    =&gt; 'VOLUME');</pre></div>
+  <p><b>Classification</b>: illustrative, for a table where past complaints carry a known <code>ESCALATED</code> label.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE OR REPLACE</span> SNOWFLAKE.ML.CLASSIFICATION ESCALATION_MODEL(
+  INPUT_DATA     =&gt; SYSTEM$REFERENCE('VIEW', 'ESCALATION_TRAIN'),  <span class="cm">-- PRODUCT, CHANNEL, SENTIMENT, IS_URGENT, DAYS_OPEN, ESCALATED</span>
+  TARGET_COLNAME =&gt; 'ESCALATED');
+
+<span class="kw">SELECT</span> ESCALATION_MODEL!PREDICT(INPUT_DATA =&gt; {*}) <span class="kw">AS</span> prediction
+<span class="kw">FROM</span> NEW_COMPLAINT_FEATURES;          <span class="cm">-- same feature columns, no label</span>
+
+<span class="kw">CALL</span> ESCALATION_MODEL!SHOW_EVALUATION_METRICS();
+<span class="kw">CALL</span> ESCALATION_MODEL!SHOW_CONFUSION_MATRIX();
+<span class="kw">CALL</span> ESCALATION_MODEL!SHOW_FEATURE_IMPORTANCE();</pre></div>
+  <p>Read a prediction with <code>prediction:class</code> and <code>prediction:probability</code>. Results come back in the same order as the input rows. Manage models with <code>SHOW SNOWFLAKE.ML.FORECAST;</code> and <code>DROP SNOWFLAKE.ML.FORECAST name;</code> (same pattern for the others).</p>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Team</th><th>Function</th><th>Decision it feeds</th></tr></thead>
+      <tbody>
+        <tr><td>Contact centre planning</td><td>FORECAST of daily complaints per channel</td><td>How many agents to roster next week</td></tr>
+        <tr><td>Payments operations</td><td>ANOMALY_DETECTION on hourly UPI failure counts</td><td>Raise an incident before social media notices</td></tr>
+        <tr><td>Fraud</td><td>ANOMALY_DETECTION on card spend per merchant</td><td>Send unusual merchants for review</td></tr>
+        <tr><td>Complaints quality</td><td>CLASSIFICATION of escalation risk</td><td>Route high-risk complaints to senior handlers</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Pair them with LLM functions: the anomaly says <b>when</b> volume jumped, and AI_SUMMARIZE_AGG or Cortex Search on that day's complaints says <b>why</b>.</p>
+</section>
+
+<section class="sec" id="simulator" data-toc="Simulator">
+  <h2>Simulator: forecast, alarm, sort</h2>
+  <div data-simulator="cortex-4-1-ml"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>Pre-computed outputs: <code>forecast_output</code> (14-day forecast), <code>anomaly_output</code> (the last 10 real days checked by the alarm, <code>is_anomaly</code> 1 or 0) and <code>escalation_scores</code> (classification results).</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: forecast and catch a spike</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Daily complaint volume in BANK_AI.COMPLAINTS</h3>
+      <div class="meta"><span>About 20 min</span><span>Uses LEARN_WH</span></div>
+    </div>
+    <ol class="steps">
+      <li><div><p>Our project has only 60 complaints, too few for a time series. Create 150 days of realistic synthetic volume, with quieter weekends, a slow upward trend and one injected spike.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE WAREHOUSE</span> LEARN_WH;
+<span class="kw">USE SCHEMA</span> BANK_AI.COMPLAINTS;
+<span class="kw">CREATE OR REPLACE TABLE</span> DAILY_VOLUME <span class="kw">AS</span>
+<span class="kw">SELECT</span> DATEADD('day', n, '2026-05-01'::DATE)::TIMESTAMP_NTZ <span class="kw">AS</span> DAY_TS,
+       40 + IFF(DAYOFWEEK(DATEADD('day', n, '2026-05-01'::DATE)) <span class="kw">IN</span> (0, 6), -15, 0)
+          + MOD(n * 7, 9) + FLOOR(n / 10) + IFF(n = 145, 90, 0) <span class="kw">AS</span> VOLUME
+<span class="kw">FROM</span> (<span class="kw">SELECT</span> ROW_NUMBER() <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> SEQ4()) - 1 <span class="kw">AS</span> n
+      <span class="kw">FROM</span> <span class="kw">TABLE</span>(GENERATOR(ROWCOUNT =&gt; 150)));
+
+<span class="kw">CREATE OR REPLACE VIEW</span> DAILY_VOLUME_TRAIN <span class="kw">AS</span> <span class="kw">SELECT</span> * <span class="kw">FROM</span> DAILY_VOLUME <span class="kw">WHERE</span> DAY_TS &lt;  '2026-09-08';
+<span class="kw">CREATE OR REPLACE VIEW</span> DAILY_VOLUME_TEST  <span class="kw">AS</span> <span class="kw">SELECT</span> * <span class="kw">FROM</span> DAILY_VOLUME <span class="kw">WHERE</span> DAY_TS &gt;= '2026-09-08';</pre></div>
+        <p class="expect">Expected: DAILY_VOLUME with 150 rows; the train view has 130 rows, the test view 20.</p><label><input type="checkbox"> Done</label></div></li>
+      <li><div><p>Run the three <b>Forecast</b> statements from the Syntax section (create, forecast, evaluation metrics), then feature importance.</p>
+        <p class="expect">Expected: training takes under a minute on XSMALL. 14 forecast rows starting 2026-09-08, lower on weekends. Evaluation shows metrics such as MAE and MAPE. Feature importance lists items such as day of week and trend.</p><label><input type="checkbox"> Done</label></div></li>
+      <li><div><p>Run the two <b>Anomaly detection</b> statements.</p>
+        <p class="expect">Expected: 20 rows; 2026-09-23 has IS_ANOMALY = TRUE with Y far above UPPER_BOUND. The other days should be FALSE.</p><label><input type="checkbox"> Done</label></div></li>
+      <li><div><p>Save the forecast for a dashboard, then clean up the models (they cost storage).</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE OR REPLACE TABLE</span> VOLUME_FORECAST_14D <span class="kw">AS</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> <span class="kw">TABLE</span>(VOLUME_FORECAST!FORECAST(FORECASTING_PERIODS =&gt; 14));
+<span class="kw">DROP</span> SNOWFLAKE.ML.ANOMALY_DETECTION VOLUME_ALARM;</pre></div>
+        <p class="expect">Expected: a 14-row table. Keep VOLUME_FORECAST for now if you want to explore.</p><label><input type="checkbox"> Done</label></div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>FORECAST is the weather forecaster, ANOMALY_DETECTION the smoke alarm and CLASSIFICATION the sorting hat. Train with CREATE, use with !FORECAST, !DETECT_ANOMALIES or !PREDICT, and always read the bounds and probabilities, not just the point value.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Time series</dt><dd>Values measured at regular times, such as complaints per day.</dd>
+    <dt>Prediction interval</dt><dd>The range the true value should fall in, with a stated probability (for example 0.95).</dd>
+    <dt>Anomaly</dt><dd>A value outside the expected range for its time.</dd>
+    <dt>Supervised / unsupervised</dt><dd>With or without a column of known answers (labels) to learn from.</dd>
+    <dt>Feature importance</dt><dd>How much each input column helped the model's predictions.</dd>
+    <dt>Confusion matrix</dt><dd>A table of predicted versus actual classes, showing where a classifier is wrong.</dd>
+    <dt>Model instance</dt><dd>The trained object created by CREATE SNOWFLAKE.ML.…; immutable once trained.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#cortex/4-2">4.2 Evaluation and fine-tuning →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "simulators": [
+    {
+      "id": "cortex-4-1-ml",
+      "title": "Complaint volume: forecast, alarm and escalation risk",
+      "tool": "cortex",
+      "steps": [
+        {
+          "prompt": "SELECT * FROM TABLE(BANK_AI.COMPLAINTS.VOLUME_FORECAST!FORECAST(FORECASTING_PERIODS => 5, CONFIG_OBJECT => {'prediction_interval': 0.9}));",
+          "say": "Five days ahead. The weekend days (Sep 12 and 13) are lower, as the model learned from history.",
+          "output": {
+            "columns": ["SERIES", "TS", "FORECAST", "LOWER_BOUND", "UPPER_BOUND"],
+            "rows": [
+              [null, "2026-09-08 00:00:00", 57.4, 51.2, 63.6],
+              [null, "2026-09-09 00:00:00", 58.1, 51.8, 64.4],
+              [null, "2026-09-10 00:00:00", 56.9, 50.5, 63.3],
+              [null, "2026-09-11 00:00:00", 57.6, 51.0, 64.2],
+              [null, "2026-09-12 00:00:00", 42.3, 35.6, 49.0]
+            ]
+          },
+          "check": ["Plan staffing on UPPER_BOUND on risky days, not on FORECAST.", "SERIES is NULL because we trained one series."]
+        },
+        {
+          "prompt": "CALL BANK_AI.COMPLAINTS.VOLUME_FORECAST!SHOW_EVALUATION_METRICS();",
+          "say": "Cross-validation metrics on the training history.",
+          "output": {"columns": ["ERROR_METRIC", "METRIC_VALUE"], "rows": [["MAE", 2.9], ["MAPE", 0.06], ["SMAPE", 0.059]]},
+          "check": ["MAPE 0.06 means about 6% average error. Good enough for rostering?", "Compare with a naive baseline such as 'same day last week'."]
+        },
+        {
+          "prompt": "CALL BANK_AI.COMPLAINTS.VOLUME_ALARM!DETECT_ANOMALIES(INPUT_DATA => TABLE(DAILY_VOLUME_TEST), TIMESTAMP_COLNAME => 'DAY_TS', TARGET_COLNAME => 'VOLUME');",
+          "say": "One day rang the alarm: 157 complaints against an expected 59.",
+          "output": {
+            "columns": ["TS", "Y", "FORECAST", "UPPER_BOUND", "IS_ANOMALY", "PERCENTILE"],
+            "rows": [
+              ["2026-09-22 00:00:00", 60, 58.6, 67.1, false, 0.62],
+              ["2026-09-23 00:00:00", 157, 59.2, 67.8, true, 1.0],
+              ["2026-09-24 00:00:00", 61, 59.0, 67.5, false, 0.71]
+            ]
+          },
+          "check": ["Next step: ask Cortex Search or AI_SUMMARIZE_AGG what that day's complaints say.", "Too many alarms? Raise prediction_interval."]
+        },
+        {
+          "prompt": "SELECT ESCALATION_MODEL!PREDICT(INPUT_DATA => {*}) AS prediction FROM NEW_COMPLAINT_FEATURES LIMIT 2;",
+          "say": "Each prediction is an object with the class and the probability of every class.",
+          "outputText": "{ \"class\": \"True\", \"logs\": null, \"probability\": { \"False\": 0.18, \"True\": 0.82 } }\n{ \"class\": \"False\", \"logs\": null, \"probability\": { \"False\": 0.91, \"True\": 0.09 } }",
+          "check": ["Pick your own threshold on probability:True; 0.5 is not always right for a bank.", "Check SHOW_CONFUSION_MATRIX before trusting it."]
+        }
+      ]
+    }
+  ],
+  "worksheet": {
+    "tables": {
+      "forecast_output": {
+        "columns": [["ts", "DATE"], ["forecast", "NUMBER"], ["lower_bound", "NUMBER"], ["upper_bound", "NUMBER"]],
+        "rows": [
+          ["2026-09-08", 57.4, 51.2, 63.6],
+          ["2026-09-09", 58.1, 51.8, 64.4],
+          ["2026-09-10", 56.9, 50.5, 63.3],
+          ["2026-09-11", 57.6, 51.0, 64.2],
+          ["2026-09-12", 42.3, 35.6, 49.0],
+          ["2026-09-13", 42.9, 36.0, 49.8],
+          ["2026-09-14", 58.4, 51.5, 65.3],
+          ["2026-09-15", 58.9, 51.9, 65.9],
+          ["2026-09-16", 57.8, 50.6, 65.0],
+          ["2026-09-17", 59.2, 51.9, 66.5],
+          ["2026-09-18", 58.6, 51.2, 66.0],
+          ["2026-09-19", 43.5, 36.0, 51.0],
+          ["2026-09-20", 44.1, 36.5, 51.7],
+          ["2026-09-21", 59.7, 52.0, 67.4]
+        ]
+      },
+      "anomaly_output": {
+        "columns": [
+          ["ts", "DATE"],
+          ["y", "NUMBER", "actual volume"],
+          ["forecast", "NUMBER"],
+          ["lower_bound", "NUMBER"],
+          ["upper_bound", "NUMBER"],
+          ["is_anomaly", "NUMBER", "1 = alarm"],
+          ["percentile", "NUMBER"]
+        ],
+        "rows": [
+          ["2026-09-18", 59, 58.6, 50.1, 67.1, 0, 0.55],
+          ["2026-09-19", 44, 43.5, 35.0, 52.0, 0, 0.53],
+          ["2026-09-20", 31, 44.1, 35.6, 52.6, 1, 0.002],
+          ["2026-09-21", 62, 59.7, 51.2, 68.2, 0, 0.66],
+          ["2026-09-22", 60, 58.6, 50.1, 67.1, 0, 0.62],
+          ["2026-09-23", 157, 59.2, 50.6, 67.8, 1, 1.0],
+          ["2026-09-24", 61, 59.0, 50.5, 67.5, 0, 0.71],
+          ["2026-09-25", 58, 59.4, 50.9, 67.9, 0, 0.41],
+          ["2026-09-26", 45, 44.6, 36.1, 53.1, 0, 0.53],
+          ["2026-09-27", 47, 45.0, 36.4, 53.6, 0, 0.64]
+        ]
+      },
+      "escalation_scores": {
+        "columns": [
+          ["complaint_id", "NUMBER", "new complaints after the 60 project rows"],
+          ["product", "VARCHAR"],
+          ["predicted_class", "VARCHAR"],
+          ["prob_escalate", "NUMBER", "probability of class True"]
+        ],
+        "rows": [
+          [61, "UPI", "True", 0.82],
+          [62, "CREDIT_CARD", "False", 0.09],
+          [63, "HOME_LOAN", "True", 0.67],
+          [64, "UPI", "True", 0.58],
+          [65, "SAVINGS", "False", 0.21],
+          [66, "SAVINGS", "False", 0.44],
+          [67, "UPI", "True", 0.91],
+          [68, "CREDIT_CARD", "False", 0.33]
+        ]
+      }
+    },
+    "starter": "SELECT ts, forecast, lower_bound, upper_bound\nFROM forecast_output\nORDER BY ts",
+    "examples": [
+      {"label": "Alarms only", "sql": "SELECT ts, y, forecast, upper_bound\nFROM anomaly_output\nWHERE is_anomaly = 1\nORDER BY ts"},
+      {"label": "Interval width", "sql": "SELECT ts, ROUND(upper_bound - lower_bound, 1) AS width\nFROM forecast_output\nORDER BY ts"},
+      {"label": "Escalation scores", "sql": "SELECT *\nFROM escalation_scores\nORDER BY prob_escalate DESC"}
+    ],
+    "challenges": [
+      {
+        "task": "Rostering: what is the total UPPER_BOUND volume for the first 7 forecast days (2026-09-08 to 2026-09-14)? Round to whole numbers.",
+        "hint": "WHERE ts BETWEEN the two dates, then ROUND(SUM(upper_bound)).",
+        "answer": "SELECT ROUND(SUM(upper_bound)) AS planned_volume FROM forecast_output WHERE ts BETWEEN '2026-09-08' AND '2026-09-14'"
+      },
+      {
+        "task": "The alarm flagged two days. Show ts, y and whether it was a spike or a dip (label 'spike' when y > upper_bound, else 'dip').",
+        "hint": "CASE WHEN y > upper_bound THEN 'spike' ELSE 'dip' END, with WHERE is_anomaly = 1.",
+        "answer": "SELECT ts, y, CASE WHEN y > upper_bound THEN 'spike' ELSE 'dip' END AS direction FROM anomaly_output WHERE is_anomaly = 1 ORDER BY ts"
+      },
+      {
+        "task": "Route to senior handlers only complaints with prob_escalate of at least 0.6. How many per product?",
+        "hint": "WHERE prob_escalate >= 0.6, GROUP BY product.",
+        "answer": "SELECT product, COUNT(*) AS to_senior FROM escalation_scores WHERE prob_escalate >= 0.6 GROUP BY product ORDER BY to_senior DESC, product"
+      }
+    ]
+  },
+  "quiz": [
+    {
+      "q": "Which function would you use to plan contact-centre staff for next week?",
+      "options": ["SNOWFLAKE.ML.FORECAST", "AI_CLASSIFY", "Cortex Search"],
+      "answer": 0,
+      "why": "Forecasting predicts future values of a time series, such as daily complaint volume."
+    },
+    {
+      "q": "How are ML functions like FORECAST billed?",
+      "options": ["Per million tokens", "Compute while training and predicting, plus model storage", "Per user"],
+      "answer": 1,
+      "why": "They are classic ML models, not LLMs, so there are no tokens; you pay compute and a little storage."
+    },
+    {
+      "q": "What does LABEL_COLNAME => '' mean in ANOMALY_DETECTION?",
+      "options": ["Supervised training", "Unsupervised training: no known anomalies are given", "An error"],
+      "answer": 1,
+      "why": "An empty string means no label column, so the model learns from all rows."
+    },
+    {
+      "q": "You need to update a forecast model with new data. What do you do?",
+      "options": ["ALTER the model", "Create (train) it again", "Insert rows into the model"],
+      "answer": 1,
+      "why": "Models are immutable; train a new one with CREATE OR REPLACE."
+    },
+    {
+      "q": "Your alarm rings too often. Which change flags fewer anomalies?",
+      "options": ["Raise prediction_interval, for example 0.99 to 0.999", "Lower prediction_interval", "Add more warehouses"],
+      "answer": 0,
+      "why": "A wider interval means fewer values fall outside it."
+    },
+    {
+      "q": "What does a CLASSIFICATION prediction return?",
+      "options": ["Only a class label", "An object with the class and the probability of each class", "A forecast and bounds"],
+      "answer": 1,
+      "why": "PREDICT returns class, probability and logs; choose your own threshold on the probability."
+    }
+  ]
+}
+</script>

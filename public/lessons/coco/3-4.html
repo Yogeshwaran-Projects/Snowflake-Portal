@@ -1,0 +1,278 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>CoCo Masterclass</span><span>Module 3 · CoCo for data science</span><span>Lesson 3.4</span></div>
+  <h1>Model Registry and scoring</h1>
+  <p class="lede">A trained model in a notebook disappears when the session ends. Put it in Snowflake’s Model Registry with a version and its metrics, then use it to score every customer from Python or SQL and save the scores as a table the whole team can use.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>35 min</span>
+    <span class="badge">Intermediate</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab + project step P6</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain what a model registry is and why banks require one</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Log a model with <code>Registry.log_model</code>, a version name and metrics</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Score a table with <code>mv.run</code> and with the SQL <code>MODEL(...)!method</code> syntax</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Write <code>ML.CHURN_SCORES</code> and query it like any other table</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">The Snowflake Model Registry stores trained models as schema objects, called MODEL objects. Each model can have several versions; each version keeps the model file, its inputs and outputs, a comment and metrics. You run a version on data from Python or SQL, and the work happens in Snowflake.</p></div>
+  </div>
+  <ul>
+    <li><b>Model</b>: the named object, for example <code>BANK_DS.ML.CHURN_MODEL</code>. It is governed by roles like a table.</li>
+    <li><b>Version</b>: one trained copy, such as <code>V1</code>. Retrain next month and log <code>V2</code>; <code>V1</code> stays for comparison and rollback.</li>
+    <li><b>Default version</b>: the one used when you do not name a version.</li>
+    <li><b>Scoring</b> (or inference): running the model on rows to get predictions.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a trophy cabinet</h2>
+  <p>Our trained guesser did well in the exam. Instead of leaving its rulebook on a desk where it gets lost, the library puts it in a locked <b>trophy cabinet</b>. Every trophy has a label: its name, which year (version), its exam scores and who trained it. Anyone with the right ID badge can take it out and use it to guess for every member, every morning. When a better guesser comes along, it gets the next shelf, and the old one stays in case we need it back.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Trophy cabinet</b><span>In Snowflake: the Model Registry in schema <code>BANK_DS.ML</code></span></div>
+    <div><small>In the library</small><b>Label on the trophy</b><span>In Snowflake: the version name, comment and metrics such as ROC AUC</span></div>
+    <div><small>In the library</small><b>Using the trophy</b><span>In Snowflake: <code>mv.run(df, function_name="predict_proba")</code> or <code>MODEL(...)!PREDICT_PROBA</code> in SQL</span></div>
+  </div>
+</section>
+
+<section class="sec" id="api" data-toc="The registry API">
+  <h2>The registry API you will use</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Goal</th><th>Python (<code>snowflake.ml.registry</code>)</th><th>SQL</th></tr></thead>
+      <tbody>
+        <tr><td><b>Open the registry</b></td><td><code>reg = Registry(session=session, database_name="BANK_DS", schema_name="ML")</code></td><td>Nothing to open; models live in the schema</td></tr>
+        <tr><td><b>Save a version</b></td><td><code>reg.log_model(model, model_name="CHURN_MODEL", version_name="V1", comment=..., metrics={...})</code></td><td>(log from Python)</td></tr>
+        <tr><td><b>List</b></td><td><code>reg.show_models()</code>, <code>reg.get_model("CHURN_MODEL").show_versions()</code></td><td><code>SHOW MODELS IN SCHEMA BANK_DS.ML;</code> and <code>SHOW VERSIONS IN MODEL BANK_DS.ML.CHURN_MODEL;</code></td></tr>
+        <tr><td><b>Add a metric later</b></td><td><code>mv.set_metric("roc_auc", 0.84)</code></td><td></td></tr>
+        <tr><td><b>Score</b></td><td><code>mv.run(df, function_name="predict_proba")</code></td><td><code>SELECT MODEL(BANK_DS.ML.CHURN_MODEL, V1)!PREDICT_PROBA(...) FROM ...</code></td></tr>
+        <tr><td><b>Set the default</b></td><td><code>m.default = "V1"</code></td><td><code>ALTER MODEL BANK_DS.ML.CHURN_MODEL SET DEFAULT_VERSION = V1;</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Good to know</div><p>A model trained with <code>snowflake.ml.modeling</code> already knows its input columns, so <code>log_model</code> needs no sample data. An open-source <code>xgboost</code> or scikit-learn model needs <code>sample_input_data</code> (a few rows of features) or a signature. Scoring runs on your session’s warehouse by default (<code>target_platforms=["WAREHOUSE"]</code>); bigger models can run on Snowpark Container Services instead.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>Banks are regulated on how they use models. Model risk management teams ask: which exact model produced this score, trained on what data, with what test results, approved by whom, and can you reproduce it? A registry answers most of that by design. The version name and comment say what it is, metrics are stored with it, roles control who can use it, and the scores table records <code>SCORED_AT</code>. A common pattern: data scientists log versions in a development schema, a reviewer checks the metrics and model card, then a release step copies or promotes the version for production scoring.</p>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>After scoring, the business uses <code>churn_scores</code> like any table. Here it sits next to a small <code>customers</code> table. Answer the questions the retention team will ask you.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: explore the registry in Snowsight</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Find your model without writing Python</h3>
+      <div class="meta"><span>About 5 min, after P6</span><span>Your trial</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>After you finish P6 below, run in a SQL worksheet:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SHOW MODELS IN SCHEMA</span> BANK_DS.ML;
+<span class="kw">SHOW VERSIONS IN MODEL</span> BANK_DS.ML.CHURN_MODEL;</pre></div>
+        <p class="expect">Expected: one model, <code>CHURN_MODEL</code>, and one version, <code>V1</code>, with your comment.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Open <b>AI &amp; ML » Models</b> in Snowsight (the menu name may vary by account) and find CHURN_MODEL. Look at its versions and metrics.</p>
+        <p class="expect">Expected: V1 with the four metrics you logged.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Ask CoCo: “Explain what is stored in BANK_DS.ML.CHURN_MODEL version V1 and draft a short model card: purpose, training data, features, metrics, known limitations.”</p>
+        <p class="expect">Expected: a draft you correct. Add the limitation from P4 (recency may partly reflect churn). Keep the card in your project notes.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="project" data-toc="Project step P6">
+  <h2>Project step P6: register the model and score every customer</h2>
+  <div class="callout project">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21V4h12l-2 4 2 4H4"/></svg>
+    <div><div class="label">Bank Churn Predictor · P6</div><p>We log the P5 model as <code>BANK_DS.ML.CHURN_MODEL</code> version <code>V1</code> with its metrics, then score all customers into <code>BANK_DS.ML.CHURN_SCORES(CUSTOMER_ID, CHURN_PROBABILITY, SCORED_AT)</code>. The Streamlit app in P7 reads this table, and the daily task in P8 refreshes it.</p></div>
+  </div>
+  <p><b>1. Prompt CoCo</b> in the same notebook as P5 (re-run the P5 cells first if the session restarted, so <code>model</code>, <code>FEATURES</code> and the metrics exist):</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre>Log my fitted model to the Snowflake Model Registry in BANK_DS.ML as CHURN_MODEL
+version V1, with a comment and the four test metrics. Then score every row of
+BANK_DS.FEATURES.CUSTOMER_FEATURES with predict_proba and save CUSTOMER_ID,
+the churn probability as CHURN_PROBABILITY and CURRENT_TIMESTAMP as SCORED_AT
+to BANK_DS.ML.CHURN_SCORES. Show me the code before running.</pre></div>
+  <p><b>2. The vetted code</b>:</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">from</span> snowflake.ml.registry <span class="kw">import</span> Registry
+
+acc  = accuracy_score(df=pred, y_true_col_names=<span class="kw">"CHURNED"</span>, y_pred_col_names=<span class="kw">"PREDICTED_CHURN"</span>)
+prec = precision_score(df=pred, y_true_col_names=<span class="kw">"CHURNED"</span>, y_pred_col_names=<span class="kw">"PREDICTED_CHURN"</span>)
+rec  = recall_score(df=pred, y_true_col_names=<span class="kw">"CHURNED"</span>, y_pred_col_names=<span class="kw">"PREDICTED_CHURN"</span>)
+auc  = roc_auc_score(df=proba, y_true_col_names=<span class="kw">"CHURNED"</span>, y_score_col_names=P1)
+
+reg = Registry(session=session, database_name=<span class="kw">"BANK_DS"</span>, schema_name=<span class="kw">"ML"</span>)
+mv = reg.log_model(
+    model,
+    model_name=<span class="kw">"CHURN_MODEL"</span>,
+    version_name=<span class="kw">"V1"</span>,
+    comment=<span class="kw">"XGBoost churn classifier on FEATURES.CUSTOMER_FEATURES, 80/20 split, seed 42"</span>,
+    metrics={<span class="kw">"accuracy"</span>: acc, <span class="kw">"precision"</span>: prec, <span class="kw">"recall"</span>: rec, <span class="kw">"roc_auc"</span>: auc},
+)
+reg.get_model(<span class="kw">"CHURN_MODEL"</span>).show_versions()
+
+<span class="cm"># Score everyone with the REGISTERED version, not the notebook object</span>
+to_score = session.table(<span class="kw">"BANK_DS.FEATURES.CUSTOMER_FEATURES"</span>).select([<span class="kw">"CUSTOMER_ID"</span>] + FEATURES)
+scored = mv.run(to_score, function_name=<span class="kw">"predict_proba"</span>)
+<span class="kw">print</span>(scored.columns)
+P1_REG = [c <span class="kw">for</span> c <span class="kw">in</span> scored.columns <span class="kw">if</span> <span class="kw">"PROBA"</span> <span class="kw">in</span> c.upper() <span class="kw">and</span> c.strip(<span class="kw">'"'</span>).endswith(<span class="kw">"1"</span>)][0]
+
+(scored.select(
+    F.col(<span class="kw">"CUSTOMER_ID"</span>),
+    F.col(P1_REG).alias(<span class="kw">"CHURN_PROBABILITY"</span>),
+    F.current_timestamp().alias(<span class="kw">"SCORED_AT"</span>),
+ ).write.save_as_table(<span class="kw">"BANK_DS.ML.CHURN_SCORES"</span>, mode=<span class="kw">"overwrite"</span>))</pre></div>
+  <p><b>3. Check it</b> in a SQL cell:</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT COUNT</span>(*) <span class="kw">AS</span> scored_rows,
+       <span class="kw">COUNT</span>(<span class="kw">DISTINCT</span> CUSTOMER_ID) <span class="kw">AS</span> customers,
+       <span class="kw">MIN</span>(CHURN_PROBABILITY) <span class="kw">AS</span> min_p, <span class="kw">MAX</span>(CHURN_PROBABILITY) <span class="kw">AS</span> max_p,
+       <span class="kw">ROUND</span>(<span class="kw">AVG</span>(CHURN_PROBABILITY), 3) <span class="kw">AS</span> avg_p,
+       <span class="kw">MAX</span>(SCORED_AT) <span class="kw">AS</span> scored_at
+<span class="kw">FROM</span> BANK_DS.ML.CHURN_SCORES;</pre></div>
+  <p class="expect"><b>Expected result:</b> <code>scored_rows</code> = <code>customers</code> = the row count of CUSTOMER_FEATURES (about 5,000). Probabilities between 0 and 1. Because we weighted churners in training, the average probability can be higher than the true churn rate; that is expected, and it is why we rank by probability rather than read it as an exact chance.</p>
+  <div data-simulator="coco-3-4-registry"></div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">If CoCo gives you something different</div><p><b>“Version V1 already exists”</b>: you ran log_model twice. Use <code>V2</code>, or delete the version on purpose with <code>reg.get_model("CHURN_MODEL").delete_version("V1")</code> after checking nothing uses it. <b>It scores with <code>model.predict_proba</code></b> (the notebook object): results match, but P8 needs the registered version, so ask for <code>mv.run</code>. <b>mv.run complains about the input</b>: pass exactly the feature columns it was trained on (print <code>FEATURES</code>) plus <code>CUSTOMER_ID</code>; if your version rejects extra columns, ask CoCo how to keep the ID alongside. <b>It uses SQL instead</b>: <code>MODEL(BANK_DS.ML.CHURN_MODEL, V1)!PREDICT_PROBA(...)</code> is valid; run it with <code>LIMIT 5</code> first and inspect the output shape before building on it.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>The registry is the trophy cabinet: every model has a name, a version, metrics and a badge lock. Score from the registered version, write scores to a table with a timestamp, and never overwrite a version you might need to roll back to.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Model Registry</dt><dd>Snowflake’s store for trained models as MODEL objects with versions.</dd>
+    <dt>Model version</dt><dd>One trained copy of a model, such as V1, with its own metrics and comment.</dd>
+    <dt>log_model</dt><dd>The Registry method that saves a model and returns a ModelVersion.</dd>
+    <dt>mv.run</dt><dd>Runs a version’s method, such as predict_proba, on a DataFrame.</dd>
+    <dt>Scoring / inference</dt><dd>Using a trained model to produce predictions for rows.</dd>
+    <dt>Default version</dt><dd>The version used when SQL or Python does not name one.</dd>
+    <dt>Model card</dt><dd>A short document: purpose, data, features, metrics, limits, owner.</dd>
+    <dt>Rollback</dt><dd>Going back to an earlier version when a new one misbehaves.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#coco/3-5">3.5 Streamlit apps →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "churn_scores": {
+        "columns": [["customer_id", "NUMBER"], ["churn_probability", "NUMBER"], ["scored_at", "DATE"]],
+        "rows": [
+          [1, 0.12, "2026-10-01"], [2, 0.88, "2026-10-01"], [3, 0.07, "2026-10-01"], [4, 0.73, "2026-10-01"],
+          [5, 0.04, "2026-10-01"], [6, 0.95, "2026-10-01"], [7, 0.21, "2026-10-01"], [8, 0.33, "2026-10-01"],
+          [9, 0.66, "2026-10-01"], [10, 0.18, "2026-10-01"], [11, 0.81, "2026-10-01"], [12, 0.09, "2026-10-01"]
+        ]
+      },
+      "customers": {
+        "columns": [["customer_id", "NUMBER"], ["full_name", "VARCHAR"], ["city", "VARCHAR"], ["segment", "VARCHAR"], ["balance", "NUMBER"]],
+        "rows": [
+          [1, "Asha Rao", "Mumbai", "Retail", 125000], [2, "Vikram Shah", "Delhi", "Premium", 1500], [3, "Meera Iyer", "Chennai", "Retail", 89000],
+          [4, "Rahul Nair", "Mumbai", "Retail", 4500], [5, "Priya Menon", "Bengaluru", "Premium", 640000], [6, "Arjun Das", "Delhi", "Retail", 0],
+          [7, "Sneha Pillai", "Chennai", "Premium", 310000], [8, "Karthik Reddy", "Bengaluru", "Retail", 56000], [9, "Divya Kumar", "Mumbai", "Premium", 210000],
+          [10, "Nikhil Joshi", "Delhi", "Retail", 73000], [11, "Farah Khan", "Chennai", "Retail", 12000], [12, "Lakshmi Bose", "Bengaluru", "Premium", 455000]
+        ]
+      }
+    },
+    "starter": "-- You asked CoCo: 'Join the scores to customers and sort by risk.'\nSELECT c.customer_id, c.full_name, c.segment, s.churn_probability\nFROM churn_scores s\nJOIN customers c ON c.customer_id = s.customer_id\nORDER BY s.churn_probability DESC",
+    "examples": [
+      { "label": "Risk bands", "sql": "SELECT CASE WHEN churn_probability >= 0.7 THEN 'High'\n            WHEN churn_probability >= 0.4 THEN 'Medium'\n            ELSE 'Low' END AS risk_band,\n       COUNT(*) AS customers\nFROM churn_scores\nGROUP BY 1\nORDER BY customers DESC, risk_band" },
+      { "label": "Balance at risk", "sql": "SELECT SUM(c.balance) AS balance_at_risk\nFROM churn_scores s\nJOIN customers c ON c.customer_id = s.customer_id\nWHERE s.churn_probability >= 0.5" }
+    ],
+    "challenges": [
+      { "task": "You asked CoCo: 'Top 3 customers most likely to churn, with name and probability.' Write the SQL it should produce.", "hint": "JOIN churn_scores to customers, ORDER BY churn_probability DESC, LIMIT 3.", "answer": "SELECT c.full_name, s.churn_probability FROM churn_scores s JOIN customers c ON c.customer_id = s.customer_id ORDER BY s.churn_probability DESC LIMIT 3" },
+      { "task": "You asked CoCo: 'Average churn probability per segment, highest first.' Write the SQL it should produce (segment, avg_probability).", "hint": "JOIN, GROUP BY c.segment, AVG(s.churn_probability), ORDER BY it DESC.", "answer": "SELECT c.segment, AVG(s.churn_probability) AS avg_probability FROM churn_scores s JOIN customers c ON c.customer_id = s.customer_id GROUP BY c.segment ORDER BY avg_probability DESC" },
+      { "task": "You asked CoCo: 'How many customers per city have a churn probability of 0.5 or more?' Write the SQL it should produce (city, high_risk).", "hint": "JOIN, WHERE s.churn_probability >= 0.5, GROUP BY c.city, COUNT(*).", "answer": "SELECT c.city, COUNT(*) AS high_risk FROM churn_scores s JOIN customers c ON c.customer_id = s.customer_id WHERE s.churn_probability >= 0.5 GROUP BY c.city ORDER BY c.city" }
+    ]
+  },
+  "simulators": [
+    {
+      "id": "coco-3-4-registry",
+      "title": "Project P6: register and score with CoCo",
+      "tool": "coco",
+      "intro": "Same notebook as P5, with model, FEATURES and the metrics still in memory.",
+      "steps": [
+        {
+          "prompt": "Log the model to the registry in BANK_DS.ML as CHURN_MODEL V1 with the four metrics.",
+          "say": "A snowflake.ml.modeling model carries its own input signature, so no sample data is needed.",
+          "code": { "lang": "python", "text": "from snowflake.ml.registry import Registry\nreg = Registry(session=session, database_name=\"BANK_DS\", schema_name=\"ML\")\nmv = reg.log_model(model, model_name=\"CHURN_MODEL\", version_name=\"V1\",\n                   comment=\"XGBoost churn classifier, 80/20 split, seed 42\",\n                   metrics={\"accuracy\": acc, \"precision\": prec, \"recall\": rec, \"roc_auc\": auc})" },
+          "outputText": "Model logged successfully. (Logging packages the model and can take a minute or two.)",
+          "check": ["Database and schema are BANK_DS.ML, not a default location", "Version name is explicit, never auto-generated for a bank model", "Metrics come from the TEST set"]
+        },
+        {
+          "prompt": "Show me the versions of CHURN_MODEL.",
+          "say": "One version, V1, which is also the default because it is the first.",
+          "code": { "lang": "sql", "text": "SHOW VERSIONS IN MODEL BANK_DS.ML.CHURN_MODEL;" },
+          "output": { "columns": ["name", "is_default_version", "comment"], "rows": [["V1", "true", "XGBoost churn classifier, 80/20 split, seed 42"]] },
+          "check": ["The comment tells a reviewer what this is", "Only the columns you need are shown here; the real output has more"]
+        },
+        {
+          "prompt": "Score every customer with V1 and save BANK_DS.ML.CHURN_SCORES (CUSTOMER_ID, CHURN_PROBABILITY, SCORED_AT).",
+          "say": "mv.run executes predict_proba in the warehouse. I keep CUSTOMER_ID, take the class-1 probability and stamp the time.",
+          "code": { "lang": "python", "text": "to_score = session.table(\"BANK_DS.FEATURES.CUSTOMER_FEATURES\").select([\"CUSTOMER_ID\"] + FEATURES)\nscored = mv.run(to_score, function_name=\"predict_proba\")\nP1_REG = [c for c in scored.columns if \"PROBA\" in c.upper() and c.strip('\"').endswith(\"1\")][0]\nscored.select(F.col(\"CUSTOMER_ID\"), F.col(P1_REG).alias(\"CHURN_PROBABILITY\"),\n              F.current_timestamp().alias(\"SCORED_AT\")) \\\n      .write.save_as_table(\"BANK_DS.ML.CHURN_SCORES\", mode=\"overwrite\")" },
+          "outputText": "Table BANK_DS.ML.CHURN_SCORES written: 5000 rows.",
+          "check": ["Class 1 (churn) probability, not class 0", "Row count equals the feature table", "mode=\"overwrite\" is fine for a scores table that is rebuilt each run"]
+        },
+        {
+          "prompt": "Can I get the same probabilities in plain SQL for a few customers?",
+          "say": "Yes. The MODEL(name, version)!method syntax calls a registry version from SQL. Pass the features in the order the model was trained on. Look at the output shape on a few rows before you build on it.",
+          "code": { "lang": "sql", "text": "SELECT CUSTOMER_ID,\n       MODEL(BANK_DS.ML.CHURN_MODEL, V1)!PREDICT_PROBA(\n         AGE, AGE_MISSING, TENURE_MONTHS, NUM_PRODUCTS, HAS_CREDIT_CARD,\n         IS_ACTIVE_MEMBER, ESTIMATED_SALARY, BALANCE, TXN_COUNT_90D,\n         TOTAL_AMOUNT_90D, AVG_TXN_AMOUNT, DAYS_SINCE_LAST_TXN,\n         TICKET_COUNT, UNRESOLVED_TICKETS) AS OUT\nFROM BANK_DS.FEATURES.CUSTOMER_FEATURES\nLIMIT 5;" },
+          "outputText": "Five rows, each with the class probabilities for that customer. The exact output format depends on your library version, so compare one row with CHURN_SCORES.",
+          "check": ["Argument order matches FEATURES exactly", "LIMIT 5 first: inspect, then scale up", "SQL scoring lets non-Python users and tasks use the model"]
+        }
+      ]
+    }
+  ],
+  "quiz": [
+    { "q": "Why put a model in the registry instead of keeping it in the notebook?", "options": ["Notebook objects vanish with the session; the registry keeps versions, metrics and access control", "It makes the model more accurate", "The registry trains it again for free"], "answer": 0, "why": "The registry turns a temporary Python object into a governed, versioned Snowflake object others can use." },
+    { "q": "You retrain next month. What should you do?", "options": ["Overwrite V1", "Log it as V2 and compare, keeping V1 for rollback", "Delete the model and start again"], "answer": 1, "why": "Versions let you compare, promote and roll back. Overwriting destroys the audit trail." },
+    { "q": "Which call scores a DataFrame with a registered version?", "options": ["mv.run(df, function_name=\"predict_proba\")", "reg.train(df)", "df.score(mv)"], "answer": 0, "why": "ModelVersion.run runs the named method on a Snowpark or pandas DataFrame in Snowflake." },
+    { "q": "Which SQL calls version V1 of the model?", "options": ["CALL CHURN_MODEL(V1)", "SELECT MODEL(BANK_DS.ML.CHURN_MODEL, V1)!PREDICT_PROBA(...) FROM ...", "SELECT PREDICT(CHURN_MODEL) FROM ..."], "answer": 1, "why": "The MODEL(name, version)!method syntax runs a model method from SQL." },
+    { "q": "Why store SCORED_AT with each score?", "options": ["Snowflake requires it", "To know when the score was made, for audit and to spot stale scores", "To make the table bigger"], "answer": 1, "why": "Banks need to know which model version scored a customer and when. Stale scores can mislead callers." },
+    { "q": "An open-source xgboost model fails in log_model asking for a signature. What is missing?", "options": ["sample_input_data or signatures", "A larger warehouse", "A new version name"], "answer": 0, "why": "Open-source models need sample_input_data or a signature so the registry knows the inputs. snowflake.ml.modeling models infer it during fit." }
+  ]
+}
+</script>

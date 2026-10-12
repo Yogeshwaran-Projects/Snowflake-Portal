@@ -1,0 +1,350 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Cortex Masterclass</span><span>Module 4 · ML and masterclass</span><span>Lesson 4.4</span></div>
+  <h1>Ship it: Streamlit app and review</h1>
+  <p class="lede">Wrap the whole project in one web app inside Snowflake: filters, KPI tiles, a chart and a chat box that calls your agent. Then review what it costs and clean up.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>35 min</span>
+    <span class="badge">Advanced</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Simulator + worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>Project step P8</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain Streamlit in Snowflake, its two runtimes and its owner's-rights model</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Build COMPLAINT_APP with filters, metrics, a chart and an agent chat box</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Review the project's cost from usage views and clean up safely</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">Streamlit in Snowflake lets you build a data web app in Python that runs inside Snowflake as a STREAMLIT object. Users open it in Snowsight; it queries data through a Snowpark session, with no server to host and no data leaving the platform.</p></div>
+  </div>
+  <p>Streamlit turns a Python script into a web page: <code>st.multiselect</code> becomes a filter, <code>st.bar_chart</code> a chart, <code>st.chat_input</code> a chat box. Inside Snowflake you get the session for free with <code>get_active_session()</code>.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>Warehouse runtime (default)</th><th>Container runtime</th></tr></thead>
+      <tbody>
+        <tr><td><b>Runs on</b></td><td>A warehouse; each viewer gets their own app instance</td><td>A compute pool; all viewers share one long-running instance</td></tr>
+        <tr><td><b>Packages</b></td><td><code>environment.yml</code></td><td><code>pyproject.toml</code> or <code>requirements.txt</code></td></tr>
+        <tr><td><b>Set by</b></td><td><code>RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME'</code></td><td><code>RUNTIME_NAME = 'SYSTEM$ST_CONTAINER_RUNTIME_PY3_11'</code> plus <code>COMPUTE_POOL</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a reading room with a notice board</h2>
+  <p>So far the library's best tools were scattered: the super index in one room, the catalogue helper in another, the head librarian upstairs. Now you open a <b>reading room</b> at the entrance. On the wall is a notice board with today's numbers and a chart. In the corner sits a speaking tube straight to the head librarian. Visitors get everything in one place, and the room is lit only while someone is inside.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Reading room</b><span>In Snowflake: the Streamlit app COMPLAINT_APP</span></div>
+    <div><small>In the library</small><b>Notice board</b><span>In Snowflake: filters, KPI tiles and the chart over ENRICHED</span></div>
+    <div><small>In the library</small><b>Speaking tube</b><span>In Snowflake: the chat box calling COMPLAINT_AGENT</span></div>
+  </div>
+</section>
+
+<section class="sec" id="how" data-toc="How it works">
+  <h2>How the app is put together</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>App part</th><th>Streamlit call</th><th>Snowflake object behind it</th></tr></thead>
+      <tbody>
+        <tr><td>Filters</td><td><code>st.multiselect</code></td><td>ENRICHED (P2, P3)</td></tr>
+        <tr><td>KPI tiles</td><td><code>st.metric</code></td><td>Same logic as the COMPLAINTS_SV metrics (P6)</td></tr>
+        <tr><td>Chart</td><td><code>st.bar_chart</code></td><td>ENRICHED grouped by CATEGORY</td></tr>
+        <tr><td>Chat</td><td><code>st.chat_input</code>, <code>st.chat_message</code></td><td>COMPLAINT_AGENT via DATA_AGENT_RUN (P7), which uses COMPLAINT_SEARCH (P5) and COMPLAINTS_SV (P6)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Owner's rights: read this twice</div><p>A Streamlit in Snowflake app runs with the privileges of its <b>owner role</b>, not the viewer's. Every viewer sees what the owner can see, including through the agent. So own the app with a role that has only the data viewers may see, never ACCOUNTADMIN on a real project, and share the app only with the roles that should use it. Container-runtime apps can instead use <b>restricted caller's rights</b> (Streamlit 1.53.1 or later), where admins choose which of the viewer's privileges the app may use; the warehouse runtime does not support it. To create it you need CREATE STREAMLIT on the schema and USAGE on the query warehouse. The app is not live until you open it in Snowsight with the owning role (or run <code>ALTER STREAMLIT … ADD LIVE VERSION FROM LAST</code>).</p></div>
+  </div>
+</section>
+
+<section class="sec" id="syntax" data-toc="Syntax">
+  <h2>Real syntax: the app</h2>
+  <p>Paste this whole file into the Snowsight editor as <code>streamlit_app.py</code>. It uses only Streamlit, pandas and Snowpark, which the warehouse runtime already provides.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre>import json
+import streamlit as st
+from snowflake.snowpark.context import get_active_session
+
+AGENT = "BANK_AI.COMPLAINTS.COMPLAINT_AGENT"
+session = get_active_session()
+st.title("Complaint Intelligence")
+
+@st.cache_data(ttl=600)
+def load():
+    return session.sql("""
+        SELECT COMPLAINT_ID, PRODUCT, CATEGORY, CHANNEL, SENTIMENT, IS_URGENT, SUBMITTED_AT
+        FROM BANK_AI.COMPLAINTS.ENRICHED""").to_pandas()
+
+df = load()
+all_products = sorted(df["PRODUCT"].unique())
+all_channels = sorted(df["CHANNEL"].unique())
+products = st.multiselect("Product", all_products, default=all_products)
+channels = st.multiselect("Channel", all_channels, default=all_channels)
+view = df[df["PRODUCT"].isin(products) &amp; df["CHANNEL"].isin(channels)]
+
+c1, c2, c3 = st.columns(3)
+c1.metric("Complaints", len(view))
+c2.metric("Urgent", int(view["IS_URGENT"].astype(int).sum()))
+neg = (view["SENTIMENT"].str.lower() == "negative").mean() if len(view) else 0
+c3.metric("Share negative", f"{neg:.0%}")
+
+st.subheader("Complaints by category")
+st.bar_chart(view.groupby("CATEGORY").size())
+
+st.subheader("Ask Complaint Intelligence")
+if "history" not in st.session_state:
+    st.session_state.history = []
+for who, text in st.session_state.history:
+    st.chat_message(who).markdown(text)
+
+question = st.chat_input("For example: what are customers saying about UPI failures?")
+if question:
+    st.chat_message("user").markdown(question)
+    body = json.dumps({"messages": [{"role": "user",
+                       "content": [{"type": "text", "text": question}]}]})
+    with st.spinner("Asking the agent..."):
+        raw = session.sql("SELECT SNOWFLAKE.CORTEX.DATA_AGENT_RUN(?, ?)",
+                          params=[AGENT, body]).collect()[0][0]
+    resp = json.loads(raw)
+    answer = "\n\n".join(c["text"] for c in resp.get("content", [])
+                         if c.get("type") == "text") or "No answer returned."
+    st.chat_message("assistant").markdown(answer)
+    st.session_state.history += [("user", question), ("assistant", answer)]</pre></div>
+  <p>Each chat question is a fresh agent run. For true follow-ups, create a thread and pass <code>thread_id</code> and <code>parent_message_id</code> in the body (lesson 3.3). If <code>DATA_AGENT_RUN</code> is not available in your account, replace the chat call with the RAG query from P5.</p>
+  <p>Prefer code over clicks? The same app as SQL, with the file uploaded to a stage first:</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE STAGE IF NOT EXISTS</span> BANK_AI.COMPLAINTS.APP_STAGE;
+<span class="cm">-- upload streamlit_app.py to @APP_STAGE/complaint_app/ in Snowsight (Data » Add data » Load files into a stage)</span>
+<span class="kw">CREATE OR REPLACE STREAMLIT</span> BANK_AI.COMPLAINTS.COMPLAINT_APP
+  <span class="kw">FROM</span> '@BANK_AI.COMPLAINTS.APP_STAGE/complaint_app'
+  MAIN_FILE = 'streamlit_app.py'
+  QUERY_WAREHOUSE = LEARN_WH
+  TITLE = 'Complaint Intelligence';</pre></div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>A complaints dashboard like this usually goes through three gates before business users see it: <b>security</b> (owner role reviewed, app shared only with named roles, no PII on screen unless masked), <b>quality</b> (the golden-set scores from lesson 4.2 attached to the release), and <b>cost</b> (a budget on the project and a weekly cost check like the one below). Because the app runs inside Snowflake, there is no separate hosting, firewall or credential to approve, which shortens the security review a lot.</p>
+</section>
+
+<section class="sec" id="simulator" data-toc="Simulator">
+  <h2>Simulator: build, use, review</h2>
+  <div data-simulator="cortex-4-4-ship"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p><code>cost_review</code> lists last week's credits for every object the project created, as you would assemble it from the usage views. Find what to keep, suspend or drop.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="project" data-toc="Project step P8">
+  <h2>Project step P8: Ship the Streamlit app and review cost</h2>
+  <div class="callout project">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V4h11l-2 4 2 4H5"/></svg>
+    <div><div class="label">Project step P8 · Complaint Intelligence</div><p>Goal: the Streamlit app <code>BANK_AI.COMPLAINTS.COMPLAINT_APP</code> with filters, KPI tiles, a chart and an agent chat box, then a cost review of everything P1 to P8 created, and a clean-up plan.</p></div>
+  </div>
+  <ol class="steps">
+    <li><div><p>In Snowsight open <b>Projects » Streamlit</b> and select <b>+ Streamlit App</b>. Title: <b>Complaint Intelligence</b>; app location: <b>BANK_AI.COMPLAINTS</b>; warehouse: <b>LEARN_WH</b>; runtime: warehouse. Name the object <b>COMPLAINT_APP</b> (rename it later with <code>ALTER STREAMLIT … RENAME TO</code> if the UI chose another name).</p>
+      <p class="expect">Expected: an editor with a sample app on the left and its preview on the right.</p><label><input type="checkbox"> Done</label></div></li>
+    <li><div><p>Replace the sample with the app code above and select <b>Run</b>.</p>
+      <p class="expect">Expected: three KPI tiles (Complaints 60 with all filters on), a bar chart by category and a chat box. Untick a product and every tile changes.</p><label><input type="checkbox"> Done</label></div></li>
+    <li><div><p>Ask in the chat: <i>“Which product has the most urgent complaints, and what are they about?”</i></p>
+      <p class="expect">Expected: a number from the semantic view and reasons with complaint IDs, in 5 to 20 seconds.</p><label><input type="checkbox"> Done</label></div></li>
+    <li><div><p>Cost review. Run these and write the totals in your notes:</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> warehouse_name, <span class="kw">SUM</span>(credits_used) <span class="kw">AS</span> credits
+<span class="kw">FROM</span> SNOWFLAKE.ACCOUNT_USAGE.WAREHOUSE_METERING_HISTORY
+<span class="kw">WHERE</span> warehouse_name = 'LEARN_WH' <span class="kw">AND</span> start_time &gt;= DATEADD('day', -30, CURRENT_TIMESTAMP())
+<span class="kw">GROUP BY</span> 1;
+
+<span class="kw">SELECT</span> function_name, model_name, <span class="kw">SUM</span>(credits) <span class="kw">AS</span> credits
+<span class="kw">FROM</span> SNOWFLAKE.ACCOUNT_USAGE.CORTEX_AI_FUNCTIONS_USAGE_HISTORY
+<span class="kw">WHERE</span> start_time &gt;= DATEADD('day', -30, CURRENT_TIMESTAMP())
+<span class="kw">GROUP BY</span> 1, 2 <span class="kw">ORDER BY</span> credits <span class="kw">DESC</span>;
+
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> SNOWFLAKE.ACCOUNT_USAGE.CORTEX_SEARCH_DAILY_USAGE_HISTORY
+<span class="kw">ORDER BY</span> usage_date <span class="kw">DESC LIMIT</span> 20;
+
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> SNOWFLAKE.ACCOUNT_USAGE.CORTEX_AGENT_USAGE_HISTORY
+<span class="kw">ORDER BY</span> start_time <span class="kw">DESC LIMIT</span> 20;</pre></div>
+      <p class="expect">Expected: small numbers. The search service often shows a steady daily serving cost even when nobody queries it: that is the line to watch.</p><label><input type="checkbox"> Done</label></div></li>
+    <li><div><p>Clean up when you finish the course. Keep data and drop or pause what bills while idle:</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">ALTER WAREHOUSE</span> LEARN_WH <span class="kw">SET</span> AUTO_SUSPEND = 60;
+<span class="kw">ALTER CORTEX SEARCH SERVICE</span> BANK_AI.COMPLAINTS.COMPLAINT_SEARCH <span class="kw">SUSPEND</span> SERVING;   <span class="cm">-- or DROP when done</span>
+<span class="cm">-- When the course is over:</span>
+<span class="cm">-- DROP STREAMLIT BANK_AI.COMPLAINTS.COMPLAINT_APP;</span>
+<span class="cm">-- DROP AGENT BANK_AI.COMPLAINTS.COMPLAINT_AGENT;</span>
+<span class="cm">-- DROP CORTEX SEARCH SERVICE BANK_AI.COMPLAINTS.COMPLAINT_SEARCH;</span></pre></div>
+      <p class="expect">Expected: “Statement executed successfully.” Resume serving with <code>RESUME SERVING</code> before you use P5 or P7 again.</p><label><input type="checkbox"> Done</label></div></li>
+  </ol>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>Streamlit in Snowflake is the reading room that brings filters, charts and the agent together, running with its owner's rights. Ship it only after a cost review, and pause or drop anything that bills while idle.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Streamlit</dt><dd>An open-source Python library that turns scripts into web apps.</dd>
+    <dt>Streamlit in Snowflake</dt><dd>Streamlit apps stored and run as STREAMLIT objects inside Snowflake.</dd>
+    <dt>Owner's rights</dt><dd>The app runs with its owner role's privileges, whoever views it.</dd>
+    <dt>Snowpark session</dt><dd>The Python connection the app uses to run SQL in Snowflake.</dd>
+    <dt>Warehouse runtime</dt><dd>Default runtime; each viewer gets a personal instance on a warehouse.</dd>
+    <dt>Container runtime</dt><dd>Runtime on a compute pool where viewers share one instance.</dd>
+    <dt>Suspend serving</dt><dd>Pausing a Cortex Search service so it stops serving queries.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#cortex/4-5">4.5 Capstone review and interview Q&amp;A →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "simulators": [
+    {
+      "id": "cortex-4-4-ship",
+      "title": "COMPLAINT_APP from first run to cost review",
+      "tool": "cortex",
+      "steps": [
+        {
+          "prompt": "Run streamlit_app.py in Projects » Streamlit » Complaint Intelligence",
+          "say": "The app loaded ENRICHED once (cached for 10 minutes) and drew the tiles and the chart.",
+          "output": {"columns": ["TILE", "VALUE"], "rows": [["Complaints", 60], ["Urgent", 17], ["Share negative", "75%"]]},
+          "check": ["Do the tiles match SEMANTIC_VIEW() for the same filter? They must."]
+        },
+        {
+          "prompt": "Untick every product except UPI",
+          "say": "Streamlit reruns the script on every change, so the tiles and chart now show UPI only.",
+          "output": {"columns": ["CATEGORY", "COMPLAINTS"], "rows": [["App and UPI", 7], ["Fraud", 1]]},
+          "check": ["Filtering happens in pandas on cached data: fast and free."]
+        },
+        {
+          "prompt": "Chat: Which product has the most urgent complaints, and what are they about?",
+          "say": "The app sent the question to COMPLAINT_AGENT through DATA_AGENT_RUN and showed the text parts of the response.",
+          "outputText": "UPI has the most urgent complaints: 6 of 17. Customers say payments fail while the money is still debited [2][32], they cannot set a UPI PIN [55], a UPI Lite balance vanished after a phone change [47], money went to a wrong UPI ID [16], and one reports a prize-scam collect request [39].",
+          "check": ["The app runs as its owner role: make sure that role is not over-privileged.", "Each question is a separate run unless you add threads."]
+        },
+        {
+          "prompt": "SELECT * FROM cost_review ORDER BY credits_7d DESC;",
+          "say": "One week of the project. The search service bills for serving every day even when idle.",
+          "output": {
+            "columns": ["OBJECT_NAME", "SERVICE", "CREDITS_7D"],
+            "rows": [
+              ["LEARN_WH", "Warehouse", 1.9],
+              ["COMPLAINT_SEARCH", "Cortex Search", 0.84],
+              ["AI functions (P2 to P4)", "AI functions", 0.61],
+              ["COMPLAINT_AGENT", "Cortex Agents", 0.22]
+            ]
+          },
+          "check": ["Suspend serving or drop the service when nobody uses it.", "Set AUTO_SUSPEND = 60 on LEARN_WH."]
+        }
+      ]
+    }
+  ],
+  "worksheet": {
+    "tables": {
+      "cost_review": {
+        "columns": [
+          ["object_name", "VARCHAR"],
+          ["service", "VARCHAR"],
+          ["project_step", "VARCHAR"],
+          ["credits_7d", "NUMBER", "credits in the last 7 days"],
+          ["queries_7d", "NUMBER", "times used in the last 7 days"]
+        ],
+        "rows": [
+          ["LEARN_WH", "Warehouse", "P1-P8", 1.9, 412],
+          ["COMPLAINT_SEARCH", "Cortex Search", "P5", 0.84, 37],
+          ["AI functions", "AI functions", "P2-P4", 0.61, 18],
+          ["COMPLAINTS_SV", "Cortex Analyst", "P6", 0.15, 22],
+          ["COMPLAINT_AGENT", "Cortex Agents", "P7", 0.22, 26],
+          ["COMPLAINT_APP", "Streamlit", "P8", 0.0, 14],
+          ["VOLUME_FORECAST", "ML function", "Lesson 4.1", 0.05, 2],
+          ["OLD_TEST_SEARCH", "Cortex Search", "none", 0.79, 0]
+        ]
+      }
+    },
+    "starter": "SELECT object_name, service, credits_7d\nFROM cost_review\nORDER BY credits_7d DESC",
+    "examples": [
+      {"label": "All rows", "sql": "SELECT *\nFROM cost_review\nORDER BY project_step, object_name"},
+      {"label": "Credits by service", "sql": "SELECT service, ROUND(SUM(credits_7d), 2) AS credits\nFROM cost_review\nGROUP BY service\nORDER BY credits DESC"}
+    ],
+    "challenges": [
+      {
+        "task": "What did the whole project cost in the last 7 days? Round to 2 decimals.",
+        "hint": "ROUND(SUM(credits_7d), 2).",
+        "answer": "SELECT ROUND(SUM(credits_7d), 2) AS total_credits FROM cost_review"
+      },
+      {
+        "task": "Find waste: objects that cost credits but were used 0 times.",
+        "hint": "WHERE credits_7d > 0 AND queries_7d = 0.",
+        "answer": "SELECT object_name, service, credits_7d FROM cost_review WHERE credits_7d > 0 AND queries_7d = 0"
+      },
+      {
+        "task": "Cost per use: show object_name and credits per query (rounded to 3 decimals) for objects used at least once, most expensive per use first.",
+        "hint": "credits_7d / queries_7d, with WHERE queries_7d > 0.",
+        "answer": "SELECT object_name, ROUND(credits_7d / queries_7d, 3) AS credits_per_use FROM cost_review WHERE queries_7d > 0 ORDER BY credits_per_use DESC"
+      }
+    ]
+  },
+  "quiz": [
+    {
+      "q": "Whose privileges does a Streamlit in Snowflake app use when it queries data?",
+      "options": ["The viewer's", "The owner role's", "ACCOUNTADMIN's always"],
+      "answer": 1,
+      "why": "Apps run with owner's rights, so the owner role must have only what viewers may see."
+    },
+    {
+      "q": "In the default warehouse runtime, how are app instances shared?",
+      "options": ["Each viewer gets a personal instance", "All viewers share one instance", "There is no instance"],
+      "answer": 0,
+      "why": "Warehouse runtime gives each viewer an instance; the container runtime shares one long-running instance."
+    },
+    {
+      "q": "How does COMPLAINT_APP call the agent from Python?",
+      "options": ["SNOWFLAKE.CORTEX.DATA_AGENT_RUN through session.sql", "pip install an agent package", "It cannot"],
+      "answer": 0,
+      "why": "DATA_AGENT_RUN runs an agent from SQL and returns JSON; the app shows the text items."
+    },
+    {
+      "q": "Which project object can bill every day even when nobody uses it?",
+      "options": ["The Cortex Search service (serving)", "The semantic view", "The STREAMLIT object itself"],
+      "answer": 0,
+      "why": "Search services are billed for serving per GB per month while they are available."
+    },
+    {
+      "q": "Why use @st.cache_data on the load function?",
+      "options": ["To avoid re-querying Snowflake on every filter change", "To encrypt data", "It is required"],
+      "answer": 0,
+      "why": "Streamlit reruns the script on each interaction; caching keeps it fast and saves warehouse time."
+    },
+    {
+      "q": "What is the safe end-of-course clean-up for the search service?",
+      "options": ["Leave it running", "SUSPEND SERVING now, DROP when finished", "Drop the database"],
+      "answer": 1,
+      "why": "Suspending stops serving charges; dropping removes it when you no longer need P5 or P7."
+    }
+  ]
+}
+</script>

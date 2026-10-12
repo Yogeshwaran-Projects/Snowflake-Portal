@@ -1,0 +1,289 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>SQL: Beginner to Advanced</span><span>Module 1 · Beginner</span><span>Lesson 1.6</span></div>
+  <h1>Aggregates</h1>
+  <p class="lede">So far every query gave back rows. Now you ask for one number about many rows: how many, how much in total, the average, the smallest, the biggest. These are aggregates, and every report is built on them.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>25 min</span>
+    <span class="badge">Beginner</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice: 6 questions</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Count rows with <code>COUNT(*)</code> and filled values with <code>COUNT(col)</code></li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Add up and average with <code>SUM</code> and <code>AVG</code></li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Find the smallest and biggest with <code>MIN</code> and <code>MAX</code></li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Say exactly what every aggregate does with a blank</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">An aggregate is a function that takes many rows and gives back one value. COUNT, SUM, AVG, MIN and MAX are the five you use every day.</p></div>
+  </div>
+  <p>The functions in lesson 1.4 worked on one row at a time: 16 rows in, 16 rows out. An aggregate squashes the rows: 16 rows in, one row out. If WHERE comes first, the aggregate only sees the rows that passed the filter.</p>
+  <p>One rule governs blanks: <b>every aggregate skips NULL</b>, except <code>COUNT(*)</code>, which counts rows whether or not a field is filled. So <code>AVG(balance)</code> is the average of the 19 filled balances, not 20.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like asking for one number, not a list</h2>
+  <p>Until now the librarian came back with a list of cards. Now you ask: “how many cards are on the accounts shelf?” or “add up every balance”. She still goes through every card, but she comes back with a single slip of paper holding one number. If a card has a blank balance, she skips it when adding, averaging or looking for the biggest. She only counts it when you ask “how many cards?” rather than “how many balances?”.</p>
+  <div class="map">
+    <div><small>In the library</small><b>“How many cards?”</b><span>In SQL: <code>COUNT(*)</code>, every row counts</span></div>
+    <div><small>In the library</small><b>“How many cards have a balance?”</b><span>In SQL: <code>COUNT(balance)</code>, blanks skipped</span></div>
+    <div><small>In the library</small><b>“Add them up” / “average them” / “biggest”</b><span>In SQL: <code>SUM</code>, <code>AVG</code>, <code>MAX</code> (and <code>MIN</code>), blanks skipped</span></div>
+  </div>
+  <p>Ask for one number and you get one row back. Ask for three numbers in the same slip and you still get one row, with three columns.</p>
+</section>
+
+<section class="sec" id="syntax" data-toc="How to write it">
+  <h2>How to write it, step by step</h2>
+  <p>Step 1: decide the rows with FROM and WHERE. Step 2: put aggregates in the SELECT list. Step 3: give each a clear name with AS. The result is always exactly one row.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> <span class="kw">COUNT</span>(*)            <span class="kw">AS</span> n_accounts,
+       <span class="kw">SUM</span>(balance)        <span class="kw">AS</span> total_balance,
+       <span class="kw">ROUND</span>(<span class="kw">AVG</span>(balance), 2) <span class="kw">AS</span> avg_balance,
+       <span class="kw">MIN</span>(balance)        <span class="kw">AS</span> smallest,
+       <span class="kw">MAX</span>(balance)        <span class="kw">AS</span> largest
+<span class="kw">FROM</span> accounts
+<span class="kw">WHERE</span> acct_status = 'ACTIVE';</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Aggregate</th><th>What it means</th><th>Blanks</th><th>Telling the librarian</th></tr></thead>
+      <tbody>
+        <tr><td><code>COUNT(*)</code></td><td>Number of rows</td><td>Counted</td><td>“How many cards?”</td></tr>
+        <tr><td><code>COUNT(col)</code></td><td>Number of rows where col is filled</td><td>Skipped</td><td>“How many cards have a channel written in?”</td></tr>
+        <tr><td><code>COUNT(DISTINCT col)</code></td><td>Number of different filled values</td><td>Skipped</td><td>“How many different cities appear?”</td></tr>
+        <tr><td><code>SUM(col)</code></td><td>Total</td><td>Skipped</td><td>“Add up every amount.”</td></tr>
+        <tr><td><code>AVG(col)</code></td><td>Total divided by the number of filled values</td><td>Skipped</td><td>“What is the average balance?”</td></tr>
+        <tr><td><code>MIN(col)</code> / <code>MAX(col)</code></td><td>Smallest / biggest; works on numbers, dates and text</td><td>Skipped</td><td>“Earliest joining date?” “Largest balance?”</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Aggregates sit only in SELECT (and later in HAVING). They never go in WHERE, because WHERE runs row by row before any adding up has happened.</p>
+</section>
+
+<section class="sec" id="examples" data-toc="Worked examples">
+  <h2>Worked examples</h2>
+  <p><b>Example 1: how many accounts?</b> One row, one number.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> <span class="kw">COUNT</span>(*) <span class="kw">AS</span> n_accounts
+<span class="kw">FROM</span> accounts;</pre></div>
+  <div class="table-wrap"><table><thead><tr><th>n_accounts</th></tr></thead><tbody><tr><td>20</td></tr></tbody></table></div>
+
+  <p><b>Example 2: total deposits.</b> WHERE first, then SUM over what is left. The pending deposit with a blank amount adds nothing.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> <span class="kw">SUM</span>(amount) <span class="kw">AS</span> total_deposits
+<span class="kw">FROM</span> transactions
+<span class="kw">WHERE</span> txn_type = 'DEPOSIT';</pre></div>
+  <div class="table-wrap"><table><thead><tr><th>total_deposits</th></tr></thead><tbody><tr><td>793500</td></tr></tbody></table></div>
+
+  <p><b>Example 3: three kinds of COUNT.</b> 24 transactions; 23 have a channel; 4 different channels are used.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> <span class="kw">COUNT</span>(*) <span class="kw">AS</span> all_rows,
+       <span class="kw">COUNT</span>(channel) <span class="kw">AS</span> with_channel,
+       <span class="kw">COUNT</span>(<span class="kw">DISTINCT</span> channel) <span class="kw">AS</span> different_channels
+<span class="kw">FROM</span> transactions;</pre></div>
+  <div class="table-wrap"><table><thead><tr><th>all_rows</th><th>with_channel</th><th>different_channels</th></tr></thead><tbody><tr><td>24</td><td>23</td><td>4</td></tr></tbody></table></div>
+
+  <p><b>Example 4: average, smallest, biggest.</b> For active savings accounts only. ROUND keeps the average tidy.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> <span class="kw">ROUND</span>(<span class="kw">AVG</span>(balance), 2) <span class="kw">AS</span> avg_balance,
+       <span class="kw">MIN</span>(balance) <span class="kw">AS</span> smallest,
+       <span class="kw">MAX</span>(balance) <span class="kw">AS</span> largest
+<span class="kw">FROM</span> accounts
+<span class="kw">WHERE</span> acct_status = 'ACTIVE' <span class="kw">AND</span> acct_type = 'SAVINGS';</pre></div>
+  <div class="table-wrap"><table><thead><tr><th>avg_balance</th><th>smallest</th><th>largest</th></tr></thead><tbody><tr><td>152600</td><td>2500</td><td>640000</td></tr></tbody></table></div>
+</section>
+
+<section class="sec" id="mistakes" data-toc="Common mistakes">
+  <h2>Common mistakes</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Watch out</div>
+      <p>1. <code>SELECT cust_name, COUNT(*) FROM customers</code> is an error. You cannot mix a plain column with an aggregate unless you GROUP BY it (lesson 1.7).</p>
+      <p>2. <code>WHERE SUM(amount) &gt; 1000</code> is an error. WHERE runs before adding up. Filtering on a total is HAVING, also in lesson 1.7.</p>
+      <p>3. <code>AVG(balance)</code> is not <code>SUM(balance) / COUNT(*)</code> when blanks exist. AVG divides by the 19 filled balances; COUNT(*) is 20. Decide which you mean. <code>SUM(COALESCE(balance, 0)) / COUNT(*)</code> treats a blank as zero.</p>
+      <p>4. <code>SUM(amount)</code> over zero matching rows gives NULL, not 0. Wrap it: <code>COALESCE(SUM(amount), 0)</code>.</p>
+      <p>5. <code>COUNT(DISTINCT city)</code> ignores the blank city. Seven cities appear, plus one customer with no city. If you need to count the blank as a group, that is GROUP BY territory.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="snowflake" data-toc="On Snowflake">
+  <h2>On Snowflake</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">What is different on your project</div>
+      <p><b>Same five, same rules.</b> COUNT, SUM, AVG, MIN and MAX behave exactly the same, including the skip-blanks rule and the one-row result.</p>
+      <p><b>Extra statistics.</b> Snowflake adds <code>MEDIAN(col)</code>, <code>STDDEV(col)</code>, <code>VARIANCE(col)</code> and <code>APPROX_COUNT_DISTINCT(col)</code>, which estimates a distinct count very fast on billions of rows. The worksheet engine has MEDIAN and STDDEV too. <code>COUNT_IF(condition)</code> counts rows that pass a test on both engines; the portable form is <code>SUM(CASE WHEN condition THEN 1 ELSE 0 END)</code>.</p>
+      <p><b>Instant counts.</b> <code>SELECT COUNT(*) FROM big_table</code> with no WHERE comes back instantly on Snowflake, because it keeps the row count in metadata. Add a WHERE and it has to read the data.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="Practice">
+  <h2>Practice</h2>
+  <p>Same bank tables. Every answer here is one row. The checker compares values to two decimal places, so round averages where the question asks.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>Aggregates turn many rows into one value. WHERE picks the rows first. Every aggregate skips blanks except COUNT(*), so COUNT(col) and AVG(col) describe filled values only.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Aggregate</dt><dd>A function that takes many rows and returns one value.</dd>
+    <dt>COUNT(*)</dt><dd>The number of rows, blanks included.</dd>
+    <dt>COUNT(col)</dt><dd>The number of rows where col is not blank.</dd>
+    <dt>DISTINCT inside COUNT</dt><dd>Count each different value once.</dd>
+    <dt>SUM</dt><dd>The total of the filled values.</dd>
+    <dt>AVG</dt><dd>The total divided by the number of filled values.</dd>
+    <dt>MIN / MAX</dt><dd>The smallest and biggest filled value; works for dates and text too.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#sql/1-7">1.7 GROUP BY and HAVING →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "customers": {
+        "columns": [
+          ["cust_id","NUMBER"],
+          ["cust_name","VARCHAR"],
+          ["city","VARCHAR","NULL when unknown"],
+          ["segment","VARCHAR","RETAIL, PREMIUM or BUSINESS; NULL when not yet assigned"],
+          ["joined_on","DATE"],
+          ["age","NUMBER","NULL when not recorded"]
+        ],
+        "rows": [
+          [1,"Asha Rao","Mumbai","PREMIUM","2019-03-12",34],
+          [2,"Vikram Shah","Delhi","RETAIL","2020-07-01",45],
+          [3,"Meera Iyer","Chennai","RETAIL","2021-01-15",29],
+          [4,"Rahul Nair","Mumbai","BUSINESS","2018-11-20",52],
+          [5,"Priya Menon","Bengaluru","PREMIUM","2022-05-09",38],
+          [6,"Arjun Das","Delhi","RETAIL","2023-02-28",23],
+          [7,"Sneha Pillai","Chennai",null,"2021-09-30",31],
+          [8,"Karthik Reddy","Hyderabad","BUSINESS","2017-06-05",47],
+          [9,"Divya Kumar","Mumbai","RETAIL","2024-01-10",null],
+          [10,"Nikhil Joshi","Pune","RETAIL","2020-10-18",41],
+          [11,"Farah Khan","Mumbai","PREMIUM","2019-08-22",36],
+          [12,"Lakshmi Bose","Kolkata","RETAIL","2022-12-01",58],
+          [13,"Imran Sheikh","Hyderabad","RETAIL","2023-07-14",27],
+          [14,"Ananya Ghosh","Kolkata","PREMIUM","2016-04-03",61],
+          [15,"Rohan Mehta","Pune","BUSINESS","2024-06-25",33],
+          [16,"Kavya Nambiar",null,"RETAIL","2025-03-08",19]
+        ]
+      },
+      "accounts": {
+        "columns": [
+          ["acct_id","NUMBER"],
+          ["cust_id","NUMBER","the customer who owns the account"],
+          ["acct_type","VARCHAR","SAVINGS, CURRENT or FD"],
+          ["balance","NUMBER","in rupees; NULL when not yet calculated"],
+          ["opened_on","DATE"],
+          ["acct_status","VARCHAR","ACTIVE, DORMANT or CLOSED"]
+        ],
+        "rows": [
+          [101,1,"SAVINGS",250000,"2019-03-12","ACTIVE"],
+          [102,1,"FD",1000000,"2021-06-01","ACTIVE"],
+          [103,2,"SAVINGS",48000,"2020-07-01","ACTIVE"],
+          [104,3,"SAVINGS",15500,"2021-01-15","ACTIVE"],
+          [105,4,"CURRENT",820000,"2018-11-20","ACTIVE"],
+          [106,4,"SAVINGS",61000,"2019-02-10","DORMANT"],
+          [107,5,"SAVINGS",390000,"2022-05-09","ACTIVE"],
+          [108,5,"FD",500000,"2023-01-20","ACTIVE"],
+          [109,6,"SAVINGS",7200,"2023-02-28","ACTIVE"],
+          [110,7,"SAVINGS",33000,"2021-09-30","ACTIVE"],
+          [111,8,"CURRENT",1450000,"2017-06-05","ACTIVE"],
+          [112,9,"SAVINGS",12000,"2024-01-10","ACTIVE"],
+          [113,10,"SAVINGS",0,"2020-10-18","CLOSED"],
+          [114,11,"SAVINGS",275000,"2019-08-22","ACTIVE"],
+          [115,11,"FD",300000,"2020-02-14","ACTIVE"],
+          [116,12,"SAVINGS",89000,"2022-12-01","DORMANT"],
+          [117,13,"SAVINGS",5400,"2023-07-14","ACTIVE"],
+          [118,14,"SAVINGS",640000,"2016-04-03","ACTIVE"],
+          [119,15,"CURRENT",null,"2024-06-25","ACTIVE"],
+          [120,16,"SAVINGS",2500,"2025-03-08","ACTIVE"]
+        ]
+      },
+      "transactions": {
+        "columns": [
+          ["txn_id","NUMBER"],
+          ["acct_id","NUMBER","the account the money moved in or out of"],
+          ["txn_date","DATE"],
+          ["txn_type","VARCHAR","DEPOSIT, WITHDRAWAL or TRANSFER"],
+          ["amount","NUMBER","in rupees; NULL while still pending"],
+          ["channel","VARCHAR","UPI, ATM, BRANCH or NETBANKING; NULL when not captured"]
+        ],
+        "rows": [
+          [1001,101,"2026-08-28","DEPOSIT",50000,"UPI"],
+          [1002,103,"2026-08-30","WITHDRAWAL",8000,"ATM"],
+          [1003,105,"2026-08-31","DEPOSIT",200000,"NETBANKING"],
+          [1004,107,"2026-09-03","TRANSFER",25000,"UPI"],
+          [1005,109,"2026-09-03","WITHDRAWAL",1500,"ATM"],
+          [1006,111,"2026-09-04","DEPOSIT",350000,"BRANCH"],
+          [1007,104,"2026-09-05","DEPOSIT",12000,"UPI"],
+          [1008,114,"2026-09-06","WITHDRAWAL",40000,"NETBANKING"],
+          [1009,101,"2026-09-07","WITHDRAWAL",15000,"ATM"],
+          [1010,110,"2026-09-08","DEPOSIT",9000,null],
+          [1011,112,"2026-09-09","DEPOSIT",3000,"UPI"],
+          [1012,105,"2026-09-10","TRANSFER",75000,"NETBANKING"],
+          [1013,117,"2026-09-11","DEPOSIT",2000,"UPI"],
+          [1014,118,"2026-09-12","WITHDRAWAL",100000,"BRANCH"],
+          [1015,107,"2026-09-14","DEPOSIT",60000,"NETBANKING"],
+          [1016,103,"2026-09-15","DEPOSIT",22000,"BRANCH"],
+          [1017,111,"2026-09-16","WITHDRAWAL",500000,"NETBANKING"],
+          [1018,120,"2026-09-18","DEPOSIT",1000,"UPI"],
+          [1019,109,"2026-09-20","DEPOSIT",4500,"UPI"],
+          [1020,114,"2026-09-22","TRANSFER",30000,"UPI"],
+          [1021,116,"2026-09-25","WITHDRAWAL",5000,"ATM"],
+          [1022,101,"2026-09-28","DEPOSIT",80000,"NETBANKING"],
+          [1023,106,"2026-09-29","DEPOSIT",null,"BRANCH"],
+          [1024,112,"2026-09-30","WITHDRAWAL",500,"ATM"]
+        ]
+      }
+    },
+    "starter": "SELECT COUNT(*) AS n_accounts, SUM(balance) AS total_balance\nFROM accounts",
+    "examples": [
+      { "label": "How many accounts", "sql": "SELECT COUNT(*) AS n_accounts\nFROM accounts" },
+      { "label": "Total deposits", "sql": "SELECT SUM(amount) AS total_deposits\nFROM transactions\nWHERE txn_type = 'DEPOSIT'" },
+      { "label": "Three kinds of COUNT", "sql": "SELECT COUNT(*) AS all_rows,\n       COUNT(channel) AS with_channel,\n       COUNT(DISTINCT channel) AS different_channels\nFROM transactions" },
+      { "label": "Avg, min, max", "sql": "SELECT ROUND(AVG(balance), 2) AS avg_balance,\n       MIN(balance) AS smallest,\n       MAX(balance) AS largest\nFROM accounts\nWHERE acct_status = 'ACTIVE' AND acct_type = 'SAVINGS'" }
+    ],
+    "challenges": [
+      { "level": "Easy", "task": "How many customers does the bank have? Return one number.", "hint": "COUNT(*) FROM customers.", "answer": "SELECT COUNT(*) AS n_customers FROM customers" },
+      { "level": "Easy", "task": "What is the total amount of all WITHDRAWAL transactions? Return one number.", "hint": "SUM(amount) with WHERE txn_type = 'WITHDRAWAL'.", "answer": "SELECT SUM(amount) AS total_withdrawals FROM transactions WHERE txn_type = 'WITHDRAWAL'" },
+      { "level": "Medium", "task": "In the transactions table, return two numbers in one row: the number of rows, and the number of rows that have an amount filled in.", "hint": "COUNT(*) and COUNT(amount). They differ by the pending transaction.", "answer": "SELECT COUNT(*) AS all_rows, COUNT(amount) AS with_amount FROM transactions" },
+      { "level": "Medium", "task": "For accounts that are ACTIVE and of type SAVINGS, return the average balance rounded to 2 decimal places, the smallest balance and the largest balance, in one row.", "hint": "ROUND(AVG(balance), 2), MIN(balance), MAX(balance) with a two-part WHERE.", "answer": "SELECT ROUND(AVG(balance), 2) AS avg_balance, MIN(balance) AS smallest, MAX(balance) AS largest FROM accounts WHERE acct_status = 'ACTIVE' AND acct_type = 'SAVINGS'" },
+      { "level": "Medium", "task": "Return in one row: the number of different cities in the customers table, and the earliest joined_on date.", "hint": "COUNT(DISTINCT city) and MIN(joined_on). The blank city is not counted.", "answer": "SELECT COUNT(DISTINCT city) AS n_cities, MIN(joined_on) AS first_join FROM customers" },
+      { "level": "Hard", "task": "For WITHDRAWAL transactions made through the ATM channel in September 2026 (1 to 30 September), return in one row: the total amount, the number of transactions, and the average amount rounded to 2 decimal places.", "hint": "Three conditions in WHERE (txn_type, channel, BETWEEN on txn_date). Then SUM, COUNT(*) and ROUND(AVG(...), 2).", "answer": "SELECT SUM(amount) AS total_amount, COUNT(*) AS n_txns, ROUND(AVG(amount), 2) AS avg_amount FROM transactions WHERE txn_type = 'WITHDRAWAL' AND channel = 'ATM' AND txn_date BETWEEN '2026-09-01' AND '2026-09-30'" }
+    ]
+  },
+  "quiz": [
+    { "q": "How many rows does SELECT COUNT(*) FROM accounts return?", "options": ["20", "One", "One per account"], "answer": 1, "why": "An aggregate with no GROUP BY always returns exactly one row. The value in it is 20." },
+    { "q": "The transactions table has 24 rows and one blank amount. What is COUNT(amount)?", "options": ["24", "23", "1"], "answer": 1, "why": "COUNT(col) counts filled values only. COUNT(*) would be 24." },
+    { "q": "Which aggregate does NOT skip blanks?", "options": ["SUM", "AVG", "COUNT(*)"], "answer": 2, "why": "COUNT(*) counts rows, so blanks make no difference. Every other aggregate ignores NULL." },
+    { "q": "Why is WHERE SUM(amount) > 1000 an error?", "options": ["SUM needs ROUND", "WHERE runs before anything is added up", "Numbers cannot be compared in WHERE"], "answer": 1, "why": "WHERE filters single rows before aggregation. Filtering on a total is HAVING, in the next lesson." },
+    { "q": "SUM(amount) over zero matching rows gives what?", "options": ["0", "NULL", "An error"], "answer": 1, "why": "With nothing to add, SUM returns NULL. Use COALESCE(SUM(amount), 0) when a report needs a zero." },
+    { "q": "Which Snowflake function estimates the number of distinct values very fast on huge tables?", "options": ["APPROX_COUNT_DISTINCT", "COUNT_IF", "MEDIAN"], "answer": 0, "why": "APPROX_COUNT_DISTINCT trades a little accuracy for speed on billions of rows. COUNT_IF counts rows passing a test; MEDIAN is the middle value." }
+  ]
+}
+</script>

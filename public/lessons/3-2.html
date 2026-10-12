@@ -122,7 +122,7 @@
         <tr><td><b>Tokens</b></td><td>A token is roughly four characters. AI functions are billed in credits <b>per million tokens</b>, and the rate depends on the model. For functions that write text back (COMPLETE, CLASSIFY, SUMMARIZE, TRANSLATE) both input and output tokens count.</td></tr>
         <tr><td><b>Warehouse still runs</b></td><td>The query still needs a virtual warehouse, so the librarians’ wages apply as usual. Snowflake advises a warehouse no larger than <b>Medium</b>: bigger ones do not speed the AI up.</td></tr>
         <tr><td><b>Who may call them</b></td><td>Your role needs the <code>SNOWFLAKE.CORTEX_USER</code> database role (or <code>AI_FUNCTIONS_USER</code>). Admins grant it; on a bank project ask your team lead which roles have it.</td></tr>
-        <tr><td><b>Where to see the bill</b></td><td>The views <code>SNOWFLAKE.ACCOUNT_USAGE.CORTEX_FUNCTIONS_USAGE_HISTORY</code> and <code>CORTEX_FUNCTIONS_QUERY_USAGE_HISTORY</code> show tokens and credits per function and per query.</td></tr>
+        <tr><td><b>Where to see the bill</b></td><td>The view <code>SNOWFLAKE.ACCOUNT_USAGE.CORTEX_AI_FUNCTIONS_USAGE_HISTORY</code> shows credits per function, model and query (usage from January 2026 on). Older accounts may also show the earlier <code>CORTEX_FUNCTIONS_USAGE_HISTORY</code> view.</td></tr>
         <tr><td><b>Regions</b></td><td>Each model is hosted in certain cloud regions. If your account’s region does not host the model you asked for, the call fails unless <b>cross-region inference</b> is switched on.</td></tr>
       </tbody>
     </table>

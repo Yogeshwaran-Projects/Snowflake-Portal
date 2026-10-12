@@ -1,0 +1,231 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>CoCo Masterclass</span><span>Module 4 · Masterclass</span><span>Lesson 4.5</span></div>
+  <h1>Capstone review and interview Q&amp;A</h1>
+  <p class="lede">Walk through the whole Bank Churn Predictor from raw data to a self-refreshing dashboard, run a final review checklist on your own build, and practise the questions interviewers and client leads ask about CoCo and data science on Snowflake.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>40 min</span>
+    <span class="badge">Advanced</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>Final checklist + 24 interview questions</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain the full project in two minutes, step by step</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Prove your build works end to end with one health-check query</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Answer common CoCo, Snowpark ML and governance interview questions</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Leave your trial tidy, with every schedule suspended</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="journey" data-toc="The whole project">
+  <h2>The whole project, P1 to P8</h2>
+  <p>Read this table once, out loud. It is your two-minute project story.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Step</th><th>What you built</th><th>Snowflake objects</th><th>The lesson behind it</th></tr></thead>
+      <tbody>
+        <tr><td><b>P1</b></td><td>Project database, warehouse and raw data</td><td><code>BANK_DS</code>, <code>LEARN_WH</code> (XSMALL), schemas RAW, CLEAN, FEATURES, ML, APP</td><td>Set up a clean, separated workspace before any analysis</td></tr>
+        <tr><td><b>P2</b></td><td>Explored the data with CoCo</td><td>RAW tables</td><td>Ask CoCo to profile; confirm with your own queries</td></tr>
+        <tr><td><b>P3</b></td><td>Cleaned and quality-checked</td><td><code>CLEAN.CUSTOMERS</code>, <code>CLEAN.TRANSACTIONS</code>, <code>CLEAN.SUPPORT_TICKETS</code></td><td>Unique keys, missing-value flags, consistent types</td></tr>
+        <tr><td><b>P4</b></td><td>Engineered churn features</td><td><code>FEATURES.CUSTOMER_FEATURES</code></td><td>One row per customer, cut-off date, LEFT JOIN, no leakage</td></tr>
+        <tr><td><b>P5</b></td><td>Trained the model</td><td>Notebook with <code>XGBClassifier</code></td><td>80/20 split, imbalance weighting, four metrics</td></tr>
+        <tr><td><b>P6</b></td><td>Registered and scored</td><td><code>ML.CHURN_MODEL</code> V1, <code>ML.CHURN_SCORES</code></td><td>Versioned model with metrics; scores with a timestamp</td></tr>
+        <tr><td><b>P7</b></td><td>Built the dashboard</td><td><code>APP.CHURN_DASHBOARD</code>, role <code>CHURN_VIEWER</code></td><td>Owner’s rights, cached loading, no PII on screen</td></tr>
+        <tr><td><b>P8</b></td><td>Scheduled the pipeline</td><td>Dynamic table <code>FEATURES.CUSTOMER_FEATURES</code>, procedure <code>ML.SCORE_CUSTOMERS</code>, task <code>ML.RESCORE_DAILY</code></td><td>Target lag, CRON, cost estimate, off switch</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">The two-minute story</div><p>“I built a churn predictor fully inside Snowflake. I loaded and cleaned customer, transaction and ticket data, built one feature row per customer with a cut-off date and leakage checks, trained an XGBoost model with Snowpark ML, weighted for a 20% churn rate and judged it on recall and ROC AUC, registered it as a versioned model, scored every customer into a table, shipped a Streamlit dashboard to a viewer role, and scheduled a daily refresh that costs about a credit a month. I used CoCo to write most of the code, and I reviewed every plan, diff and destructive statement myself.”</p></div>
+  </div>
+</section>
+
+<section class="sec" id="review" data-toc="Final review checklist">
+  <h2>Final review checklist</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Run these on your trial and tick each one</h3>
+      <div class="meta"><span>About 15 min</span><span>Your trial</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>Health check: every layer has the same customers.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE WAREHOUSE</span> LEARN_WH;
+<span class="kw">SELECT</span> <span class="kw">'CLEAN.CUSTOMERS'</span> <span class="kw">AS</span> layer, <span class="kw">COUNT</span>(*) <span class="kw">AS</span> rows_n <span class="kw">FROM</span> BANK_DS.CLEAN.CUSTOMERS
+<span class="kw">UNION ALL SELECT</span> <span class="kw">'FEATURES.CUSTOMER_FEATURES'</span>, <span class="kw">COUNT</span>(*) <span class="kw">FROM</span> BANK_DS.FEATURES.CUSTOMER_FEATURES
+<span class="kw">UNION ALL SELECT</span> <span class="kw">'ML.CHURN_SCORES'</span>, <span class="kw">COUNT</span>(*) <span class="kw">FROM</span> BANK_DS.ML.CHURN_SCORES;</pre></div>
+        <p class="expect">Expected: three equal counts, about 5,000 each.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Freshness: scores are recent and the task is healthy.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT MAX</span>(SCORED_AT) <span class="kw">FROM</span> BANK_DS.ML.CHURN_SCORES;
+<span class="kw">SHOW TASKS IN SCHEMA</span> BANK_DS.ML;</pre></div>
+        <p class="expect">Expected: SCORED_AT within the last day if the task is running; task state <code>started</code> (or <code>suspended</code> if you already paused it).</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Model: <code>SHOW VERSIONS IN MODEL BANK_DS.ML.CHURN_MODEL;</code> shows V1 as default with your comment, and your model card lists metrics and the recency limitation.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Safety: the app shows no names or account numbers, <code>CHURN_VIEWER</code> has only USAGE grants, no secrets live in any file or prompt, and LEARN_WH has auto-suspend and a resource monitor.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Ask CoCo for an independent review: “Review everything in BANK_DS for problems: leakage risk, objects without comments, broad grants, schedules that run too often, and anything that costs credits while idle. Do not change anything.”</p>
+        <p class="expect">Expected: a list of findings. Fix the valid ones yourself; argue back with evidence where CoCo is wrong.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Tidy up when you finish the course:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">ALTER TASK</span> BANK_DS.ML.RESCORE_DAILY <span class="kw">SUSPEND</span>;
+<span class="kw">ALTER DYNAMIC TABLE</span> BANK_DS.FEATURES.CUSTOMER_FEATURES <span class="kw">SUSPEND</span>;
+<span class="cm">-- Only when you no longer need the project at all:</span>
+<span class="cm">-- DROP DATABASE BANK_DS;</span></pre></div>
+        <p class="expect">Expected: both suspended. Nothing runs or bills while you are away.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="sim" data-toc="Simulator: final review">
+  <h2>Simulator: the final review with CoCo</h2>
+  <div data-simulator="coco-4-5-review"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>A last mixed set on mini versions of your project tables: <code>customer_features</code> and <code>churn_scores</code>. These are the queries a lead asks for in your first review meeting.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="interview" data-toc="Interview Q&amp;A">
+  <h2>Interview Q&amp;A</h2>
+  <p>Select a question to see a strong answer. Say the answers in your own words; interviewers listen for clear reasoning and safety habits more than for buzzwords.</p>
+  <div class="faq">
+    <details><summary>What is CoCo, and how is it different from Cortex AI functions?</summary><div class="answer"><p><b>CoCo</b> (formerly Cortex Code) is Snowflake’s AI coding agent. It explores the account, writes and runs SQL and Python, explains and fixes code. <b>AI functions</b> such as AI_CLASSIFY run a model on data inside a query. One line: AI functions work on the data; CoCo writes the code.</p></div></details>
+    <details><summary>Where can you use CoCo?</summary><div class="answer"><p>In Snowsight (a panel, including Workspaces and notebooks), in the CLI (<code>cortex</code>), in the Desktop app and in the VS Code extension. Snowsight, Desktop and CLI are generally available; MCP, the Agent SDK, plugins and automations are preview.</p></div></details>
+    <details><summary>How does CoCo respect security?</summary><div class="answer"><p>It runs under your current role, so it can only see and change what that role can. Masking and row access policies apply to its queries like any others. In the CLI, permissions (ask, allow, deny), Plan Mode and managed settings add human control.</p></div></details>
+    <details><summary>How do you review code an AI assistant wrote?</summary><div class="answer"><p>Check the objects (exact database, schema, table), the meaning (filters match the business definition), joins (no fan-out or dropped rows), safety (no unreviewed DROP, DELETE, CREATE OR REPLACE, GRANT), data leaving Snowflake, and cost. Test on a sample or clone, compare counts, read the diff, and only commit what you can explain.</p></div></details>
+    <details><summary>What is Plan Mode and when do you use it?</summary><div class="answer"><p>CoCo writes a step-by-step plan and waits for approval before changing anything. Use it for multi-step or risky work, such as replacing a table with a dynamic table or creating tasks.</p></div></details>
+    <details><summary>What makes a good prompt for CoCo?</summary><div class="answer"><p>Name the objects, say what you want back, add the rules: “In BANK_DS.FEATURES.CUSTOMER_FEATURES, average CHURN by SEGMENT, ordered descending, SQL only, do not run.” Paste the exact error text when fixing. One task per message.</p></div></details>
+    <details><summary>What is Snowpark, and why use it instead of pandas?</summary><div class="answer"><p>Snowpark lets Python describe work as lazy DataFrames that become SQL run in a Snowflake warehouse. The data stays in Snowflake, policies still apply, and it scales to billions of rows. Use pandas only on small results.</p></div></details>
+    <details><summary>What does “lazy” mean for a Snowpark DataFrame?</summary><div class="answer"><p>Building it only records steps. An action such as show(), collect(), count(), to_pandas() or save_as_table() sends the SQL. explain() shows the SQL without running it.</p></div></details>
+    <details><summary>Explain data leakage with an example.</summary><div class="answer"><p>Leakage is using information the model would not have at prediction time. Example: counting “account closure” tickets as a churn feature; the ticket is opened while leaving, so the model sees the answer. Fix with a cut-off date, a label window after it, and by removing post-event columns.</p></div></details>
+    <details><summary>Why one row per customer for the feature table?</summary><div class="answer"><p>The model predicts per customer, so each training example must be one customer with all their clues. Aggregate each detail table first, then LEFT JOIN from customers so nobody is lost.</p></div></details>
+    <details><summary>How did you handle class imbalance?</summary><div class="answer"><p>About 20% churned, so accuracy alone is misleading. I set XGBoost’s scale_pos_weight to stayers divided by churners, judged the model on recall, precision and ROC AUC, and discussed the threshold with the business.</p></div></details>
+    <details><summary>Precision vs recall in a churn project: which matters more?</summary><div class="answer"><p>It depends on cost. If calling a happy customer is cheap and losing one is expensive, favour recall. If the call team is small, favour precision at the top of the list. I show both and let the business choose the threshold.</p></div></details>
+    <details><summary>What does ROC AUC tell you?</summary><div class="answer"><p>How well the model ranks churners above stayers across all thresholds. 0.5 is random, 1.0 is perfect. Suspiciously high values suggest leakage.</p></div></details>
+    <details><summary>How do you train a model in Snowflake?</summary><div class="answer"><p>In a notebook with snowflake.ml.modeling, for example XGBClassifier(input_cols, label_cols, output_cols).fit(train_df) on a Snowpark DataFrame split with random_split([0.8, 0.2], seed=42). Metrics come from snowflake.ml.modeling.metrics.</p></div></details>
+    <details><summary>What is the Snowflake Model Registry for?</summary><div class="answer"><p>It stores models as versioned schema objects with metrics and comments, controlled by roles. You log with Registry.log_model, score with mv.run or SQL MODEL(name, version)!method, set a default version and roll back if needed.</p></div></details>
+    <details><summary>How would you put a model into daily production in Snowflake?</summary><div class="answer"><p>Keep features fresh with a dynamic table (TARGET_LAG), wrap scoring in a stored procedure that uses the registry’s default version, schedule it with a task, monitor TASK_HISTORY and refresh history, and document the off switch and the cost.</p></div></details>
+    <details><summary>Dynamic table or task: how do you choose?</summary><div class="answer"><p>A dynamic table keeps the result of one SELECT fresh within a target lag; Snowflake decides when to refresh. A task runs an action on a schedule, like calling a procedure. Use dbt when you have many models, tests and a team workflow.</p></div></details>
+    <details><summary>How do you share a Streamlit app safely?</summary><div class="answer"><p>Grant USAGE on the database, schema and the STREAMLIT object to a viewer role. Apps run with owner’s rights, so the app must show only what every viewer may see; no PII unless approved.</p></div></details>
+    <details><summary>How do you protect PII on Snowflake?</summary><div class="answer"><p>Least-privilege roles, masking policies on sensitive columns, row access policies for row-level scope, classification and tags to find PII, and ACCESS_HISTORY to audit. Never paste PII or secrets into prompts.</p></div></details>
+    <details><summary>CoCo suggests CREATE OR REPLACE TABLE on a shared table. What do you do?</summary><div class="answer"><p>Stop. It drops and rebuilds the table, losing rows, grants and policies. Check what depends on it, prefer an additive change or a new table, test on a clone, and get a second reviewer.</p></div></details>
+    <details><summary>How do you control CoCo’s cost?</summary><div class="answer"><p>Watch the usage views (for example CORTEX_CODE_SNOWSIGHT_USAGE_HISTORY), set daily credit limit parameters per user or account, keep chats focused, and remember that queries CoCo runs also use warehouse credits.</p></div></details>
+    <details><summary>How do you control warehouse cost?</summary><div class="answer"><p>Start XSMALL, short auto-suspend, a resource monitor with notify and suspend triggers, sensible schedules, and budgets for serverless and AI features that monitors do not cover.</p></div></details>
+    <details><summary>CoCo’s answer is wrong. What do you do?</summary><div class="answer"><p>Prove it with a query, give CoCo the evidence and the exact error, narrow the instruction (“change only the join”), and if it still fails, write that part yourself. The person who commits the code owns it.</p></div></details>
+    <details><summary>Tell me about a time an assistant’s code would have caused a problem.</summary><div class="answer"><p>Use the project: an inner join that silently dropped silent customers (the likely churners), caught because the feature count did not match the customer count. Fixed with a LEFT JOIN and COALESCE, and a row-count check added to the review.</p></div></details>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>You built a real, governed, scheduled machine-learning product inside Snowflake. CoCo wrote much of it; you designed it, checked it and own it. That combination is exactly what a bank project needs.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Final knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>You finished the CoCo Masterclass</small><a class="btn btn-primary" href="#home">Back to all courses →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "customer_features": {
+        "columns": [["customer_id", "NUMBER"], ["segment", "VARCHAR"], ["city", "VARCHAR"], ["tenure_months", "NUMBER"], ["txn_count_90d", "NUMBER"], ["unresolved_tickets", "NUMBER"], ["churned", "NUMBER"]],
+        "rows": [
+          [1, "Retail", "Mumbai", 48, 12, 0, 0], [2, "Premium", "Delhi", 14, 0, 2, 1], [3, "Retail", "Chennai", 60, 9, 0, 0],
+          [4, "Retail", "Mumbai", 7, 1, 1, 1], [5, "Premium", "Bengaluru", 85, 15, 0, 0], [6, "Retail", "Delhi", 3, 0, 0, 1],
+          [7, "Premium", "Chennai", 36, 6, 0, 0], [8, "Retail", "Bengaluru", 22, 4, 0, 0], [9, "Premium", "Mumbai", 11, 1, 1, 1],
+          [10, "Retail", "Delhi", 40, 7, 0, 0]
+        ]
+      },
+      "churn_scores": {
+        "columns": [["customer_id", "NUMBER"], ["churn_probability", "NUMBER"], ["scored_at", "DATE"]],
+        "rows": [
+          [1, 0.11, "2026-10-12"], [2, 0.91, "2026-10-12"], [3, 0.08, "2026-10-12"], [4, 0.69, "2026-10-12"], [5, 0.05, "2026-10-12"],
+          [6, 0.83, "2026-10-12"], [7, 0.24, "2026-10-12"], [8, 0.38, "2026-10-12"], [9, 0.57, "2026-10-12"]
+        ]
+      }
+    },
+    "starter": "-- Health check: does every feature row have a score?\nSELECT COUNT(*) AS feature_rows,\n       COUNT(s.customer_id) AS scored_rows\nFROM customer_features f\nLEFT JOIN churn_scores s ON s.customer_id = f.customer_id",
+    "examples": [
+      { "label": "Churn rate by segment", "sql": "SELECT segment, AVG(churned) AS churn_rate, COUNT(*) AS customers\nFROM customer_features\nGROUP BY segment\nORDER BY churn_rate DESC" },
+      { "label": "Scores vs truth", "sql": "SELECT f.customer_id, f.churned, s.churn_probability\nFROM customer_features f\nJOIN churn_scores s ON s.customer_id = f.customer_id\nORDER BY s.churn_probability DESC" }
+    ],
+    "challenges": [
+      { "task": "You asked CoCo: 'Which customers have features but no score?' Write the SQL it should produce (customer_id).", "hint": "LEFT JOIN churn_scores and keep rows WHERE s.customer_id IS NULL.", "answer": "SELECT f.customer_id FROM customer_features f LEFT JOIN churn_scores s ON s.customer_id = f.customer_id WHERE s.customer_id IS NULL" },
+      { "task": "You asked CoCo: 'Average churn probability per city.' Write the SQL it should produce (city, avg_probability).", "hint": "JOIN the two tables, GROUP BY f.city, AVG(s.churn_probability).", "answer": "SELECT f.city, AVG(s.churn_probability) AS avg_probability FROM customer_features f JOIN churn_scores s ON s.customer_id = f.customer_id GROUP BY f.city ORDER BY f.city" },
+      { "task": "You asked CoCo: 'Of customers scored 0.5 or more, how many really churned?' Write the SQL it should produce (flagged, churned_among_flagged).", "hint": "JOIN, WHERE s.churn_probability >= 0.5, then COUNT(*) and SUM(f.churned).", "answer": "SELECT COUNT(*) AS flagged, SUM(f.churned) AS churned_among_flagged FROM customer_features f JOIN churn_scores s ON s.customer_id = f.customer_id WHERE s.churn_probability >= 0.5" }
+    ]
+  },
+  "simulators": [
+    {
+      "id": "coco-4-5-review",
+      "title": "Final project review with CoCo",
+      "tool": "coco",
+      "intro": "Snowsight, CoCo panel. Everything from P1 to P8 is built.",
+      "steps": [
+        {
+          "prompt": "Give me a one-page inventory of BANK_DS: every table, dynamic table, model, procedure, task and Streamlit app, with owner and comment.",
+          "say": "Here is the inventory, built from SHOW commands and INFORMATION_SCHEMA. Objects without a comment are marked.",
+          "output": { "columns": ["OBJECT", "TYPE", "HAS_COMMENT"], "rows": [["CLEAN.CUSTOMERS", "TABLE", "yes"], ["CLEAN.TRANSACTIONS", "TABLE", "yes"], ["CLEAN.SUPPORT_TICKETS", "TABLE", "no"], ["FEATURES.CUSTOMER_FEATURES", "DYNAMIC TABLE", "no"], ["ML.CHURN_MODEL", "MODEL", "yes"], ["ML.CHURN_SCORES", "TABLE", "no"], ["ML.SCORE_CUSTOMERS", "PROCEDURE", "no"], ["ML.RESCORE_DAILY", "TASK", "yes"], ["APP.CHURN_DASHBOARD", "STREAMLIT", "no"]] },
+          "check": ["Every object from P1 to P8 is listed", "Missing comments are a quick documentation win", "Your own list may differ in details"]
+        },
+        {
+          "prompt": "Draft COMMENT statements for the objects without comments. Do not run them.",
+          "say": "Drafts below. Correct the wording to match your project before running.",
+          "code": { "lang": "sql", "text": "COMMENT ON TABLE BANK_DS.CLEAN.SUPPORT_TICKETS IS 'Cleaned support tickets, one row per ticket';\nCOMMENT ON DYNAMIC TABLE BANK_DS.FEATURES.CUSTOMER_FEATURES IS 'Churn features, one row per customer, cut-off = max TXN_DATE, lag 1 day';\nCOMMENT ON TABLE BANK_DS.ML.CHURN_SCORES IS 'Daily churn probability per customer from ML.CHURN_MODEL default version';\nCOMMENT ON PROCEDURE BANK_DS.ML.SCORE_CUSTOMERS() IS 'Refreshes features and rewrites CHURN_SCORES';\nCOMMENT ON STREAMLIT BANK_DS.APP.CHURN_DASHBOARD IS 'Churn KPIs and top-50 at-risk list for CHURN_VIEWER';" },
+          "check": ["Comments state grain and source", "Nothing ran without your approval", "If a COMMENT form errors on your account, use ALTER ... SET COMMENT for that object type"]
+        },
+        {
+          "prompt": "What would you check before calling this production-ready at a bank?",
+          "say": "This is a learning build. For production I would add: a fixed cut-off and label window to remove the recency leakage risk, a model card approved by model risk, monitoring of score drift and data freshness with alerts, development and production separation, a retraining policy with V2 comparison, access reviews for CHURN_VIEWER, and a runbook with the off switch.",
+          "check": ["Honest about what is not production-ready", "Each item maps to a lesson in this course", "Use this list in interviews as your ‘next steps’ answer"]
+        }
+      ]
+    }
+  ],
+  "quiz": [
+    { "q": "What is the grain of FEATURES.CUSTOMER_FEATURES?", "options": ["One row per transaction", "One row per customer", "One row per day"], "answer": 1, "why": "The model predicts per customer, so features are aggregated to one row each." },
+    { "q": "Why use MAX(TXN_DATE) as the cut-off instead of CURRENT_DATE?", "options": ["It is faster", "The data is a snapshot; anchoring to the data keeps recency features meaningful", "CURRENT_DATE does not exist"], "answer": 1, "why": "With a fixed snapshot, CURRENT_DATE would make every customer look inactive." },
+    { "q": "A model always predicting ‘stays’ on 20% churn data has what recall?", "options": ["0", "0.8", "1.0"], "answer": 0, "why": "It catches no churners, even though accuracy is 80%." },
+    { "q": "Which object stores CHURN_MODEL V1 with its metrics?", "options": ["A stage", "The Model Registry, as a MODEL object in BANK_DS.ML", "A Streamlit app"], "answer": 1, "why": "Registry.log_model creates a versioned MODEL object with metrics and comment." },
+    { "q": "Which SQL calls a registered model version?", "options": ["SELECT MODEL(BANK_DS.ML.CHURN_MODEL, V1)!PREDICT_PROBA(...) FROM ...", "CALL MODEL V1", "EXECUTE MODEL CHURN_MODEL"], "answer": 0, "why": "The MODEL(name, version)!method syntax runs a model method from SQL." },
+    { "q": "Whose rights does the Streamlit dashboard use to query data?", "options": ["The viewer’s", "The owner’s", "SYSADMIN’s"], "answer": 1, "why": "Streamlit in Snowflake apps run with owner’s rights; viewers need only USAGE." },
+    { "q": "What keeps CUSTOMER_FEATURES fresh in P8?", "options": ["A dynamic table with TARGET_LAG = '1 day'", "A manual weekly script", "A Streamlit button"], "answer": 0, "why": "The dynamic table refreshes within its target lag; the procedure also refreshes it before scoring." },
+    { "q": "After creating RESCORE_DAILY, nothing runs. Why?", "options": ["Tasks are created suspended; run ALTER TASK ... RESUME", "The model is wrong", "CRON needs a password"], "answer": 0, "why": "New tasks start suspended until resumed." },
+    { "q": "Which is NOT a safe CoCo habit on bank data?", "options": ["Plan Mode for multi-step work", "Bypass mode on a client connection", "Reading every diff"], "answer": 1, "why": "Bypass runs every tool call without asking. Keep permissions on ask for client data." },
+    { "q": "What is the first step to stop all project costs when you are done?", "options": ["Suspend the task and the dynamic table", "Delete your user", "Make the warehouse bigger"], "answer": 0, "why": "Suspending stops scheduled work immediately and safely; drop objects later if no one needs them." }
+  ]
+}
+</script>

@@ -1,0 +1,395 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Cortex Masterclass</span><span>Module 3 · Cortex services</span><span>Lesson 3.2</span></div>
+  <h1>Cortex Analyst and semantic views</h1>
+  <p class="lede">Let business users ask “How many urgent UPI complaints came through the app?” in plain English and get a correct number, by giving Cortex Analyst an official catalogue of your data.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>40 min</span>
+    <span class="badge">Intermediate</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Simulator + worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab + project step P6</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain what Cortex Analyst does and why it needs a semantic view</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Tell apart tables, relationships, facts, dimensions, metrics and synonyms</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Write CREATE SEMANTIC VIEW and query it with SEMANTIC_VIEW()</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Raise accuracy with synonyms, comments, custom instructions and verified queries</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">Cortex Analyst is a managed Snowflake feature that turns a plain-English question into SQL and runs it. A semantic view is a schema object that tells it what your tables mean: the business names, how tables join, and how every metric is calculated.</p></div>
+  </div>
+  <p>Asking an LLM to write SQL against raw tables is risky. It does not know that “urgent” lives in <code>IS_URGENT</code>, or that your bank counts “share negative” as negative complaints divided by all complaints. The semantic view writes those rules down once, so every answer uses the same official definitions.</p>
+  <ul>
+    <li><b>Semantic views are the recommended way</b> for new work. Older projects used a YAML “semantic model” file on a stage; it still works.</li>
+    <li>Cortex Analyst is offered as a REST API (<code>POST /api/v2/cortex/analyst/message</code>), in a Snowsight playground, and as a tool inside Cortex Agents. Snowflake now recommends using it through Agents (lesson 3.3).</li>
+    <li>It answers <b>SQL-shaped</b> questions: counts, sums, trends, rankings. It does not read free text; that is Cortex Search.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a helper with the official catalogue</h2>
+  <p>You walk up to a helper in the sky library and say “How many angry letters about payments came in last month?” The helper does not wander the shelves guessing. She opens the <b>official catalogue</b>, which says “angry means SENTIMENT = negative”, “payments means CATEGORY = App and UPI”, “letters are counted with COUNT(COMPLAINT_ID)”. Then she fills in a precise request slip, hands it to the librarians and brings back the number, with the slip attached so you can check it.</p>
+  <div class="map">
+    <div><small>In the library</small><b>The helper</b><span>In Snowflake: Cortex Analyst</span></div>
+    <div><small>In the library</small><b>The official catalogue</b><span>In Snowflake: the semantic view COMPLAINTS_SV</span></div>
+    <div><small>In the library</small><b>The request slip</b><span>In Snowflake: the generated SQL, shown with every answer</span></div>
+  </div>
+</section>
+
+<section class="sec" id="parts" data-toc="Parts of a semantic view">
+  <h2>The parts of a semantic view</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Part</th><th>Plain meaning</th><th>Complaint example</th></tr></thead>
+      <tbody>
+        <tr><td><b>TABLES</b></td><td>Logical tables (business entities) with a primary key</td><td><code>complaints AS BANK_AI.COMPLAINTS.ENRICHED</code></td></tr>
+        <tr><td><b>RELATIONSHIPS</b></td><td>How tables join on keys</td><td>complaints (CUSTOMER_ID) REFERENCES customers</td></tr>
+        <tr><td><b>FACTS</b></td><td>Row-level values, mostly building blocks for metrics</td><td><code>urgent_flag</code> = 1 if urgent</td></tr>
+        <tr><td><b>DIMENSIONS</b></td><td>Things you group or filter by</td><td>product, category, channel, sentiment, date</td></tr>
+        <tr><td><b>METRICS</b></td><td>Aggregated measures with one official formula</td><td>complaint_count, urgent_count, share_negative</td></tr>
+        <tr><td><b>WITH SYNONYMS</b></td><td>Other words people use for the same thing</td><td>“mood” and “tone” for sentiment</td></tr>
+        <tr><td><b>COMMENT</b></td><td>A description the model reads</td><td>“Share of complaints with negative sentiment, 0 to 1”</td></tr>
+        <tr><td><b>AI_SQL_GENERATION</b></td><td>Custom instructions for SQL writing</td><td>“Round shares to 2 decimals”</td></tr>
+        <tr><td><b>AI_VERIFIED_QUERIES</b></td><td>Question and approved SQL pairs that guide future answers</td><td>“Complaints by product” with its exact SQL</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Cost, models and access</div><p>Used directly, Cortex Analyst is billed <b>per message</b> (only successful responses count), plus the warehouse that runs the generated SQL. Track it in <code>SNOWFLAKE.ACCOUNT_USAGE.CORTEX_ANALYST_USAGE_HISTORY</code>. It chooses the best model your role can access, from a ranked list that includes Claude Sonnet and GPT 4.1; you do not pick it. Users need <code>SNOWFLAKE.CORTEX_USER</code> or the narrower <code>SNOWFLAKE.CORTEX_ANALYST_USER</code> database role, plus access to the semantic view and SELECT on its tables. Answers respect row access and masking policies as usual.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="syntax" data-toc="Syntax">
+  <h2>Real syntax</h2>
+  <p>This is the semantic view for our project. Read each block as one page of the catalogue.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE OR REPLACE SEMANTIC VIEW</span> BANK_AI.COMPLAINTS.COMPLAINTS_SV
+  <span class="kw">TABLES</span> (
+    complaints <span class="kw">AS</span> BANK_AI.COMPLAINTS.ENRICHED
+      <span class="kw">PRIMARY KEY</span> (COMPLAINT_ID)
+      <span class="kw">WITH SYNONYMS</span> ('customer complaints', 'grievances')
+      <span class="kw">COMMENT</span> = 'One row per customer complaint, enriched by Cortex AI functions'
+  )
+  <span class="kw">FACTS</span> (
+    complaints.urgent_flag <span class="kw">AS</span> IFF(IS_URGENT, 1, 0)
+      <span class="kw">COMMENT</span> = '1 when the complaint needs action within 24 hours',
+    complaints.negative_flag <span class="kw">AS</span> IFF(LOWER(SENTIMENT) = 'negative', 1, 0)
+      <span class="kw">COMMENT</span> = '1 when the overall sentiment is negative'
+  )
+  <span class="kw">DIMENSIONS</span> (
+    complaints.product <span class="kw">AS</span> PRODUCT
+      <span class="kw">WITH SYNONYMS</span> = ('banking product', 'product line')
+      <span class="kw">COMMENT</span> = 'Product code: CREDIT_CARD, SAVINGS, HOME_LOAN, PERSONAL_LOAN, MOBILE_APP or UPI',
+    complaints.category <span class="kw">AS</span> CATEGORY
+      <span class="kw">WITH SYNONYMS</span> = ('topic', 'issue type'),
+    complaints.channel <span class="kw">AS</span> CHANNEL
+      <span class="kw">WITH SYNONYMS</span> = ('contact channel', 'source'),
+    complaints.sentiment <span class="kw">AS</span> SENTIMENT
+      <span class="kw">WITH SYNONYMS</span> = ('mood', 'tone'),
+    complaints.submitted_date <span class="kw">AS</span> TO_DATE(SUBMITTED_AT)
+      <span class="kw">WITH SYNONYMS</span> = ('complaint date', 'date received'),
+    complaints.submitted_week <span class="kw">AS</span> DATE_TRUNC('WEEK', SUBMITTED_AT)
+      <span class="kw">COMMENT</span> = 'Week the complaint arrived (weeks start on Monday)'
+  )
+  <span class="kw">METRICS</span> (
+    complaints.complaint_count <span class="kw">AS</span> COUNT(COMPLAINT_ID)
+      <span class="kw">WITH SYNONYMS</span> = ('number of complaints', 'volume'),
+    complaints.urgent_count <span class="kw">AS</span> SUM(complaints.urgent_flag)
+      <span class="kw">COMMENT</span> = 'Number of urgent complaints',
+    complaints.share_negative <span class="kw">AS</span> AVG(complaints.negative_flag)
+      <span class="kw">COMMENT</span> = 'Share of complaints with negative sentiment, from 0 to 1'
+  )
+  <span class="kw">AI_SQL_GENERATION</span> 'Round shares to 2 decimal places. Sort rankings from highest to lowest.'
+  <span class="kw">COMMENT</span> = 'Complaint Intelligence: official complaint metrics';</pre></div>
+  <p>You can query the semantic view yourself, without any AI. This is handy for checking that a metric is right:</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> * <span class="kw">FROM</span> SEMANTIC_VIEW(
+  BANK_AI.COMPLAINTS.COMPLAINTS_SV
+  <span class="kw">DIMENSIONS</span> complaints.product
+  <span class="kw">METRICS</span> complaints.complaint_count, complaints.urgent_count, complaints.share_negative
+)
+<span class="kw">ORDER BY</span> complaint_count <span class="kw">DESC</span>;</pre></div>
+  <p>If your table has more than one entity, add a <code>RELATIONSHIPS</code> block, for example <code>complaints_to_customers AS complaints (CUSTOMER_ID) REFERENCES customers</code>. Our project has one table, so it has none.</p>
+  <p><b>Verified queries.</b> When you ask a question in the Snowsight playground and the SQL is right, you can save it as a verified query. In SQL they live in an <code>AI_VERIFIED_QUERIES ( name AS ( QUESTION '…' SQL '…' ) )</code> block at the end of the statement. Analyst reuses them for the same or similar questions, which is the single best way to raise accuracy for questions your managers ask every week.</p>
+</section>
+
+<section class="sec" id="accuracy" data-toc="Accuracy tips">
+  <h2>Accuracy tips that work</h2>
+  <div class="features">
+    <div class="feature"><b>Name things like users talk</b><span>A dimension called <code>channel</code> with synonyms “source” and “contact channel” beats a raw column called CHNL_CD.</span><small>Synonyms</small></div>
+    <div class="feature"><b>Describe every metric</b><span>Write what it means and its range in COMMENT. The model reads it.</span><small>Comments</small></div>
+    <div class="feature"><b>Define formulas once</b><span>Put the share calculation in a metric. Never rely on the model to invent it.</span><small>Metrics</small></div>
+    <div class="feature"><b>Save verified queries</b><span>Add the 10 to 20 questions your users ask most, with approved SQL.</span><small>Verified queries</small></div>
+    <div class="feature"><b>Keep it small</b><span>One semantic view per business area. A huge catalogue confuses the helper.</span><small>Scope</small></div>
+    <div class="feature"><b>Test like a QA analyst</b><span>Keep a list of questions with known answers and rerun it after every change.</span><small>Lesson 4.2</small></div>
+  </div>
+  <p>Limits to remember: Analyst cannot see the results of earlier queries in the conversation, only answers what SQL can answer, and can lose track in very long conversations. If it gets confused, start a new conversation. When a question is unclear, it returns <b>suggestions</b> instead of SQL.</p>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Who asks</th><th>Question in plain English</th><th>What the catalogue must define</th></tr></thead>
+      <tbody>
+        <tr><td>Head of Payments</td><td>Which channel had the most urgent UPI complaints this week?</td><td>urgent_count, product, channel, week</td></tr>
+        <tr><td>Customer experience lead</td><td>Is the share of negative complaints going up for credit cards?</td><td>share_negative by week and product</td></tr>
+        <tr><td>Operations</td><td>How many complaints did each channel receive last week?</td><td>complaint_count, channel, date</td></tr>
+        <tr><td>Risk committee pack</td><td>Top 3 categories by volume this quarter</td><td>complaint_count, category, a verified query</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Every answer comes with its SQL. On a bank project, the data team reviews that SQL for the first weeks and turns every correct one into a verified query.</p>
+</section>
+
+<section class="sec" id="simulator" data-toc="Simulator">
+  <h2>Simulator: ask Cortex Analyst</h2>
+  <div data-simulator="cortex-3-2-analyst"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>Here you play Cortex Analyst. The <code>enriched</code> table holds the first 20 project complaints with their real P2 labels (<code>is_urgent</code> is 1 or 0 here). For each challenge, write the SQL the semantic view's metrics would produce.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: create the view and ask questions</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Semantic view and the Cortex Analyst playground</h3>
+      <div class="meta"><span>About 20 min</span><span>Needs P1 to P4</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>Check the columns the view uses exist in your table.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE WAREHOUSE</span> LEARN_WH;
+<span class="kw">SELECT</span> COMPLAINT_ID, PRODUCT, CATEGORY, CHANNEL, SENTIMENT, IS_URGENT, SUBMITTED_AT
+<span class="kw">FROM</span> BANK_AI.COMPLAINTS.ENRICHED <span class="kw">LIMIT</span> 5;</pre></div>
+        <p class="expect">Expected: 5 rows. SENTIMENT holds lowercase labels (positive, negative, neutral, mixed) and IS_URGENT is BOOLEAN, exactly what the facts expect. PRODUCT and CHANNEL hold codes such as CREDIT_CARD and CALL_CENTER.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div><p>Run the <code>CREATE OR REPLACE SEMANTIC VIEW</code> statement from the Syntax section.</p>
+        <p class="expect">Expected: “Semantic view COMPLAINTS_SV successfully created.” Then <code>SHOW SEMANTIC VIEWS IN SCHEMA BANK_AI.COMPLAINTS;</code> lists it.</p><label><input type="checkbox"> Done</label></div></li>
+      <li><div><p>Run the <code>SEMANTIC_VIEW()</code> query. Write down the top product and its count; you will compare with Analyst.</p>
+        <p class="expect">Expected: one row per product, with complaint_count adding up to 60.</p><label><input type="checkbox"> Done</label></div></li>
+      <li><div><p>In Snowsight open <b>AI &amp; ML » Cortex Analyst</b>, select BANK_AI.COMPLAINTS.COMPLAINTS_SV and open the playground. Ask: <i>“How many complaints per product?”</i></p>
+        <p class="expect">Expected: the same numbers as step 3, plus the SQL it wrote.</p><label><input type="checkbox"> Done</label></div></li>
+      <li><div><p>Ask a question with a synonym: <i>“Which source has the worst mood?”</i>. Then save a correct answer as a verified query with the button under the SQL.</p>
+        <label><input type="checkbox"> Done</label></div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="project" data-toc="Project step P6">
+  <h2>Project step P6: Ask in plain English with Cortex Analyst</h2>
+  <div class="callout project">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V4h11l-2 4 2 4H5"/></svg>
+    <div><div class="label">Project step P6 · Complaint Intelligence</div><p>Goal: semantic view <code>BANK_AI.COMPLAINTS.COMPLAINTS_SV</code> over ENRICHED with dimensions PRODUCT, CATEGORY, CHANNEL, SENTIMENT and date, and metrics complaint_count, urgent_count and share_negative, proven with five plain-English questions.</p></div>
+  </div>
+  <ol class="steps">
+    <li><div><p>Create the view (lab steps 1 to 3).</p><label><input type="checkbox"> Done</label></div></li>
+    <li><div><p>In the playground, ask these five and compare each number with a SEMANTIC_VIEW() query of your own:</p>
+      <ul>
+        <li>How many complaints did we get per channel?</li>
+        <li>Which product has the most urgent complaints?</li>
+        <li>What is the share of negative complaints by category?</li>
+        <li>How many complaints per week?</li>
+        <li>Which category has the most urgent complaints?</li>
+      </ul>
+      <p class="expect">Expected: five answers that match your own SQL. Save each correct one as a verified query.</p><label><input type="checkbox"> Done</label></div></li>
+    <li><div><p>Note any wrong answer and fix the catalogue (a synonym, a comment or a verified query), not the question. Keep the view: P7 uses it.</p><label><input type="checkbox"> Done</label></div></li>
+  </ol>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>Cortex Analyst turns questions into SQL, and the semantic view is its official catalogue. Good dimensions, metrics, synonyms and verified queries are what make the numbers right.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Cortex Analyst</dt><dd>Snowflake's text-to-SQL feature for structured data.</dd>
+    <dt>Semantic view</dt><dd>A schema object holding business meaning: tables, relationships, facts, dimensions and metrics.</dd>
+    <dt>Fact</dt><dd>A row-level value, usually used to build a metric.</dd>
+    <dt>Dimension</dt><dd>An attribute to group or filter by, such as product or date.</dd>
+    <dt>Metric</dt><dd>An aggregated measure with a fixed formula, such as complaint_count.</dd>
+    <dt>Synonym</dt><dd>Another word users say for a table, dimension or metric.</dd>
+    <dt>Verified query</dt><dd>A question paired with SQL a person has approved, reused to answer similar questions.</dd>
+    <dt>Semantic model (YAML)</dt><dd>The older file-based format on a stage. Still supported; semantic views are recommended.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#cortex/3-3">3.3 Cortex Agents →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "simulators": [
+    {
+      "id": "cortex-3-2-analyst",
+      "title": "Plain English to SQL with COMPLAINTS_SV",
+      "tool": "cortex",
+      "intro": "Playground in AI & ML » Cortex Analyst, semantic view BANK_AI.COMPLAINTS.COMPLAINTS_SV.",
+      "steps": [
+        {
+          "prompt": "Which product has the most urgent complaints?",
+          "say": "Analyst matched 'urgent complaints' to the urgent_count metric and 'product' to the product dimension, then ran this SQL.",
+          "code": {
+            "lang": "sql",
+            "text": "SELECT product, urgent_count\nFROM SEMANTIC_VIEW(BANK_AI.COMPLAINTS.COMPLAINTS_SV\n  DIMENSIONS complaints.product\n  METRICS complaints.urgent_count)\nORDER BY urgent_count DESC\nLIMIT 1;"
+          },
+          "output": {"columns": ["PRODUCT", "URGENT_COUNT"], "rows": [["UPI", 6]]},
+          "check": ["Did it use the urgent_count metric, not a guessed formula?", "Re-run the same SQL yourself if the number matters. UPI has 6 of the 17 urgent complaints."]
+        },
+        {
+          "prompt": "Which source has the worst mood?",
+          "say": "The synonyms did the work: 'source' means channel and 'mood' means sentiment. 'Worst' became the highest share_negative.",
+          "code": {
+            "lang": "sql",
+            "text": "SELECT channel, ROUND(share_negative, 2) AS share_negative\nFROM SEMANTIC_VIEW(BANK_AI.COMPLAINTS.COMPLAINTS_SV\n  DIMENSIONS complaints.channel\n  METRICS complaints.share_negative)\nORDER BY share_negative DESC;"
+          },
+          "output": {"columns": ["CHANNEL", "SHARE_NEGATIVE"], "rows": [["CALL_CENTER", 0.91], ["APP", 0.79], ["EMAIL", 0.67], ["BRANCH", 0.56]]},
+          "check": [
+            "Rounded to 2 decimals because of AI_SQL_GENERATION.",
+            "Is 'worst' really highest negative share? Ask the business owner once, then save it as a verified query."
+          ]
+        },
+        {
+          "prompt": "How many complaints per week?",
+          "say": "It used the submitted_week dimension. All 60 complaints arrived in September 2026.",
+          "output": {"columns": ["SUBMITTED_WEEK", "COMPLAINT_COUNT"], "rows": [["2026-08-31", 12], ["2026-09-07", 14], ["2026-09-14", 14], ["2026-09-21", 14], ["2026-09-28", 6]]},
+          "check": ["The counts add up to 60, the full table.", "The last week is short: only 28 to 30 September."]
+        },
+        {
+          "prompt": "Why are customers unhappy?",
+          "say": "This is not a SQL question, so Analyst returned suggestions instead of guessing. The reasons live in the text, which is a job for Cortex Search (or an agent with both tools).",
+          "outputText": "I can answer questions about counts, shares and trends. Did you mean:\n1. What is the share of negative complaints by category?\n2. Which category has the most complaints?\n3. How has the share of negative complaints changed by month?",
+          "check": ["Suggestions instead of SQL are a good sign, not a failure.", "Lesson 3.3 combines Analyst and Search in one agent."]
+        }
+      ]
+    }
+  ],
+  "worksheet": {
+    "tables": {
+      "enriched": {
+        "columns": [
+          ["complaint_id", "NUMBER"],
+          ["product", "VARCHAR"],
+          ["category", "VARCHAR"],
+          ["channel", "VARCHAR"],
+          ["sentiment", "VARCHAR", "positive, negative, neutral or mixed"],
+          ["is_urgent", "NUMBER", "1 = urgent, 0 = not urgent"],
+          ["submitted_on", "DATE"]
+        ],
+        "rows": [
+          [1, "CREDIT_CARD", "Fees and charges", "APP", "negative", 0, "2026-09-01"],
+          [2, "UPI", "App and UPI", "APP", "negative", 1, "2026-09-01"],
+          [3, "HOME_LOAN", "Loan servicing", "EMAIL", "negative", 0, "2026-09-02"],
+          [4, "MOBILE_APP", "App and UPI", "APP", "positive", 0, "2026-09-02"],
+          [5, "CREDIT_CARD", "Fraud", "CALL_CENTER", "negative", 1, "2026-09-03"],
+          [6, "SAVINGS", "Customer service", "BRANCH", "positive", 0, "2026-09-03"],
+          [7, "PERSONAL_LOAN", "Loan servicing", "EMAIL", "negative", 1, "2026-09-04"],
+          [8, "SAVINGS", "Fees and charges", "APP", "negative", 0, "2026-09-04"],
+          [9, "UPI", "App and UPI", "APP", "negative", 0, "2026-09-05"],
+          [10, "CREDIT_CARD", "Card issues", "APP", "negative", 0, "2026-09-05"],
+          [11, "HOME_LOAN", "Loan servicing", "BRANCH", "positive", 0, "2026-09-06"],
+          [12, "MOBILE_APP", "App and UPI", "APP", "negative", 0, "2026-09-06"],
+          [13, "SAVINGS", "Fraud", "CALL_CENTER", "negative", 1, "2026-09-07"],
+          [14, "CREDIT_CARD", "Fees and charges", "EMAIL", "negative", 0, "2026-09-07"],
+          [15, "PERSONAL_LOAN", "Loan servicing", "APP", "positive", 0, "2026-09-08"],
+          [16, "UPI", "App and UPI", "APP", "negative", 1, "2026-09-08"],
+          [17, "CREDIT_CARD", "Card issues", "BRANCH", "negative", 0, "2026-09-09"],
+          [18, "SAVINGS", "Customer service", "EMAIL", "neutral", 0, "2026-09-09"],
+          [19, "HOME_LOAN", "Loan servicing", "CALL_CENTER", "negative", 0, "2026-09-10"],
+          [20, "MOBILE_APP", "App and UPI", "APP", "negative", 1, "2026-09-10"]
+        ]
+      }
+    },
+    "starter": "SELECT product, COUNT(complaint_id) AS complaint_count\nFROM enriched\nGROUP BY product\nORDER BY complaint_count DESC, product",
+    "examples": [
+      {"label": "All rows", "sql": "SELECT *\nFROM enriched\nORDER BY complaint_id"},
+      {"label": "urgent_count by product", "sql": "SELECT product, SUM(is_urgent) AS urgent_count\nFROM enriched\nGROUP BY product\nORDER BY urgent_count DESC, product"},
+      {
+        "label": "Complaints per week",
+        "sql": "SELECT DATE_TRUNC('week', submitted_on) AS submitted_week, COUNT(*) AS complaint_count\nFROM enriched\nGROUP BY submitted_week\nORDER BY submitted_week"
+      }
+    ],
+    "challenges": [
+      {
+        "task": "'How many complaints did we get per channel?' Show channel and complaint_count, highest first.",
+        "hint": "COUNT(complaint_id) with GROUP BY channel.",
+        "answer": "SELECT channel, COUNT(complaint_id) AS complaint_count FROM enriched GROUP BY channel ORDER BY complaint_count DESC, channel"
+      },
+      {
+        "task": "'What is the share of negative complaints by category?' Show category and share_negative rounded to 2 decimals.",
+        "hint": "share_negative = AVG(CASE WHEN sentiment = 'negative' THEN 1 ELSE 0 END). Wrap it in ROUND(…, 2).",
+        "answer": "SELECT category, ROUND(AVG(CASE WHEN sentiment = 'negative' THEN 1 ELSE 0 END), 2) AS share_negative FROM enriched GROUP BY category ORDER BY share_negative DESC, category"
+      },
+      {
+        "task": "'How many urgent UPI complaints came through the app?' Return one number (channel code APP).",
+        "hint": "Filter product = 'UPI' and channel = 'APP', then SUM(is_urgent).",
+        "answer": "SELECT SUM(is_urgent) AS urgent_count FROM enriched WHERE product = 'UPI' AND channel = 'APP'"
+      }
+    ]
+  },
+  "quiz": [
+    {
+      "q": "What does Cortex Analyst need to write correct SQL for business questions?",
+      "options": ["A semantic view (or legacy YAML semantic model)", "A Cortex Search service", "A fine-tuned model"],
+      "answer": 0,
+      "why": "The semantic view is the official catalogue: names, joins and metric formulas."
+    },
+    {
+      "q": "In a semantic view, what is 'share_negative'?",
+      "options": ["A dimension", "A metric", "A relationship"],
+      "answer": 1,
+      "why": "It is an aggregated measure with a fixed formula, so it is a metric."
+    },
+    {
+      "q": "Users say 'source' but the column is CHANNEL. What fixes it best?",
+      "options": ["Rename the table", "Add 'source' as a synonym on the channel dimension", "Tell users to say channel"],
+      "answer": 1,
+      "why": "WITH SYNONYMS maps the words people use to the right dimension."
+    },
+    {
+      "q": "Which is the single best way to make a frequent question reliable?",
+      "options": ["Add a verified query with approved SQL", "Use a bigger warehouse", "Make the question longer"],
+      "answer": 0,
+      "why": "Verified queries are reused for the same or similar questions."
+    },
+    {
+      "q": "How is Cortex Analyst billed when used directly through its API?",
+      "options": ["Per user per month", "Per successful message, plus warehouse time for the SQL", "Free"],
+      "answer": 1,
+      "why": "It is billed per message (HTTP 200 responses only); the generated SQL runs on your warehouse."
+    },
+    {
+      "q": "A user asks 'Why are customers unhappy?'. What should Analyst do?",
+      "options": ["Invent SQL", "Return suggestions, because the answer lives in text, not numbers", "Crash"],
+      "answer": 1,
+      "why": "Analyst answers SQL-shaped questions. Text reasons need Cortex Search, which an agent can combine with Analyst."
+    }
+  ]
+}
+</script>

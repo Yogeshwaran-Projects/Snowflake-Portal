@@ -1,0 +1,257 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>CoCo Masterclass</span><span>Module 3 · CoCo for data science</span><span>Lesson 3.1</span></div>
+  <h1>Notebooks and Snowpark Python</h1>
+  <p class="lede">Move from SQL worksheets to Python inside Snowflake. Open a notebook, get a session, build lazy DataFrames, and let CoCo write and translate Snowpark code for you while you check what it sends to the warehouse.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>35 min</span>
+    <span class="badge">Intermediate</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Choose between a notebook and a Python worksheet for a task</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Get a session with <code>get_active_session()</code> and build a DataFrame</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain lazy evaluation and pushdown, and spot an expensive <code>to_pandas()</code></li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Ask CoCo to convert SQL to a DataFrame and back, and verify the two agree</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">A Snowflake Notebook is a page of cells (Python, SQL and Markdown) that runs inside Snowflake. Snowpark Python is the library you use in those cells: you describe work as a DataFrame, and Snowpark turns it into SQL that a warehouse runs next to the data.</p></div>
+  </div>
+  <p>You met Snowpark in the Fundamentals course. Here we use it the way a data scientist does every day: in a notebook, with CoCo writing much of the code. Three ideas carry the whole lesson:</p>
+  <ul>
+    <li><b>Session</b>: your open line to Snowflake. In a notebook you do not log in again; you ask for the session that is already there.</li>
+    <li><b>Lazy</b>: building a DataFrame sends nothing. Only an action such as <code>show()</code>, <code>collect()</code>, <code>count()</code>, <code>to_pandas()</code> or <code>save_as_table()</code> runs SQL.</li>
+    <li><b>Pushdown</b>: the work runs in the warehouse. Your Python only receives the small result, unless you pull the data out on purpose.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like librarians who also speak Python</h2>
+  <p>So far you spoke to the librarians in SQL. Now they also understand Python. A notebook is your <b>lab notebook</b> on the reading-room desk: you write a step, try it, see the answer, write the next step. A DataFrame is a <b>to-do list</b> you hand the librarians: “take the transactions shelf, keep the last 90 days, total per customer”. They do nothing until you say “go”. And the robot assistant sits beside you: you say “turn this SQL into Python”, it writes the list, and you read it before saying “go”.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Lab notebook on the desk</b><span>In Snowflake: a notebook with Python, SQL and Markdown cells</span></div>
+    <div><small>In the library</small><b>A to-do list not yet handed over</b><span>In Snowflake: a lazy DataFrame; an action sends it as SQL</span></div>
+    <div><small>In the library</small><b>Carrying every book home</b><span>In Snowflake: <code>to_pandas()</code> on a big table, which copies all rows into Python memory</span></div>
+  </div>
+</section>
+
+<section class="sec" id="where" data-toc="Notebooks vs worksheets">
+  <h2>Where Python runs in Snowsight</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Place</th><th>How you get the session</th><th>Best for</th></tr></thead>
+      <tbody>
+        <tr><td><b>Notebooks in Workspaces</b> (the new kind)</td><td><code>from snowflake.snowpark.context import get_active_session</code> then <code>session = get_active_session()</code></td><td>Data science work: explore, build features, train models. Runs on Container Runtime (Python 3.10 to 3.12) with about 100 packages preinstalled.</td></tr>
+        <tr><td><b>Legacy Notebooks</b></td><td>Same import</td><td>Older accounts. Can run on a warehouse or a container. Accounts created after April 2026 cannot create new legacy notebooks.</td></tr>
+        <tr><td><b>Python worksheet</b></td><td>Snowsight passes it in: <code>def main(session: snowpark.Session):</code></td><td>One quick script that returns a DataFrame. Add packages from the <b>Packages</b> menu.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Your screen may differ</div><p>Snowflake is moving everyone from legacy notebooks to Notebooks in Workspaces over the coming quarters. Menus, runtime choices and which packages are preinstalled vary by account and region. The Python code in this course is the same in both. On a client account, the platform team decides which runtime and compute pool you use.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="dataframe" data-toc="SQL vs DataFrame">
+  <h2>SQL and DataFrame, side by side</h2>
+  <p>CoCo converts in both directions. Learn this table and you can check every conversion yourself.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>SQL</th><th>Snowpark DataFrame</th></tr></thead>
+      <tbody>
+        <tr><td><code>FROM BANK_DS.CLEAN.CUSTOMERS</code></td><td><code>session.table("BANK_DS.CLEAN.CUSTOMERS")</code></td></tr>
+        <tr><td><code>WHERE BALANCE &gt; 0</code></td><td><code>.filter(F.col("BALANCE") &gt; 0)</code></td></tr>
+        <tr><td><code>SELECT CITY, SEGMENT</code></td><td><code>.select("CITY", "SEGMENT")</code></td></tr>
+        <tr><td><code>GROUP BY CITY</code> + <code>AVG(BALANCE)</code></td><td><code>.group_by("CITY").agg(F.avg("BALANCE").alias("AVG_BALANCE"))</code></td></tr>
+        <tr><td><code>LEFT JOIN t ON …</code></td><td><code>.join(t, "CUSTOMER_ID", how="left")</code></td></tr>
+        <tr><td><code>ORDER BY x DESC LIMIT 10</code></td><td><code>.sort(F.col("x").desc()).limit(10)</code></td></tr>
+        <tr><td><code>CREATE OR REPLACE TABLE x AS …</code></td><td><code>.write.save_as_table("x", mode="overwrite")</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Two habits to check CoCo’s Python: call <code>df.explain()</code> to print the SQL Snowpark will send, and compare a <code>count()</code> from the DataFrame with a <code>COUNT(*)</code> from your SQL. Same number, same logic.</p>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>A bank’s analytics team holds two years of card transactions: hundreds of millions of rows. A data scientist who runs <code>to_pandas()</code> on that table would wait a long time, could crash the notebook’s memory, and would copy customer data into a place that is harder to govern. With Snowpark, she filters and aggregates in the warehouse, so only a few thousand summary rows reach Python, and the masking policies on columns such as card numbers still apply because the query runs in Snowflake under her role. Pull data into pandas only when it is already small, for example a sample for a chart.</p>
+</section>
+
+<section class="sec" id="sim" data-toc="Simulator: Snowpark with CoCo">
+  <h2>Simulator: Snowpark with CoCo</h2>
+  <p>A notebook session on the project data. Watch how each answer is checked.</p>
+  <div data-simulator="coco-3-1-snowpark"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>Each challenge is a Snowpark chain you asked CoCo to translate. Write the SQL it should produce and run it against a small <code>customers</code> table. If your SQL and the DataFrame agree, you can trust the translation.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: your first notebook with CoCo</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Open a notebook, get a session, translate SQL with CoCo</h3>
+      <div class="meta"><span>About 20 min</span><span>Your trial, BANK_DS from P1 to P3</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>In Snowsight, create a notebook. In newer accounts: <b>Projects » Workspaces</b>, then add a new notebook file. In older accounts: <b>Projects » Notebooks » + Notebook</b>, location <code>BANK_DS.ML</code>, warehouse <code>LEARN_WH</code>.</p>
+        <p class="expect">Expected: an empty notebook. If it asks for a runtime or compute pool, take the default offered on your trial.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Paste this into the first Python cell and run it:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">from</span> snowflake.snowpark.context <span class="kw">import</span> get_active_session
+<span class="kw">from</span> snowflake.snowpark <span class="kw">import</span> functions <span class="kw">as</span> F
+
+session = get_active_session()
+session.use_warehouse(<span class="kw">"LEARN_WH"</span>)
+customers = session.table(<span class="kw">"BANK_DS.CLEAN.CUSTOMERS"</span>)
+customers.show(5)
+<span class="kw">print</span>(customers.count())</pre></div>
+        <p class="expect">Expected: 5 customer rows, then about 5000. Nothing ran until <code>show()</code>; that was the lazy DataFrame at work.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Open the CoCo panel and ask for a conversion:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre>Convert this SQL to a Snowpark DataFrame in my notebook, using F for functions:
+SELECT SEGMENT, COUNT(*) AS CUSTOMERS, AVG(IFF(CHURNED, 1, 0)) AS CHURN_RATE
+FROM BANK_DS.CLEAN.CUSTOMERS GROUP BY SEGMENT ORDER BY CHURN_RATE DESC;
+Then call explain() so I can see the SQL it generates.</pre></div>
+        <p class="expect">Expected: a chain with <code>group_by("SEGMENT")</code>, <code>F.count</code> and an average of a 0/1 expression (for example <code>F.iff(F.col("CHURNED"), 1, 0)</code>), then a printed SQL plan. Run the SQL version in a SQL cell and confirm the numbers match.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Ask the reverse: “Convert the DataFrame in the cell above back to plain SQL and explain each line.” Then ask: “Is there any to_pandas() call here that could pull too much data?”</p>
+        <p class="expect">Expected: plain SQL equal to the original, and an answer that the only data leaving Snowflake is the small grouped result.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>A notebook is your lab book; a DataFrame is a lazy to-do list the warehouse runs. Let CoCo write and translate the code, then check it with explain() and a matching count. Keep big data in Snowflake.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Notebook</dt><dd>A page of Python, SQL and Markdown cells that runs inside Snowflake.</dd>
+    <dt>Session</dt><dd>Your connection to Snowflake in Python. get_active_session() returns it in a notebook.</dd>
+    <dt>DataFrame</dt><dd>A description of a query, built step by step. Lazy until an action.</dd>
+    <dt>Action</dt><dd>A call that runs SQL: show, collect, count, to_pandas, save_as_table.</dd>
+    <dt>Pushdown</dt><dd>Running the work in the warehouse, next to the data, instead of in your Python.</dd>
+    <dt>explain()</dt><dd>Prints the SQL and plan a DataFrame will run. Your best tool for checking CoCo’s code.</dd>
+    <dt>Container Runtime</dt><dd>The compute that runs notebook Python on a compute pool, with ML packages preinstalled.</dd>
+    <dt>Python worksheet</dt><dd>A Snowsight script with a main(session) handler that returns a result.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#coco/3-2">3.2 Feature engineering →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "customers": {
+        "columns": [["customer_id", "NUMBER"], ["city", "VARCHAR"], ["segment", "VARCHAR", "Retail or Premium"], ["tenure_months", "NUMBER"], ["balance", "NUMBER", "in rupees"], ["churned", "NUMBER", "1 = left, 0 = stayed"]],
+        "rows": [
+          [1, "Mumbai", "Retail", 48, 125000, 0], [2, "Delhi", "Premium", 14, 0, 1], [3, "Chennai", "Retail", 60, 89000, 0],
+          [4, "Mumbai", "Retail", 7, 4500, 1], [5, "Bengaluru", "Premium", 85, 640000, 0], [6, "Delhi", "Retail", 3, 0, 1],
+          [7, "Chennai", "Premium", 36, 310000, 0], [8, "Bengaluru", "Retail", 22, 56000, 0], [9, "Mumbai", "Premium", 11, 210000, 1],
+          [10, "Delhi", "Retail", 40, 73000, 0], [11, "Chennai", "Retail", 5, 12000, 1], [12, "Bengaluru", "Premium", 70, 455000, 0]
+        ]
+      }
+    },
+    "starter": "-- customers.filter(F.col(\"balance\") > 0).select(\"customer_id\", \"city\", \"balance\")\nSELECT customer_id, city, balance\nFROM customers\nWHERE balance > 0\nORDER BY customer_id",
+    "examples": [
+      { "label": "session.table(...).show()", "sql": "SELECT *\nFROM customers" },
+      { "label": "group_by(\"segment\").count()", "sql": "SELECT segment, COUNT(*) AS cnt\nFROM customers\nGROUP BY segment\nORDER BY segment" },
+      { "label": "Churn rate by city", "sql": "SELECT city, AVG(churned) AS churn_rate\nFROM customers\nGROUP BY city\nORDER BY churn_rate DESC, city" }
+    ],
+    "challenges": [
+      { "task": "You asked CoCo: 'Translate customers.filter(F.col(\"churned\") == 1).select(\"customer_id\", \"city\") to SQL.' Write the SQL it should produce.", "hint": "filter becomes WHERE churned = 1; select becomes the column list.", "answer": "SELECT customer_id, city FROM customers WHERE churned = 1" },
+      { "task": "You asked CoCo: 'Translate customers.group_by(\"segment\").agg(F.avg(\"balance\").alias(\"avg_balance\")) to SQL.' Write the SQL it should produce.", "hint": "GROUP BY segment with AVG(balance) AS avg_balance.", "answer": "SELECT segment, AVG(balance) AS avg_balance FROM customers GROUP BY segment ORDER BY segment" },
+      { "task": "You asked CoCo: 'Translate customers.filter(F.col(\"tenure_months\") < 12).group_by(\"city\").agg(F.count(F.lit(1)).alias(\"new_customers\")) to SQL.' Write the SQL it should produce.", "hint": "WHERE tenure_months < 12, then COUNT(*) AS new_customers per city.", "answer": "SELECT city, COUNT(*) AS new_customers FROM customers WHERE tenure_months < 12 GROUP BY city ORDER BY city" }
+    ]
+  },
+  "simulators": [
+    {
+      "id": "coco-3-1-snowpark",
+      "title": "Snowpark in a notebook with CoCo",
+      "tool": "coco",
+      "intro": "A notebook in Snowsight with the CoCo panel open. Data: BANK_DS.CLEAN from project steps P1 to P3.",
+      "steps": [
+        {
+          "prompt": "Start my notebook: get the session, use LEARN_WH, and show 5 rows of BANK_DS.CLEAN.CUSTOMERS with the row count.",
+          "say": "Here is a first cell. In a notebook the session already exists, so I fetch it instead of creating a new connection.",
+          "code": { "lang": "python", "text": "from snowflake.snowpark.context import get_active_session\nfrom snowflake.snowpark import functions as F\n\nsession = get_active_session()\nsession.use_warehouse(\"LEARN_WH\")\ncustomers = session.table(\"BANK_DS.CLEAN.CUSTOMERS\")\ncustomers.select(\"CUSTOMER_ID\", \"CITY\", \"SEGMENT\", \"BALANCE\", \"CHURNED\").show(5)\nprint(customers.count())" },
+          "output": { "columns": ["CUSTOMER_ID", "CITY", "SEGMENT", "BALANCE", "CHURNED"], "rows": [[10001, "Mumbai", "Retail", 125000.0, "false"], [10002, "Delhi", "Premium", 0.0, "true"], [10003, "Chennai", "Retail", 89000.5, "false"], [10004, "Pune", "Retail", 4500.0, "true"], [10005, "Bengaluru", "Premium", 640000.0, "false"]] },
+          "check": ["No password or account in the code: the session comes from the notebook", "The table name is fully qualified", "Your values will differ; the count should be about 5000"]
+        },
+        {
+          "prompt": "Convert to a DataFrame: SELECT CITY, AVG(BALANCE) AS AVG_BALANCE, COUNT(*) AS CUSTOMERS FROM BANK_DS.CLEAN.CUSTOMERS WHERE BALANCE > 0 GROUP BY CITY ORDER BY AVG_BALANCE DESC",
+          "say": "Each SQL clause maps to one method. Nothing runs until show().",
+          "code": { "lang": "python", "text": "by_city = (customers\n    .filter(F.col(\"BALANCE\") > 0)\n    .group_by(\"CITY\")\n    .agg(F.avg(\"BALANCE\").alias(\"AVG_BALANCE\"),\n         F.count(F.lit(1)).alias(\"CUSTOMERS\"))\n    .sort(F.col(\"AVG_BALANCE\").desc()))\nby_city.show()" },
+          "check": ["WHERE became filter, before group_by", "Aliases match the SQL so downstream code keeps working", "Run the SQL in a SQL cell too and compare the numbers"]
+        },
+        {
+          "prompt": "Show me the SQL Snowpark will send for by_city.",
+          "say": "explain() prints the generated query and the plan. It is one query, fully pushed down to the warehouse.",
+          "code": { "lang": "python", "text": "by_city.explain()" },
+          "outputText": "---------DATAFRAME EXECUTION PLAN----------\nQuery List:\n1.\nSELECT \"CITY\", avg(\"BALANCE\") AS \"AVG_BALANCE\", count(1) AS \"CUSTOMERS\"\nFROM ( SELECT * FROM BANK_DS.CLEAN.CUSTOMERS WHERE (\"BALANCE\" > 0) )\nGROUP BY \"CITY\" ORDER BY \"AVG_BALANCE\" DESC NULLS LAST\n(output shortened; the exact text varies by Snowpark version)",
+          "check": ["One query, not one per city", "The filter is inside the query, so only matching rows are read", "Generated SQL looks verbose; that is normal"]
+        },
+        {
+          "prompt": "My next cell does pdf = session.table('BANK_DS.CLEAN.TRANSACTIONS').to_pandas() and then sums by customer in pandas. Is that OK?",
+          "say": "It works, but it copies all ~100,000 rows into notebook memory and does the sum in Python. Aggregate in Snowflake first and pull only the small result.",
+          "code": { "lang": "python", "text": "per_customer = (session.table(\"BANK_DS.CLEAN.TRANSACTIONS\")\n    .group_by(\"CUSTOMER_ID\")\n    .agg(F.sum(\"AMOUNT\").alias(\"TOTAL_AMOUNT\")))\npdf = per_customer.to_pandas()   # about 5,000 rows instead of 100,000\npdf.head()" },
+          "check": ["to_pandas() only after group_by or a filter", "On real bank tables with millions of rows this is the difference between seconds and a crash", "Data in pandas is outside Snowflake governance: keep it small"]
+        },
+        {
+          "prompt": "This fails: SnowparkSQLException invalid identifier 'CUSTOMER_ID' after I saved a pandas DataFrame with session.write_pandas(pdf, 'TMP_TOTALS', auto_create_table=True). Fix only the cause.",
+          "say": "Your pandas columns were lowercase, so the new table has quoted lowercase names such as \"customer_id\". Uppercase the columns before writing, then recreate the table.",
+          "code": { "lang": "python", "text": "pdf.columns = [c.upper() for c in pdf.columns]\nsession.write_pandas(pdf, \"TMP_TOTALS\", auto_create_table=True, overwrite=True)\nsession.table(\"TMP_TOTALS\").select(\"CUSTOMER_ID\", \"TOTAL_AMOUNT\").show(3)" },
+          "check": ["It changed the cause (column case) and nothing else", "overwrite=True replaces the temp table: fine for scratch, review it on real tables", "Drop TMP_TOTALS when you are done"]
+        }
+      ]
+    }
+  ],
+  "quiz": [
+    { "q": "In a Snowflake Notebook, how do you get a Snowpark session?", "options": ["Type your password into a connection dictionary", "from snowflake.snowpark.context import get_active_session; session = get_active_session()", "pip install snowflake and log in"], "answer": 1, "why": "The notebook already runs inside Snowflake under your role. get_active_session() returns that session, so no credentials appear in code." },
+    { "q": "You run df = session.table('T').filter(F.col('AMOUNT') > 100). What has Snowflake done?", "options": ["Nothing yet; the DataFrame is lazy", "Filtered and cached the rows", "Copied the table to pandas"], "answer": 0, "why": "Building a DataFrame only records the steps. An action such as show(), count() or collect() sends the SQL." },
+    { "q": "Which call is most likely to be expensive and risky on a 100-million-row table?", "options": ["df.count()", "df.to_pandas()", "df.explain()"], "answer": 1, "why": "to_pandas() copies every row into notebook memory. count() runs one aggregate in the warehouse; explain() runs nothing." },
+    { "q": "How can you check that CoCo’s DataFrame does the same thing as your SQL?", "options": ["Trust it, CoCo is always right", "Call explain() to see the generated SQL and compare a count or total from both", "Run it on a bigger warehouse"], "answer": 1, "why": "explain() shows exactly what will run; matching counts and totals prove the logic is the same." },
+    { "q": "What does a Python worksheet handler look like?", "options": ["def main(session: snowpark.Session): ... return a DataFrame", "if __name__ == '__main__':", "class Worksheet:"], "answer": 0, "why": "Snowsight passes the session to the main handler and shows what it returns." },
+    { "q": "Why does Snowpark keep bank data safer than exporting to a laptop?", "options": ["It encrypts your laptop", "The query runs inside Snowflake under your role, so masking and access policies still apply", "It deletes the data after use"], "answer": 1, "why": "Pushdown keeps the data in Snowflake, where RBAC and masking policies are enforced. Only the result you ask for comes back." }
+  ]
+}
+</script>

@@ -215,3 +215,21 @@ dl.glossary dt:last-of-type, dl.glossary dd:last-of-type { border-bottom: 0; }
    carries its own .results frame; this wrapper draws ONE frame around both. */
 .ws-out { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
 .ws-out .results { border: 0; border-radius: 0; }
+
+/* ─────────── practice-question level badges ─────────── */
+/* Easy / Medium / Hard reuse the ok / amber / bad scales so they stay
+   readable in both themes; the text label carries the meaning, colour only
+   reinforces it. */
+.level { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; border-radius: 999px; padding: 1px 8px; margin-right: 8px; border: 1px solid; vertical-align: 1px; }
+.level-easy { color: var(--ok); background: var(--ok-soft); border-color: var(--ok-line); }
+.level-medium { color: var(--amber); background: var(--amber-soft); border-color: var(--amber-line); }
+.level-hard { color: var(--bad); background: var(--bad-soft); border-color: var(--bad-line); }
+
+/* ─────────── project step callout ─────────── */
+/* Content agents write <div class="callout project"> inside
+   <section class="sec" id="project" data-toc="Project step P3">. It must NOT
+   look like .callout.def (accent fill): a project step is work to do, so it
+   gets a plain surface with a heavy brand edge instead. */
+.callout.project { background: var(--surface); border-color: var(--accent-line); border-left: 4px solid var(--btn); }
+.callout.project .label, .callout.project > svg { color: var(--link); }
+.callout.project .label::before { content: "▸ "; }

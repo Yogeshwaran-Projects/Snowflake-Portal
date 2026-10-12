@@ -1,0 +1,261 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>SQL: Beginner to Advanced</span><span>Module 3 · Advanced</span><span>Lesson 3.5</span></div>
+  <h1>JSON and semi-structured data</h1>
+  <p class="lede">App events, API payloads and logs arrive as JSON. Learn to reach inside the curly braces, pull out fields, cast them to real types and turn arrays into rows.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 min</span>
+    <span class="badge">Advanced</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice: 6 questions</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Read a JSON document: objects, keys, nested objects and arrays</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Pull one field out with a path, including nested fields</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Cast JSON text to numbers so you can add and compare</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Flatten an array into rows, in Snowflake and in the editor</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">JSON is text that stores data as key: value pairs inside curly braces, with lists in square brackets. Semi-structured data is data like this: it has structure, but not fixed columns.</p></div>
+  </div>
+  <p>One event from a banking app might look like this:</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre>{"type":"payment","amount":2500,"merchant":"GroceryMart",
+ "tags":["grocery","upi"],"device":{"os":"iOS","app_ver":"5.2"}}</pre></div>
+  <ul>
+    <li><b>Key and value</b>: <code>"type":"payment"</code>. Keys are always text.</li>
+    <li><b>Nested object</b>: <code>"device":{...}</code> is an object inside the object. Its path is <code>device.os</code>.</li>
+    <li><b>Array</b>: <code>"tags":[...]</code> is a list. Items are numbered from 0.</li>
+    <li>Not every event has every key. A login has no amount. That is the "semi" in semi-structured.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a card with a little pocket of extra notes</h2>
+  <p>Every row in a table is a card with fixed boxes: id, customer, date. JSON is a small pocket glued to the card. Inside the pocket are sticky notes: "merchant: GroceryMart", "device: iOS". Some pockets hold a note with its own smaller pocket (nested), and some hold a list of notes (array). SQL cannot read a pocket as a box, so you need a way to say "open the pocket and read the note called merchant". That is a path.</p>
+  <div class="map">
+    <div><small>On the card</small><b>The pocket</b><span>In SQL: the JSON column (event_json here, a VARIANT on Snowflake).</span></div>
+    <div><small>On the card</small><b>A note in the pocket</b><span>In SQL: a path such as device.os that names one value.</span></div>
+    <div><small>On the card</small><b>A list of notes</b><span>In SQL: an array; FLATTEN or UNNEST turns each item into its own row.</span></div>
+  </div>
+</section>
+
+<section class="sec" id="syntax" data-toc="Syntax">
+  <h2>Syntax, step by step</h2>
+  <p>This is the one lesson where Snowflake and the practice editor (DuckDB) spell things differently. The ideas are identical. Learn both, and use the editor form in the practice below.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Task</th><th>Snowflake (VARIANT column)</th><th>Practice editor (DuckDB, JSON text)</th></tr></thead>
+      <tbody>
+        <tr><td>Top-level field</td><td><code>event_json:type::STRING</code></td><td><code>event_json -&gt;&gt; 'type'</code></td></tr>
+        <tr><td>Nested field</td><td><code>event_json:device.os::STRING</code></td><td><code>json_extract_string(event_json, '$.device.os')</code></td></tr>
+        <tr><td>Number</td><td><code>event_json:amount::NUMBER</code></td><td><code>CAST(event_json -&gt;&gt; 'amount' AS DOUBLE)</code></td></tr>
+        <tr><td>Array item</td><td><code>event_json:tags[0]::STRING</code></td><td><code>json_extract_string(event_json, '$.tags[0]')</code></td></tr>
+        <tr><td>Array to rows</td><td><code>LATERAL FLATTEN(input =&gt; event_json:tags) f</code>, then <code>f.value</code></td><td><code>UNNEST(json_extract_string(event_json, '$.tags[*]'))</code></td></tr>
+        <tr><td>Load JSON text</td><td><code>PARSE_JSON(text_col)</code></td><td>Not needed; functions accept text</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p><b>Step 1: pull a field.</b> <code>-&gt;&gt;</code> returns the value as text. On Snowflake the colon does the same job, and <code>::STRING</code> turns the VARIANT into text.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- practice editor</span>
+<span class="kw">SELECT</span> event_id, event_json -&gt;&gt; 'type' <span class="kw">AS</span> event_type <span class="kw">FROM</span> app_events;
+<span class="cm">-- Snowflake</span>
+<span class="kw">SELECT</span> event_id, event_json:type::STRING <span class="kw">AS</span> event_type <span class="kw">FROM</span> app_events;</pre></div>
+  <p><b>Step 2: go deeper with a path.</b> <code>$.device.os</code> means "start at the root, open device, read os".</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> event_id, json_extract_string(event_json, '$.device.os') <span class="kw">AS</span> os <span class="kw">FROM</span> app_events;</pre></div>
+  <p><b>Step 3: cast before you calculate.</b> Everything comes out as text. Cast it to a number, or SUM will fail or sort "9" after "10000".</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT SUM</span>(<span class="kw">CAST</span>(event_json -&gt;&gt; 'amount' <span class="kw">AS DOUBLE</span>)) <span class="kw">AS</span> total_paid
+<span class="kw">FROM</span> app_events
+<span class="kw">WHERE</span> event_json -&gt;&gt; 'type' = 'payment';</pre></div>
+  <p><b>Step 4: arrays to rows.</b> Each tag becomes its own row, so you can GROUP BY tag.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- practice editor</span>
+<span class="kw">SELECT</span> event_id, <span class="kw">UNNEST</span>(json_extract_string(event_json, '$.tags[*]')) <span class="kw">AS</span> tag
+<span class="kw">FROM</span> app_events <span class="kw">WHERE</span> event_json -&gt;&gt; 'type' = 'payment';
+<span class="cm">-- Snowflake</span>
+<span class="kw">SELECT</span> e.event_id, f.value::STRING <span class="kw">AS</span> tag
+<span class="kw">FROM</span> app_events e, <span class="kw">LATERAL FLATTEN</span>(input =&gt; e.event_json:tags) f
+<span class="kw">WHERE</span> e.event_json:type::STRING = 'payment';</pre></div>
+</section>
+
+<section class="sec" id="examples" data-toc="Worked examples">
+  <h2>Worked examples</h2>
+  <p><b>Example 1: payments with amount and merchant.</b></p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> event_id, cust_id,
+       <span class="kw">CAST</span>(event_json -&gt;&gt; 'amount' <span class="kw">AS DOUBLE</span>) <span class="kw">AS</span> amount,
+       event_json -&gt;&gt; 'merchant' <span class="kw">AS</span> merchant
+<span class="kw">FROM</span> app_events
+<span class="kw">WHERE</span> event_json -&gt;&gt; 'type' = 'payment';</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>event_id</th><th>cust_id</th><th>amount</th><th>merchant</th></tr></thead>
+      <tbody>
+        <tr><td>2</td><td>1</td><td>2500</td><td>GroceryMart</td></tr>
+        <tr><td>4</td><td>2</td><td>12000</td><td>AirFly</td></tr>
+        <tr><td>6</td><td>3</td><td>800</td><td>CafeOne</td></tr>
+        <tr><td>8</td><td>4</td><td>45000</td><td>ElectroHub</td></tr>
+        <tr><td>11</td><td>7</td><td>3200</td><td>GroceryMart</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p><b>Example 2: events per operating system.</b> A JSON field can be grouped like any column.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> json_extract_string(event_json, '$.device.os') <span class="kw">AS</span> os, <span class="kw">COUNT</span>(*) <span class="kw">AS</span> events
+<span class="kw">FROM</span> app_events
+<span class="kw">GROUP BY</span> os;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>os</th><th>events</th></tr></thead>
+      <tbody>
+        <tr><td>iOS</td><td>6</td></tr>
+        <tr><td>Android</td><td>4</td></tr>
+        <tr><td>Web</td><td>2</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p><b>Example 3: logins away from home.</b> Join the JSON city to the customer's city. This is a simple fraud signal.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> e.event_id, e.cust_id, c.city <span class="kw">AS</span> home_city,
+       json_extract_string(e.event_json, '$.geo.city') <span class="kw">AS</span> login_city
+<span class="kw">FROM</span> app_events e <span class="kw">JOIN</span> customers c <span class="kw">ON</span> c.cust_id = e.cust_id
+<span class="kw">WHERE</span> e.event_json -&gt;&gt; 'type' = 'login'
+  <span class="kw">AND</span> json_extract_string(e.event_json, '$.geo.city') &lt;&gt; c.city;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>event_id</th><th>cust_id</th><th>home_city</th><th>login_city</th></tr></thead>
+      <tbody>
+        <tr><td>7</td><td>4</td><td>Mumbai</td><td>Pune</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>A missing key returns NULL, and NULL is never "not equal" to anything, so events without a geo block drop out on their own.</p>
+</section>
+
+<section class="sec" id="mistakes" data-toc="Common mistakes">
+  <h2>Common mistakes</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Watch out</div><p><b>Wrong case in the key.</b> JSON keys are case-sensitive. <code>$.Device.os</code> returns NULL, not an error, so the mistake is silent.</p>
+    <p><b>Forgetting to cast.</b> <code>event_json -&gt;&gt; 'amount' &gt; 5000</code> compares text with a number. Cast first.</p>
+    <p><b>Using -&gt;&gt; 'device.os' for nesting.</b> In the editor a plain key with a dot is looked up as one key named "device.os". Use the <code>$.device.os</code> path form for nested fields.</p>
+    <p><b>Treating NULL as missing data only.</b> A key can be absent, or present with a JSON null. Both come back as SQL NULL. Ask the data owner which one it is before you report it.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="snowflake" data-toc="On Snowflake">
+  <h2>On Snowflake</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">VARIANT, colon paths and FLATTEN</div><p>Snowflake stores JSON in a <b>VARIANT</b> column. You read fields with a colon and a path, then cast with two colons: <code>event_json:device.os::STRING</code>, <code>event_json:amount::NUMBER</code>, <code>event_json:tags[0]::STRING</code>. Keys with odd characters go in double quotes: <code>event_json:"first-name"</code>.</p>
+    <p>Arrays become rows with <code>LATERAL FLATTEN(input =&gt; event_json:tags)</code>; each item appears as <code>value</code>, with <code>index</code> for its position. If the JSON is loaded as text, wrap it once: <code>PARSE_JSON(text_col)</code>. Useful helpers: <code>TYPEOF(v)</code>, <code>ARRAY_SIZE(v)</code>, <code>OBJECT_KEYS(v)</code>, <code>GET_PATH(v, 'device.os')</code>.</p>
+    <p>The practice editor uses DuckDB's JSON functions on a VARCHAR column: <code>-&gt;&gt;</code>, <code>json_extract_string(col, '$.path')</code> and <code>UNNEST(... '$.tags[*]')</code>. Same questions, different spelling. Each practice answer uses the editor form; the Snowflake form is shown above it.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="Practice">
+  <h2>Practice</h2>
+  <p>Tables: <code>app_events</code> (event_id, cust_id, event_json as JSON text) and <code>customers</code>. Use the DuckDB forms from the table above. Grading compares values only.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>JSON is a pocket of notes on the card. Name the note with a path, cast it to a real type, and flatten arrays into rows. Snowflake: colon path, ::TYPE, LATERAL FLATTEN. Editor: -&gt;&gt;, json_extract_string, UNNEST.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>JSON</dt><dd>JavaScript Object Notation: text with key: value pairs in braces and lists in brackets.</dd>
+    <dt>Semi-structured</dt><dd>Data with structure but no fixed set of columns; keys can differ per row.</dd>
+    <dt>VARIANT</dt><dd>Snowflake's column type for JSON and similar data.</dd>
+    <dt>Path</dt><dd>The route to a value, such as $.device.os or device.os.</dd>
+    <dt>Nested object</dt><dd>An object stored as a value inside another object.</dd>
+    <dt>Array</dt><dd>An ordered list of values; positions start at 0.</dd>
+    <dt>FLATTEN / UNNEST</dt><dd>Turning each item of an array into its own row.</dd>
+    <dt>PARSE_JSON</dt><dd>Snowflake function that turns JSON text into a VARIANT.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#sql/3-6">3.6 Changing data: INSERT, UPDATE, DELETE, MERGE →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "customers": {
+        "columns": [["cust_id","NUMBER"], ["cust_name","VARCHAR"], ["city","VARCHAR"], ["segment","VARCHAR","RETAIL or PREMIUM"], ["joined_on","DATE"]],
+        "rows": [
+          [1,"Asha Rao","Mumbai","RETAIL","2024-01-15"],
+          [2,"Vikram Shah","Delhi","PREMIUM","2023-06-10"],
+          [3,"Meera Iyer","Chennai","RETAIL","2024-03-22"],
+          [4,"Rahul Nair","Mumbai","PREMIUM","2022-11-05"],
+          [5,"Priya Menon","Bengaluru","RETAIL","2025-02-14"],
+          [6,"Arjun Das","Delhi","RETAIL","2024-08-30"],
+          [7,"Sneha Pillai","Chennai","PREMIUM","2023-01-20"],
+          [8,"Karthik Reddy","Bengaluru","RETAIL","2025-05-01"],
+          [9,"Divya Kumar","Mumbai","RETAIL","2024-12-12"],
+          [10,"Farah Khan","Delhi","PREMIUM","2023-09-09"]
+        ]
+      },
+      "app_events": {
+        "columns": [["event_id","NUMBER"], ["cust_id","NUMBER"], ["event_json","VARCHAR","JSON text"]],
+        "rows": [
+          [1,1,"{\"type\":\"login\",\"device\":{\"os\":\"iOS\",\"app_ver\":\"5.2\"},\"geo\":{\"city\":\"Mumbai\"}}"],
+          [2,1,"{\"type\":\"payment\",\"amount\":2500,\"merchant\":\"GroceryMart\",\"tags\":[\"grocery\",\"upi\"],\"device\":{\"os\":\"iOS\",\"app_ver\":\"5.2\"}}"],
+          [3,2,"{\"type\":\"login\",\"device\":{\"os\":\"Android\",\"app_ver\":\"5.1\"},\"geo\":{\"city\":\"Delhi\"}}"],
+          [4,2,"{\"type\":\"payment\",\"amount\":12000,\"merchant\":\"AirFly\",\"tags\":[\"travel\",\"card\"],\"device\":{\"os\":\"Android\",\"app_ver\":\"5.1\"}}"],
+          [5,3,"{\"type\":\"login\",\"device\":{\"os\":\"Android\",\"app_ver\":\"4.9\"},\"geo\":{\"city\":\"Chennai\"}}"],
+          [6,3,"{\"type\":\"payment\",\"amount\":800,\"merchant\":\"CafeOne\",\"tags\":[\"food\"],\"device\":{\"os\":\"Android\",\"app_ver\":\"4.9\"}}"],
+          [7,4,"{\"type\":\"login\",\"device\":{\"os\":\"iOS\",\"app_ver\":\"5.2\"},\"geo\":{\"city\":\"Pune\"}}"],
+          [8,4,"{\"type\":\"payment\",\"amount\":45000,\"merchant\":\"ElectroHub\",\"tags\":[\"electronics\",\"card\",\"emi\"],\"device\":{\"os\":\"iOS\",\"app_ver\":\"5.2\"}}"],
+          [9,5,"{\"type\":\"login\",\"device\":{\"os\":\"Web\",\"app_ver\":null},\"geo\":{\"city\":\"Bengaluru\"}}"],
+          [10,5,"{\"type\":\"error\",\"code\":\"E42\",\"message\":\"otp timeout\",\"device\":{\"os\":\"Web\"}}"],
+          [11,7,"{\"type\":\"payment\",\"amount\":3200,\"merchant\":\"GroceryMart\",\"tags\":[\"grocery\",\"upi\"],\"device\":{\"os\":\"iOS\",\"app_ver\":\"5.0\"}}"],
+          [12,7,"{\"type\":\"logout\",\"device\":{\"os\":\"iOS\",\"app_ver\":\"5.0\"}}"]
+        ]
+      }
+    },
+    "starter": "SELECT event_id, cust_id,\n       event_json ->> 'type' AS event_type,\n       json_extract_string(event_json, '$.device.os') AS os,\n       CAST(event_json ->> 'amount' AS DOUBLE) AS amount\nFROM app_events\nORDER BY event_id",
+    "examples": [
+      { "label": "Fields and paths", "sql": "SELECT event_id, cust_id,\n       event_json ->> 'type' AS event_type,\n       json_extract_string(event_json, '$.device.os') AS os,\n       CAST(event_json ->> 'amount' AS DOUBLE) AS amount\nFROM app_events\nORDER BY event_id" },
+      { "label": "Events per OS", "sql": "SELECT json_extract_string(event_json, '$.device.os') AS os, COUNT(*) AS events\nFROM app_events\nGROUP BY os\nORDER BY events DESC, os" },
+      { "label": "Tags to rows", "sql": "SELECT event_id, UNNEST(json_extract_string(event_json, '$.tags[*]')) AS tag\nFROM app_events\nWHERE event_json ->> 'type' = 'payment'\nORDER BY event_id" }
+    ],
+    "challenges": [
+      { "level": "Easy", "task": "Return event_id and the event type (the top-level key 'type') for every row of app_events.", "hint": "event_json ->> 'type'.", "answer": "SELECT event_id, event_json ->> 'type' AS event_type FROM app_events ORDER BY event_id" },
+      { "level": "Easy", "task": "Return event_id and the operating system stored at device.os for every event.", "hint": "json_extract_string(event_json, '$.device.os').", "answer": "SELECT event_id, json_extract_string(event_json, '$.device.os') AS os FROM app_events ORDER BY event_id" },
+      { "level": "Medium", "task": "For payment events only, return event_id, cust_id, the amount as a number and the merchant.", "hint": "WHERE event_json ->> 'type' = 'payment' and CAST(event_json ->> 'amount' AS DOUBLE).", "answer": "SELECT event_id, cust_id, CAST(event_json ->> 'amount' AS DOUBLE) AS amount, event_json ->> 'merchant' AS merchant FROM app_events WHERE event_json ->> 'type' = 'payment' ORDER BY event_id" },
+      { "level": "Medium", "task": "Total payment amount per merchant. Return the merchant and the total (payments only).", "hint": "GROUP BY event_json ->> 'merchant' with SUM of the cast amount.", "answer": "SELECT event_json ->> 'merchant' AS merchant, SUM(CAST(event_json ->> 'amount' AS DOUBLE)) AS total FROM app_events WHERE event_json ->> 'type' = 'payment' GROUP BY merchant ORDER BY merchant" },
+      { "level": "Hard", "task": "Find login events where the city in geo.city is different from the customer's home city in customers. Return event_id, cust_id, the home city and the login city.", "hint": "JOIN customers, WHERE type = 'login' AND json_extract_string(event_json, '$.geo.city') <> c.city.", "answer": "SELECT e.event_id, e.cust_id, c.city AS home_city, json_extract_string(e.event_json, '$.geo.city') AS login_city FROM app_events e JOIN customers c ON c.cust_id = e.cust_id WHERE e.event_json ->> 'type' = 'login' AND json_extract_string(e.event_json, '$.geo.city') <> c.city ORDER BY e.event_id" },
+      { "level": "Hard", "task": "Flatten the tags array of every payment event and count how many payments carry each tag. Return the tag and the count.", "hint": "UNNEST(json_extract_string(event_json, '$.tags[*]')) in a subquery, then GROUP BY tag.", "answer": "SELECT tag, COUNT(*) AS payments FROM (SELECT UNNEST(json_extract_string(event_json, '$.tags[*]')) AS tag FROM app_events WHERE event_json ->> 'type' = 'payment') t GROUP BY tag ORDER BY tag" }
+    ]
+  },
+  "quiz": [
+    { "q": "In Snowflake, how do you read the nested field device.os from a VARIANT column v as text?", "options": ["v.device.os", "v:device.os::STRING", "v['device']['os']"], "answer": 1, "why": "Colon starts the path, dots walk into nested objects, and ::STRING casts the VARIANT to text." },
+    { "q": "What does a JSON field come back as before you cast it?", "options": ["A number", "Text (or a VARIANT on Snowflake)", "A date"], "answer": 1, "why": "JSON values are untyped until you cast. Cast amounts to NUMBER or DOUBLE before SUM or comparisons." },
+    { "q": "Which Snowflake feature turns an array into one row per item?", "options": ["GROUP BY", "LATERAL FLATTEN", "PARSE_JSON"], "answer": 1, "why": "FLATTEN explodes the array; each item appears in the value column. The editor uses UNNEST for the same job." },
+    { "q": "What does $.Device.os return when the real key is device?", "options": ["An error", "NULL", "The value anyway"], "answer": 1, "why": "JSON keys are case-sensitive and a missing key returns NULL silently. Check your spelling when you see unexpected NULLs." },
+    { "q": "What is the Snowflake column type for JSON data?", "options": ["VARCHAR", "VARIANT", "OBJECT only"], "answer": 1, "why": "VARIANT holds JSON objects, arrays and scalars. OBJECT and ARRAY exist too, but VARIANT is the general type." },
+    { "q": "Why is this data called semi-structured?", "options": ["It has no structure", "It has keys and nesting, but rows can have different keys", "It is half text, half numbers"], "answer": 1, "why": "A login event and a payment event share some keys and differ in others. There is structure, but no fixed column list." }
+  ]
+}
+</script>

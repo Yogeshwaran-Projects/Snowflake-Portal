@@ -1,0 +1,327 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Cortex Masterclass</span><span>Module 2 · AI SQL functions</span><span>Lesson 2.4</span></div>
+  <h1>Documents with AI_PARSE_DOCUMENT</h1>
+  <p class="lede">Turn PDFs and scans on a stage into text you can search and query: choose OCR or LAYOUT, split long documents into chunks and pull fields out of a loan application.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 min</span>
+    <span class="badge">Intermediate</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>2 simulators + 1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Create a stage for documents and point AI functions at files with TO_FILE</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Choose between OCR and LAYOUT modes and read the output object</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Chunk long text with SPLIT_TEXT_RECURSIVE_CHARACTER for search and RAG</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Extract loan fields from a PDF with AI_EXTRACT and estimate the page cost</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+<div class="callout def">
+  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+  <div><div class="label">Key definition</div><p class="big">AI_PARSE_DOCUMENT reads a document stored on a Snowflake stage and returns its content as text. OCR mode returns plain text; LAYOUT mode also keeps structure such as headings and tables, as Markdown.</p></div>
+</div>
+<p>Banks run on documents: loan applications, salary slips, KYC forms, account statements, policy manuals. Until now someone typed the important parts into a system. With <code>AI_PARSE_DOCUMENT</code> the PDF becomes text inside Snowflake, and every AI function from the last three lessons can work on it. The file never leaves the stage.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a typist and a pair of scissors</h2>
+<p>Hand a scanned letter to a typist. A quick typist copies only the words (OCR). A careful typist also keeps the headings, the bold lines and the tables in the right place (LAYOUT). If the document is 80 pages long, you then cut the typed copy into index cards of about one paragraph each, overlapping each card a little with the next so no sentence is lost at the cut. Those cards are what the super index (Cortex Search) will file in Lesson 3.1.</p>
+<div class="map">
+  <div><small>In the library</small><b>The filing cabinet</b><span>In Snowflake: a stage holding PDFs, with a directory table listing them</span></div>
+  <div><small>In the library</small><b>Quick or careful typist</b><span>In Snowflake: AI_PARSE_DOCUMENT with mode OCR or LAYOUT</span></div>
+  <div><small>In the library</small><b>Index cards with overlap</b><span>In Snowflake: SPLIT_TEXT_RECURSIVE_CHARACTER chunks</span></div>
+</div>
+</section>
+
+<section class="sec" id="how" data-toc="How it works">
+  <h2>How it works</h2>
+<div class="code"><button class="copy" type="button">Copy</button><pre>AI_PARSE_DOCUMENT( TO_FILE('@stage', 'path/file.pdf') [, {'mode': 'OCR' | 'LAYOUT', 'page_split': TRUE,
+                    'page_filter': [{'start': 0, 'end': 1}], 'extract_images': TRUE}] )</pre></div>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Option</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><code>mode: OCR</code> (default)</td><td>Text only. Fast and good for scanned, text-heavy pages. No layout.</td></tr>
+      <tr><td><code>mode: LAYOUT</code></td><td>Text plus structure (headers, tables) as Markdown. The docs call it the preferred choice for most cases.</td></tr>
+      <tr><td><code>page_split: TRUE</code></td><td>Returns a <code>pages</code> array, one item per page with <code>content</code> and <code>index</code> (from 0). PDF, PPTX and DOCX only.</td></tr>
+      <tr><td><code>page_filter</code></td><td>Process only page ranges; start is inclusive, end exclusive. Implies page_split.</td></tr>
+      <tr><td><code>extract_images: TRUE</code></td><td>LAYOUT only. Adds an <code>images</code> array with base64 image data and positions.</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="features">
+  <div class="feature"><b>Files</b><span>PDF, PPTX, DOCX, JPEG, JPG, PNG, TIFF, TIF, HTML, TXT. Up to 100 MB and 2,000 pages per document.</span><small>Input limits</small></div>
+  <div class="feature"><b>Stages</b><span>Internal or external stages with client-side or server-side encryption. The AI function docs list stages that do NOT work: user and table stages, SNOWFLAKE_FULL internal encryption and double-quoted stage names.</span><small>Where files live</small></div>
+  <div class="feature"><b>Languages</b><span>Trained for English, Hindi, Chinese, French, German, Spanish, Portuguese and others in both modes. Handwriting is recognised.</span><small>Content</small></div>
+  <div class="feature"><b>Cost</b><span>Billed per page: 3.66 AI Credits per 1,000 pages for LAYOUT and 0.68 for OCR (Service Consumption Table, 12 Oct 2026). HTML and TXT bill per 3,000 characters.</span><small>Price</small></div>
+</div>
+<p>The result has a <code>content</code> field (or a <code>pages</code> array when splitting). Reach into it as usual: <code>AI_PARSE_DOCUMENT(…):content::STRING</code>. To get <code>pageCount</code>, pass TRUE as the last argument (return_error_details): the answer then has <code>value</code>, <code>error</code> and <code>metadata</code> at the top.</p>
+</section>
+
+<section class="sec" id="chunking" data-toc="Chunking">
+  <h2>Chunking long documents</h2>
+<p>Search and embedding models work best on short passages, and embedding models have small context windows (512 tokens for many of them). So after parsing, you cut the text into chunks.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre>SNOWFLAKE.CORTEX.SPLIT_TEXT_RECURSIVE_CHARACTER( &lt;text&gt;, &lt;format&gt;, &lt;chunk_size&gt; [, &lt;overlap&gt;] [, &lt;separators&gt;] )
+-- format: 'none' or 'markdown'   chunk_size and overlap are in CHARACTERS   returns an ARRAY</pre></div>
+<p>It splits on paragraph breaks first, then line breaks, then spaces, until every chunk is no longer than <code>chunk_size</code>. With <code>'markdown'</code> it also respects headers, code blocks and tables, which pairs well with LAYOUT output. <code>overlap</code> repeats the end of one chunk at the start of the next so a sentence cut in two still appears whole somewhere. Use <code>LATERAL FLATTEN</code> to turn the array into rows.</p>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+<p>A lending team receives 5,000 personal-loan applications a month as PDFs. Before Cortex, data-entry staff keyed in name, income, loan amount and existing EMIs. Now a task picks up new files from the stage each hour, <code>AI_EXTRACT</code> reads the fields straight from the PDF, and a rule computes the share of income already going to EMIs. Applications with missing fields or an EMI share above 50% go to an underwriter; the rest move to the next check. The same PDFs are parsed in LAYOUT mode and chunked, so a credit officer can later ask a chatbot “what did the applicant say about the purpose?”.</p>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Step</th><th>Function</th><th>Output</th></tr></thead>
+    <tbody>
+      <tr><td><b>1. Land</b></td><td>Stage with directory table</td><td>One row per file: RELATIVE_PATH, SIZE, LAST_MODIFIED</td></tr>
+      <tr><td><b>2. Read fields</b></td><td>AI_EXTRACT(file => TO_FILE(...))</td><td>name, income, loan amount, tenure, EMIs</td></tr>
+      <tr><td><b>3. Read all text</b></td><td>AI_PARSE_DOCUMENT(..., {'mode':'LAYOUT'})</td><td>Markdown with the EMI table intact</td></tr>
+      <tr><td><b>4. Chunk</b></td><td>SPLIT_TEXT_RECURSIVE_CHARACTER</td><td>Passages of about 1,500 characters for search</td></tr>
+    </tbody>
+  </table>
+</div>
+</section>
+
+<section class="sec" id="sim" data-toc="Simulators">
+  <h2>Simulators: parse and chunk, then extract fields</h2>
+<div data-simulator="cortex-2-4-parse"></div>
+<div data-simulator="cortex-2-4-extract-loan"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+<p>The <code>loan_docs</code> table holds fields pre-computed by AI_EXTRACT from eight fictional loan application PDFs, and <code>doc_chunks</code> holds the chunk counts from SPLIT_TEXT_RECURSIVE_CHARACTER after a LAYOUT parse. Work out the underwriting numbers and the parse bill.</p>
+<div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: parse and extract a loan application PDF</h2>
+<div class="panel">
+  <div class="panel-head">
+    <h3>From PDF on a stage to fields in a table</h3>
+    <div class="meta"><span>About 25 min</span><span>Free trial (Enterprise)</span></div>
+  </div>
+  <ol class="steps">
+    <li><div>
+      <p>Make the document. Paste this fictional form into any word processor and save or print it as <b>loan_application_001.pdf</b>.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre>PERSONAL LOAN APPLICATION FORM
+Application number: PL-2026-004417
+Date: 14 September 2026
+
+Section A: Applicant
+Full name: Kavya Raghunathan
+Date of birth: 12 March 1993
+City: Bengaluru
+Employer: Northwind Analytics Pvt Ltd
+Employment type: Salaried, 4 years in current job
+Monthly net income: Rs 1,45,000
+
+Section B: Loan request
+Loan amount requested: Rs 6,00,000
+Purpose: Home renovation
+Preferred tenure: 48 months
+
+Section C: Existing obligations
+| Lender         | Product   | Monthly EMI |
+| Sample Bank    | Car loan  | Rs 18,500   |
+| Sample Bank    | Credit card EMI | Rs 4,200 |
+
+Declaration: I confirm the above details are true.
+Signature: Kavya Raghunathan</pre></div>
+      <label><input type="checkbox"> Done</label>
+    </div></li>
+    <li><div>
+      <p>Create a schema and a stage for documents, with a directory table and server-side encryption.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE</span> <span class="kw">ROLE</span> ACCOUNTADMIN;
+<span class="kw">USE</span> <span class="kw">WAREHOUSE</span> LEARN_WH;
+<span class="kw">CREATE</span> <span class="kw">SCHEMA</span> <span class="kw">IF</span> <span class="kw">NOT</span> <span class="kw">EXISTS</span> BANK_AI.DOCS;
+<span class="kw">CREATE</span> <span class="kw">STAGE</span> <span class="kw">IF</span> <span class="kw">NOT</span> <span class="kw">EXISTS</span> BANK_AI.DOCS.LOAN_DOCS
+  <span class="kw">DIRECTORY</span> = (<span class="kw">ENABLE</span> = <span class="kw">TRUE</span>)
+  <span class="kw">ENCRYPTION</span> = (<span class="kw">TYPE</span> = 'SNOWFLAKE_SSE');</pre></div>
+<p class="expect">Expected: Stage area LOAN_DOCS successfully created.</p>
+      <label><input type="checkbox"> Done</label>
+    </div></li>
+    <li><div>
+      <p>Upload the PDF in Snowsight: open the database browser (<b>Data → Databases</b>, called <b>Catalog</b> in newer menus), go to <b>BANK_AI → DOCS → Stages → LOAN_DOCS</b> and select <b>+ Files</b>. Then refresh and list.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">ALTER</span> <span class="kw">STAGE</span> BANK_AI.DOCS.LOAN_DOCS REFRESH;
+<span class="kw">SELECT</span> RELATIVE_PATH, SIZE <span class="kw">FROM</span> <span class="kw">DIRECTORY</span>(@BANK_AI.DOCS.LOAN_DOCS);</pre></div>
+<p class="expect">Expected: one row: loan_application_001.pdf.</p>
+      <label><input type="checkbox"> Done</label>
+    </div></li>
+    <li><div>
+      <p>Parse it both ways and compare.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> AI_PARSE_DOCUMENT(TO_FILE('@BANK_AI.DOCS.LOAN_DOCS', 'loan_application_001.pdf'), {'mode': 'OCR'}):content::<span class="kw">STRING</span> <span class="kw">AS</span> OCR_TEXT,
+       AI_PARSE_DOCUMENT(TO_FILE('@BANK_AI.DOCS.LOAN_DOCS', 'loan_application_001.pdf'), {'mode': 'LAYOUT'}):content::<span class="kw">STRING</span> <span class="kw">AS</span> LAYOUT_MD;</pre></div>
+<p class="expect">Expected: OCR gives plain lines; LAYOUT keeps the EMI table as a Markdown table with | separators. If the column is NULL, run the call with TRUE as a third argument to see the error.</p>
+      <label><input type="checkbox"> Done</label>
+    </div></li>
+    <li><div>
+      <p>Chunk the LAYOUT text into rows.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE</span> <span class="kw">OR</span> <span class="kw">REPLACE</span> <span class="kw">TABLE</span> BANK_AI.DOCS.LOAN_DOC_CHUNKS <span class="kw">AS</span>
+<span class="kw">WITH</span> parsed <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> RELATIVE_PATH,
+         AI_PARSE_DOCUMENT(TO_FILE('@BANK_AI.DOCS.LOAN_DOCS', RELATIVE_PATH), {'mode': 'LAYOUT'}):content::<span class="kw">STRING</span> <span class="kw">AS</span> DOC_TEXT
+  <span class="kw">FROM</span> <span class="kw">DIRECTORY</span>(@BANK_AI.DOCS.LOAN_DOCS))
+<span class="kw">SELECT</span> p.RELATIVE_PATH, c.INDEX <span class="kw">AS</span> CHUNK_NO, c.VALUE::<span class="kw">STRING</span> <span class="kw">AS</span> CHUNK
+<span class="kw">FROM</span> parsed p,
+     <span class="kw">LATERAL</span> <span class="kw">FLATTEN</span>(SNOWFLAKE.CORTEX.SPLIT_TEXT_RECURSIVE_CHARACTER(p.DOC_TEXT, 'markdown', 400, 50)) c;
+
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> BANK_AI.DOCS.LOAN_DOC_CHUNKS <span class="kw">ORDER</span> <span class="kw">BY</span> CHUNK_NO;</pre></div>
+<p class="expect">Expected: a few chunks of up to 400 characters, split at headings. Real projects use 1,000 to 2,000 characters; 400 just shows the effect on a one-page form.</p>
+      <label><input type="checkbox"> Done</label>
+    </div></li>
+    <li><div>
+      <p>Extract the underwriting fields straight from the file.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> RELATIVE_PATH,
+       AI_EXTRACT(
+         file =&gt; TO_FILE('@BANK_AI.DOCS.LOAN_DOCS', RELATIVE_PATH),
+         responseFormat =&gt; {
+           'applicant_name': 'Full name of the applicant',
+           'monthly_income': 'Monthly net income in rupees, digits only',
+           'loan_amount': 'Loan amount requested in rupees, digits only',
+           'tenure_months': 'Preferred tenure in months',
+           'employer': 'Name of the employer'
+         }):response <span class="kw">AS</span> FIELDS
+<span class="kw">FROM</span> <span class="kw">DIRECTORY</span>(@BANK_AI.DOCS.LOAN_DOCS);</pre></div>
+<p class="expect">Expected: <code>{"applicant_name":"Kavya Raghunathan","employer":"Northwind Analytics Pvt Ltd","loan_amount":"600000","monthly_income":"145000","tenure_months":"48"}</code> or very close. Check every value against the PDF.</p>
+      <label><input type="checkbox"> Done</label>
+    </div></li>
+  </ol>
+</div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+<div class="callout key">
+  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+  <div><div class="label">Remember</div><p>Put documents on an encrypted stage with a directory table, read them with AI_PARSE_DOCUMENT (LAYOUT for structure, OCR for speed), cut long text into overlapping chunks, and use AI_EXTRACT when you only need a few fields. You pay per page, so parse once and store the result.</p></div>
+</div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Stage</dt><dd>A named location for files in Snowflake, internal or in your cloud storage.</dd>
+  <dt>Directory table</dt><dd>A table view of the files on a stage: path, size, last modified. Read with DIRECTORY(@stage).</dd>
+  <dt>TO_FILE</dt><dd>Turns a stage and path into a FILE object that AI functions accept.</dd>
+  <dt>OCR</dt><dd>Optical character recognition: reading the words in an image or scan.</dd>
+  <dt>LAYOUT mode</dt><dd>AI_PARSE_DOCUMENT mode that keeps headings and tables as Markdown.</dd>
+  <dt>Chunk</dt><dd>A short passage cut from a long text, used for search and embeddings.</dd>
+  <dt>Overlap</dt><dd>Characters repeated between neighbouring chunks so context is not lost.</dd>
+  <dt>LATERAL FLATTEN</dt><dd>Turns each element of an array into its own row.</dd>
+</dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#cortex/2-5">2.5 Embeddings and similarity →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "loan_docs": {
+        "columns": [
+          ["doc_name","VARCHAR"],
+          ["pages","NUMBER"],
+          ["parse_mode","VARCHAR","OCR or LAYOUT"],
+          ["applicant_name","VARCHAR","AI_EXTRACT"],
+          ["loan_amount","NUMBER","AI_EXTRACT, rupees"],
+          ["monthly_income","NUMBER","AI_EXTRACT, NULL if not found"],
+          ["existing_emi","NUMBER","AI_EXTRACT, total monthly EMIs"],
+          ["tenure_months","NUMBER","AI_EXTRACT"],
+          ["employer","VARCHAR","AI_EXTRACT"]
+        ],
+        "rows": [
+          ["loan_application_001.pdf",2,"LAYOUT","Kavya Raghunathan",600000,145000,22700,48,"Northwind Analytics Pvt Ltd"],
+          ["loan_application_002.pdf",3,"LAYOUT","Imran Qureshi",350000,62000,21000,36,"Lakeview Hospitals"],
+          ["loan_application_003.pdf",2,"OCR","Deepa Menon",150000,41000,0,24,"Self employed"],
+          ["loan_application_004.pdf",4,"LAYOUT","Rohan Kulkarni",1200000,210000,65000,60,"Coastline Logistics Ltd"],
+          ["loan_application_005.pdf",2,"OCR","Sunita Yadav",200000,38000,21500,36,"State Transport Corporation"],
+          ["loan_application_006.pdf",3,"LAYOUT","Arvind Pillai",500000,98000,12000,48,"Orbit Software Services"],
+          ["loan_application_007.pdf",2,"LAYOUT","Neha Bansal",75000,null,0,12,"Bansal Textiles"],
+          ["loan_application_008.pdf",5,"OCR","Harpreet Gill",900000,160000,30000,60,"Gill Agro Exports"]
+        ]
+      },
+      "doc_chunks": {
+        "columns": [
+          ["doc_name","VARCHAR"],
+          ["chunk_no","NUMBER"],
+          ["chunk_chars","NUMBER","length of the chunk in characters"]
+        ],
+        "rows": [
+          ["loan_application_001.pdf",0,1480],
+          ["loan_application_001.pdf",1,1210],
+          ["loan_application_001.pdf",2,430],
+          ["loan_application_002.pdf",0,1495],
+          ["loan_application_002.pdf",1,1370],
+          ["loan_application_002.pdf",2,1102],
+          ["loan_application_002.pdf",3,260],
+          ["loan_application_004.pdf",0,1500],
+          ["loan_application_004.pdf",1,1460],
+          ["loan_application_004.pdf",2,1431],
+          ["loan_application_004.pdf",3,1388],
+          ["loan_application_004.pdf",4,512],
+          ["loan_application_006.pdf",0,1490],
+          ["loan_application_006.pdf",1,1322],
+          ["loan_application_006.pdf",2,845],
+          ["loan_application_007.pdf",0,1450],
+          ["loan_application_007.pdf",1,390]
+        ]
+      }
+    },
+    "starter": "SELECT applicant_name, monthly_income, existing_emi,\n       ROUND(100.0 * existing_emi / monthly_income, 1) AS emi_pct\nFROM loan_docs\nWHERE monthly_income IS NOT NULL\nORDER BY emi_pct DESC",
+    "examples": [
+      {"label":"All extracted fields","sql":"SELECT *\nFROM loan_docs\nORDER BY doc_name"},
+      {"label":"Missing income","sql":"SELECT doc_name, applicant_name\nFROM loan_docs\nWHERE monthly_income IS NULL"},
+      {"label":"Chunks per document","sql":"SELECT doc_name, COUNT(*) AS chunks, MAX(chunk_chars) AS longest\nFROM doc_chunks\nGROUP BY doc_name\nORDER BY doc_name"}
+    ],
+    "challenges": [
+      {"task":"Which applicants already spend more than 30% of monthly_income on existing_emi? Show applicant_name and the percentage, rounded to 1 decimal, highest first.","hint":"WHERE 100.0 * existing_emi / monthly_income > 30, and skip NULL incomes.","answer":"SELECT applicant_name, ROUND(100.0 * existing_emi / monthly_income, 1) AS emi_pct FROM loan_docs WHERE monthly_income IS NOT NULL AND 100.0 * existing_emi / monthly_income > 30 ORDER BY emi_pct DESC"},
+      {"task":"Estimate the parse bill: for each parse_mode show the total pages and the AI Credits, using 3.66 per 1,000 pages for LAYOUT and 0.68 for OCR.","hint":"SUM(pages) and SUM(pages) * CASE WHEN parse_mode = 'LAYOUT' THEN 3.66 ELSE 0.68 END / 1000, grouped by parse_mode.","answer":"SELECT parse_mode, SUM(pages) AS total_pages, ROUND(SUM(pages) * CASE WHEN parse_mode = 'LAYOUT' THEN 3.66 ELSE 0.68 END / 1000, 5) AS ai_credits FROM loan_docs GROUP BY parse_mode ORDER BY parse_mode"},
+      {"task":"Join loan_docs to doc_chunks and show doc_name, pages and the number of chunks for each chunked document, sorted by doc_name.","hint":"JOIN on doc_name, GROUP BY doc_name and pages, COUNT(*).","answer":"SELECT d.doc_name, d.pages, COUNT(*) AS chunks FROM loan_docs d JOIN doc_chunks c ON d.doc_name = c.doc_name GROUP BY d.doc_name, d.pages ORDER BY d.doc_name"}
+    ]
+  },
+  "quiz": [
+    {"q":"Which mode keeps tables and headings?","options":["OCR","LAYOUT","Both equally"],"answer":1,"why":"LAYOUT returns Markdown with structure such as tables and headers. OCR returns text only and is the default."},
+    {"q":"How does AI_PARSE_DOCUMENT find the file?","options":["A file path on your laptop","A FILE object made with TO_FILE from a stage","A URL on the public internet"],"answer":1,"why":"The document must be on a Snowflake stage; TO_FILE(@stage, path) creates the FILE object."},
+    {"q":"What unit does chunk_size use in SPLIT_TEXT_RECURSIVE_CHARACTER?","options":["Tokens","Characters","Pages"],"answer":1,"why":"chunk_size and overlap are numbers of characters."},
+    {"q":"Why add overlap between chunks?","options":["It is required","So a sentence cut at a boundary still appears whole in one chunk","To make chunks cheaper"],"answer":1,"why":"Overlap repeats context across neighbouring chunks, which helps search and answer quality."},
+    {"q":"How is AI_PARSE_DOCUMENT billed?","options":["Per token of output","Per page processed","Flat per file"],"answer":1,"why":"It bills per page; LAYOUT costs more per page than OCR. HTML and TXT bill per 3,000 characters."},
+    {"q":"Which stage does NOT work with AI functions on files?","options":["A named internal stage with SNOWFLAKE_SSE","Your user stage (@~)","An external S3 stage with server-side encryption"],"answer":1,"why":"The docs list user stages, table stages, SNOWFLAKE_FULL internal encryption and double-quoted names as unsupported."}
+  ],
+  "simulators": [
+    {
+      "id": "cortex-2-4-parse", "title": "Parse a loan PDF, then chunk it", "tool": "cortex",
+      "intro": "Stage BANK_AI.DOCS.LOAN_DOCS with loan_application_001.pdf uploaded.",
+      "steps": [
+        {"prompt":"SELECT RELATIVE_PATH, SIZE FROM DIRECTORY(@BANK_AI.DOCS.LOAN_DOCS);","say":"The directory table lists the files Snowflake can see on the stage.","output":{"columns":["RELATIVE_PATH","SIZE"],"rows":[["loan_application_001.pdf",48211]]},"check":["If empty, run ALTER STAGE ... REFRESH"]},
+        {"prompt":"SELECT AI_PARSE_DOCUMENT(TO_FILE('@BANK_AI.DOCS.LOAN_DOCS', 'loan_application_001.pdf'), {'mode': 'LAYOUT'}):content::STRING AS MD;","say":"LAYOUT kept the section headings and turned the EMI table into a Markdown table.","outputText":"# PERSONAL LOAN APPLICATION FORM\n\nApplication number: PL-2026-004417\n\n## Section A: Applicant\n\nFull name: Kavya Raghunathan ...\n\n## Section C: Existing obligations\n\n| Lender | Product | Monthly EMI |\n| --- | --- | --- |\n| Sample Bank | Car loan | Rs 18,500 |\n| Sample Bank | Credit card EMI | Rs 4,200 |","check":["The table rows are intact","Amounts are copied exactly, with Indian commas"]},
+        {"prompt":"SELECT c.INDEX, LENGTH(c.VALUE::STRING) AS CHARS FROM parsed, LATERAL FLATTEN(SNOWFLAKE.CORTEX.SPLIT_TEXT_RECURSIVE_CHARACTER(DOC_TEXT, 'markdown', 400, 50)) c;","say":"The splitter cut the Markdown at headings first, so each chunk is one section.","output":{"columns":["INDEX","CHARS"],"rows":[[0,162],[1,318],[2,141],[3,236]]},"check":["No chunk is longer than 400 characters","Each section heading starts a chunk"]}
+      ]
+    },
+    {
+      "id": "cortex-2-4-extract-loan", "title": "Extract underwriting fields from the PDF", "tool": "cortex",
+      "intro": "AI_EXTRACT reads the file directly, no parse step needed.",
+      "steps": [
+        {"prompt":"SELECT AI_EXTRACT(file => TO_FILE('@BANK_AI.DOCS.LOAN_DOCS', 'loan_application_001.pdf'), responseFormat => {'applicant_name': 'Full name of the applicant', 'monthly_income': 'Monthly net income in rupees, digits only', 'loan_amount': 'Loan amount requested in rupees, digits only'}):response AS F;","say":"arctic-extract read the PDF and answered each question. The page count adds 970 input tokens per page to the bill.","outputText":"{\"applicant_name\": \"Kavya Raghunathan\", \"loan_amount\": \"600000\", \"monthly_income\": \"145000\"}","check":["Values match the PDF exactly","Numbers arrive as text: cast them before maths"]},
+        {"prompt":"SELECT AI_EXTRACT(file => TO_FILE('@BANK_AI.DOCS.LOAN_DOCS', 'loan_application_001.pdf'), responseFormat => {'schema': {'type': 'object', 'properties': {'emis': {'description': 'Monthly EMI amounts in the existing obligations table', 'type': 'array'}}}}):response:emis AS EMIS;","say":"A JSON schema with type array asks for a list. The model returned both EMIs from the table.","outputText":"[\"Rs 18,500\", \"Rs 4,200\"]","check":["Sum them after cleaning: 22,700 per month","EMI share = 22,700 / 1,45,000 = 15.7% of income"]}
+      ]
+    }
+  ]
+}
+</script>

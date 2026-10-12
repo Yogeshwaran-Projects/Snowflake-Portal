@@ -1,0 +1,301 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>SQL: Beginner to Advanced</span><span>Module 3 · Advanced</span><span>Lesson 3.1</span></div>
+  <h1>Ranking windows</h1>
+  <p class="lede">Give every row a position (1st, 2nd, 3rd) without squashing the rows together. ROW_NUMBER, RANK, DENSE_RANK and NTILE, with PARTITION BY to restart the race for each group.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 min</span>
+    <span class="badge">Advanced</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice: 6 questions</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain what a window function is and how it differs from GROUP BY</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Choose between ROW_NUMBER, RANK and DENSE_RANK when there are ties</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Restart the ranking for each group with PARTITION BY</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Answer "top N per group" questions, the most common interview task</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">A window function looks at a group of related rows (the "window") to compute a value for each row, but it keeps every row. A ranking window gives each row its position inside that window.</p></div>
+  </div>
+  <p>Compare this with <code>GROUP BY</code>. GROUP BY squashes many rows into one summary row. A window function keeps all rows and adds a new column next to each one. That is the whole trick.</p>
+  <ul>
+    <li><b>GROUP BY</b>: "How many accounts per type?" gives 2 rows.</li>
+    <li><b>Window</b>: "What is the rank of each account inside its type?" gives all 14 rows, each with a rank.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a queue where everyone keeps their own card</h2>
+  <p>Picture customers waiting in a bank queue. Each person holds a card with their own details. A window function lets every person peek at the cards of the people around them in the queue, and then write one extra note on their own card: "I am 3rd" or "the person before me has 5,000". Nobody leaves the queue and no cards are merged. Ranking is the race-position version: the queue is sorted by some value, and each person writes down their place.</p>
+  <div class="map">
+    <div><small>In the queue</small><b>The people in line</b><span>In SQL: the rows. All of them stay; none are squashed together.</span></div>
+    <div><small>In the queue</small><b>Separate lines per counter</b><span>In SQL: PARTITION BY. Each group gets its own race and its own 1st place.</span></div>
+    <div><small>In the queue</small><b>The order people stand in</b><span>In SQL: ORDER BY inside OVER(). It decides who is 1st, 2nd, 3rd.</span></div>
+  </div>
+  <p>Ties are like two runners crossing the line at the same moment. The three ranking functions handle that moment differently, and that is the only real difference between them.</p>
+</section>
+
+<section class="sec" id="syntax" data-toc="Syntax">
+  <h2>Syntax, step by step</h2>
+  <p>Every window function has the same shape: a function, then <code>OVER (...)</code>, and inside the brackets an optional <code>PARTITION BY</code> and an <code>ORDER BY</code>.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> acct_id, balance,
+       <span class="kw">ROW_NUMBER</span>() <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> balance <span class="kw">DESC</span>, acct_id) <span class="kw">AS</span> rn
+<span class="kw">FROM</span> accounts;</pre></div>
+  <p>Read it as: "for each account, look at all accounts sorted by balance from high to low, and write down my position". The <code>acct_id</code> after the comma is the tie-breaker: if two balances are equal, the lower id goes first. Always add one, so the answer is the same every time you run it.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Function</th><th>With a tie at 2nd place</th><th>Use it when</th></tr></thead>
+      <tbody>
+        <tr><td><code>ROW_NUMBER()</code></td><td>1, 2, 3, 4 (never repeats)</td><td>You need exactly one row per group, such as "the latest transaction"</td></tr>
+        <tr><td><code>RANK()</code></td><td>1, 2, 2, 4 (skips 3)</td><td>You want sports-style places: two silver medals, no bronze</td></tr>
+        <tr><td><code>DENSE_RANK()</code></td><td>1, 2, 2, 3 (no gap)</td><td>You want "the 3rd highest balance" even when there are ties</td></tr>
+        <tr><td><code>NTILE(4)</code></td><td>Splits rows into 4 equal buckets: 1, 1, 2, 2, 3, 3, 4, 4</td><td>Quartiles and deciles for segmentation</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Add <code>PARTITION BY</code> to restart the count for each group:</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> acct_type, acct_id, balance,
+       <span class="kw">RANK</span>() <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> acct_type <span class="kw">ORDER BY</span> balance <span class="kw">DESC</span>) <span class="kw">AS</span> rank_in_type
+<span class="kw">FROM</span> accounts;</pre></div>
+</section>
+
+<section class="sec" id="examples" data-toc="Worked examples">
+  <h2>Worked examples</h2>
+  <p><b>Example 1: the three functions side by side.</b> Accounts 101 and 114 both hold 125,000, so they tie.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> acct_id, balance,
+       <span class="kw">ROW_NUMBER</span>() <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> balance <span class="kw">DESC</span>, acct_id) <span class="kw">AS</span> rn,
+       <span class="kw">RANK</span>()       <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> balance <span class="kw">DESC</span>) <span class="kw">AS</span> rnk,
+       <span class="kw">DENSE_RANK</span>() <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> balance <span class="kw">DESC</span>) <span class="kw">AS</span> drnk
+<span class="kw">FROM</span> accounts
+<span class="kw">ORDER BY</span> balance <span class="kw">DESC</span>, acct_id;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>acct_id</th><th>balance</th><th>rn</th><th>rnk</th><th>drnk</th></tr></thead>
+      <tbody>
+        <tr><td>110</td><td>150000</td><td>5</td><td>5</td><td>5</td></tr>
+        <tr><td>101</td><td>125000</td><td>6</td><td>6</td><td>6</td></tr>
+        <tr><td>114</td><td>125000</td><td>7</td><td>6</td><td>6</td></tr>
+        <tr><td>106</td><td>92000</td><td>8</td><td>8</td><td>7</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Rows 5 to 8 are shown. ROW_NUMBER gives 101 and 114 different numbers. RANK gives both 6 and then jumps to 8. DENSE_RANK gives both 6 and continues with 7.</p>
+
+  <p><b>Example 2: top 2 accounts per account type.</b> The window column cannot go straight into WHERE, so wrap it in a subquery and filter outside.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> acct_type, acct_id, balance
+<span class="kw">FROM</span> (
+  <span class="kw">SELECT</span> acct_type, acct_id, balance,
+         <span class="kw">ROW_NUMBER</span>() <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> acct_type <span class="kw">ORDER BY</span> balance <span class="kw">DESC</span>, acct_id) <span class="kw">AS</span> rn
+  <span class="kw">FROM</span> accounts
+) ranked
+<span class="kw">WHERE</span> rn &lt;= 2;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>acct_type</th><th>acct_id</th><th>balance</th></tr></thead>
+      <tbody>
+        <tr><td>CURRENT</td><td>110</td><td>150000</td></tr>
+        <tr><td>CURRENT</td><td>114</td><td>125000</td></tr>
+        <tr><td>SAVINGS</td><td>103</td><td>310000</td></tr>
+        <tr><td>SAVINGS</td><td>105</td><td>275000</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p><b>Example 3: quartiles of customer wealth.</b> First total each customer's balances, then split the customers into 4 buckets. Bucket 1 is the richest quarter.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> cust_id, total_balance,
+       <span class="kw">NTILE</span>(4) <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> total_balance <span class="kw">DESC</span>, cust_id) <span class="kw">AS</span> quartile
+<span class="kw">FROM</span> (<span class="kw">SELECT</span> cust_id, <span class="kw">SUM</span>(balance) <span class="kw">AS</span> total_balance <span class="kw">FROM</span> accounts <span class="kw">GROUP BY</span> cust_id) t;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>cust_id</th><th>total_balance</th><th>quartile</th></tr></thead>
+      <tbody>
+        <tr><td>4</td><td>367000</td><td>1</td></tr>
+        <tr><td>10</td><td>365000</td><td>1</td></tr>
+        <tr><td>7</td><td>339000</td><td>1</td></tr>
+        <tr><td>2</td><td>310000</td><td>2</td></tr>
+        <tr><td>...</td><td>...</td><td>...</td></tr>
+        <tr><td>8</td><td>15500</td><td>4</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Ten customers do not split evenly into four. NTILE gives the first buckets one extra row: 3, 3, 2, 2.</p>
+</section>
+
+<section class="sec" id="mistakes" data-toc="Common mistakes">
+  <h2>Common mistakes</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Watch out</div><p><b>Using a window column in WHERE.</b> <code>WHERE rn = 1</code> fails because WHERE runs before the window is computed. Use a subquery or CTE, or QUALIFY (next lesson).</p>
+    <p><b>Forgetting the tie-breaker.</b> <code>ROW_NUMBER() OVER (ORDER BY amount DESC)</code> can give a different "winner" on each run when two amounts are equal. Add a unique column such as <code>txn_id</code>.</p>
+    <p><b>Mixing up RANK and DENSE_RANK.</b> If a question says "the 3rd highest", DENSE_RANK is usually what is meant. If it says "3rd place", RANK fits.</p>
+    <p><b>Expecting fewer rows.</b> A window function never reduces the row count. If you want one row per group, you must filter on the rank afterwards.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="snowflake" data-toc="On Snowflake">
+  <h2>On Snowflake</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Same on both engines</div><p>ROW_NUMBER, RANK, DENSE_RANK, NTILE and PARTITION BY are written exactly the same in Snowflake and in the practice editor below (DuckDB). Everything you type here runs unchanged on your project.</p>
+    <p>Snowflake adds <code>QUALIFY</code>, a filter that runs after the window. It replaces the subquery in Example 2. The practice editor supports it too, and Lesson 3.3 is all about it.</p>
+    <p>Snowflake also has <code>PERCENT_RANK()</code> and <code>CUME_DIST()</code> for "what share of rows are below me". Both work in the editor as well.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="Practice">
+  <h2>Practice</h2>
+  <p>The editor holds <code>customers</code>, <code>accounts</code> and <code>transactions</code> from a small fictional bank. Open the <b>Schema</b> tab to see the columns. Grading compares values only, so column names and row order do not matter. Every ORDER BY inside OVER() needs a tie-breaker so the answer is stable.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>A window function adds a column, never removes rows. ROW_NUMBER never ties, RANK ties and skips, DENSE_RANK ties and does not skip. PARTITION BY restarts the race per group. Filter on the rank in an outer query.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Window function</dt><dd>A function that computes a value for each row using other rows around it, without merging rows.</dd>
+    <dt>OVER()</dt><dd>The clause that turns a function into a window function and defines the window.</dd>
+    <dt>PARTITION BY</dt><dd>Splits rows into groups; the window restarts in each group.</dd>
+    <dt>ROW_NUMBER</dt><dd>1, 2, 3 with no repeats, even for ties.</dd>
+    <dt>RANK</dt><dd>Ties share a number and the next number is skipped.</dd>
+    <dt>DENSE_RANK</dt><dd>Ties share a number and nothing is skipped.</dd>
+    <dt>NTILE(n)</dt><dd>Splits the ordered rows into n buckets of almost equal size.</dd>
+    <dt>Tie-breaker</dt><dd>An extra ORDER BY column (usually an id) that makes the order unique.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#sql/3-2">3.2 LAG, LEAD, running totals and frames →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "customers": {
+        "columns": [["cust_id","NUMBER"], ["cust_name","VARCHAR"], ["city","VARCHAR"], ["segment","VARCHAR","RETAIL or PREMIUM"], ["joined_on","DATE"]],
+        "rows": [
+          [1,"Asha Rao","Mumbai","RETAIL","2024-01-15"],
+          [2,"Vikram Shah","Delhi","PREMIUM","2023-06-10"],
+          [3,"Meera Iyer","Chennai","RETAIL","2024-03-22"],
+          [4,"Rahul Nair","Mumbai","PREMIUM","2022-11-05"],
+          [5,"Priya Menon","Bengaluru","RETAIL","2025-02-14"],
+          [6,"Arjun Das","Delhi","RETAIL","2024-08-30"],
+          [7,"Sneha Pillai","Chennai","PREMIUM","2023-01-20"],
+          [8,"Karthik Reddy","Bengaluru","RETAIL","2025-05-01"],
+          [9,"Divya Kumar","Mumbai","RETAIL","2024-12-12"],
+          [10,"Farah Khan","Delhi","PREMIUM","2023-09-09"]
+        ]
+      },
+      "accounts": {
+        "columns": [["acct_id","NUMBER"], ["cust_id","NUMBER"], ["acct_type","VARCHAR","SAVINGS or CURRENT"], ["balance","NUMBER","in rupees"], ["opened_on","DATE"]],
+        "rows": [
+          [101,1,"SAVINGS",125000,"2024-01-20"],
+          [102,1,"CURRENT",40000,"2024-06-01"],
+          [103,2,"SAVINGS",310000,"2023-06-15"],
+          [104,3,"SAVINGS",58000,"2024-03-25"],
+          [105,4,"SAVINGS",275000,"2022-11-10"],
+          [106,4,"CURRENT",92000,"2023-02-01"],
+          [107,5,"SAVINGS",21000,"2025-02-20"],
+          [108,6,"SAVINGS",67000,"2024-09-02"],
+          [109,7,"SAVINGS",189000,"2023-01-25"],
+          [110,7,"CURRENT",150000,"2024-04-10"],
+          [111,8,"SAVINGS",15500,"2025-05-03"],
+          [112,9,"SAVINGS",83000,"2024-12-15"],
+          [113,10,"SAVINGS",240000,"2023-09-12"],
+          [114,10,"CURRENT",125000,"2024-01-08"]
+        ]
+      },
+      "transactions": {
+        "columns": [["txn_id","NUMBER"], ["acct_id","NUMBER"], ["txn_date","DATE"], ["txn_type","VARCHAR","DEPOSIT, WITHDRAWAL or TRANSFER"], ["amount","NUMBER","in rupees"], ["channel","VARCHAR","APP, BRANCH, ATM or UPI"]],
+        "rows": [
+          [1001,101,"2026-03-01","DEPOSIT",20000,"APP"],
+          [1002,101,"2026-03-03","WITHDRAWAL",5000,"ATM"],
+          [1003,101,"2026-03-08","DEPOSIT",12000,"UPI"],
+          [1004,101,"2026-03-15","WITHDRAWAL",8000,"ATM"],
+          [1005,101,"2026-03-22","DEPOSIT",30000,"BRANCH"],
+          [1006,101,"2026-03-29","WITHDRAWAL",3000,"UPI"],
+          [1007,103,"2026-03-02","DEPOSIT",50000,"BRANCH"],
+          [1008,103,"2026-03-05","WITHDRAWAL",15000,"APP"],
+          [1009,103,"2026-03-11","DEPOSIT",25000,"APP"],
+          [1010,103,"2026-03-18","TRANSFER",40000,"APP"],
+          [1011,103,"2026-03-25","DEPOSIT",60000,"BRANCH"],
+          [1012,103,"2026-03-30","WITHDRAWAL",10000,"ATM"],
+          [1013,105,"2026-03-01","DEPOSIT",45000,"APP"],
+          [1014,105,"2026-03-06","WITHDRAWAL",20000,"ATM"],
+          [1015,105,"2026-03-12","DEPOSIT",35000,"UPI"],
+          [1016,105,"2026-03-19","TRANSFER",25000,"APP"],
+          [1017,105,"2026-03-26","DEPOSIT",15000,"UPI"],
+          [1018,109,"2026-03-03","DEPOSIT",30000,"APP"],
+          [1019,109,"2026-03-09","WITHDRAWAL",12000,"ATM"],
+          [1020,109,"2026-03-14","DEPOSIT",30000,"APP"],
+          [1021,109,"2026-03-21","TRANSFER",18000,"UPI"],
+          [1022,109,"2026-03-28","DEPOSIT",22000,"BRANCH"],
+          [1023,113,"2026-03-02","DEPOSIT",80000,"BRANCH"],
+          [1024,113,"2026-03-07","WITHDRAWAL",25000,"ATM"],
+          [1025,113,"2026-03-13","DEPOSIT",10000,"UPI"],
+          [1026,113,"2026-03-20","TRANSFER",50000,"APP"],
+          [1027,113,"2026-03-27","DEPOSIT",80000,"BRANCH"],
+          [1028,102,"2026-03-04","DEPOSIT",9000,"UPI"],
+          [1029,102,"2026-03-16","WITHDRAWAL",4000,"APP"],
+          [1030,104,"2026-03-05","DEPOSIT",7000,"UPI"],
+          [1031,104,"2026-03-17","DEPOSIT",7000,"UPI"],
+          [1032,106,"2026-03-10","TRANSFER",22000,"APP"],
+          [1033,107,"2026-03-08","DEPOSIT",6000,"APP"],
+          [1034,107,"2026-03-23","WITHDRAWAL",2000,"ATM"],
+          [1035,108,"2026-03-11","DEPOSIT",14000,"BRANCH"],
+          [1036,110,"2026-03-12","TRANSFER",35000,"APP"],
+          [1037,111,"2026-03-14","DEPOSIT",5000,"UPI"],
+          [1038,112,"2026-03-15","DEPOSIT",16000,"APP"],
+          [1039,112,"2026-03-24","WITHDRAWAL",6000,"ATM"],
+          [1040,114,"2026-03-18","DEPOSIT",28000,"BRANCH"]
+        ]
+      }
+    },
+    "starter": "SELECT acct_id, balance,\n       ROW_NUMBER() OVER (ORDER BY balance DESC, acct_id) AS rn,\n       RANK()       OVER (ORDER BY balance DESC) AS rnk,\n       DENSE_RANK() OVER (ORDER BY balance DESC) AS drnk\nFROM accounts\nORDER BY balance DESC, acct_id",
+    "examples": [
+      { "label": "Three rankings", "sql": "SELECT acct_id, balance,\n       ROW_NUMBER() OVER (ORDER BY balance DESC, acct_id) AS rn,\n       RANK()       OVER (ORDER BY balance DESC) AS rnk,\n       DENSE_RANK() OVER (ORDER BY balance DESC) AS drnk\nFROM accounts\nORDER BY balance DESC, acct_id" },
+      { "label": "Top 2 per type", "sql": "SELECT acct_type, acct_id, balance\nFROM (\n  SELECT acct_type, acct_id, balance,\n         ROW_NUMBER() OVER (PARTITION BY acct_type ORDER BY balance DESC, acct_id) AS rn\n  FROM accounts\n) ranked\nWHERE rn <= 2\nORDER BY acct_type, rn" },
+      { "label": "Quartiles", "sql": "SELECT cust_id, total_balance,\n       NTILE(4) OVER (ORDER BY total_balance DESC, cust_id) AS quartile\nFROM (SELECT cust_id, SUM(balance) AS total_balance FROM accounts GROUP BY cust_id) t\nORDER BY quartile, total_balance DESC" }
+    ],
+    "challenges": [
+      { "level": "Easy", "task": "Number every account from the biggest balance to the smallest. Return acct_id, balance and the row number (tie-breaker: acct_id ascending).", "hint": "ROW_NUMBER() OVER (ORDER BY balance DESC, acct_id).", "answer": "SELECT acct_id, balance, ROW_NUMBER() OVER (ORDER BY balance DESC, acct_id) AS rn FROM accounts ORDER BY rn" },
+      { "level": "Easy", "task": "Rank accounts by balance so that equal balances share the same rank and the next rank is skipped. Return acct_id, balance and the rank.", "hint": "That is RANK(). No tie-breaker is needed, because ties are the point.", "answer": "SELECT acct_id, balance, RANK() OVER (ORDER BY balance DESC) AS rnk FROM accounts ORDER BY rnk, acct_id" },
+      { "level": "Medium", "task": "Inside each acct_type, rank accounts by balance from high to low with no gaps after ties. Return acct_type, acct_id, balance and the dense rank.", "hint": "DENSE_RANK() with PARTITION BY acct_type.", "answer": "SELECT acct_type, acct_id, balance, DENSE_RANK() OVER (PARTITION BY acct_type ORDER BY balance DESC) AS drnk FROM accounts ORDER BY acct_type, drnk, acct_id" },
+      { "level": "Medium", "task": "Return the 2 richest accounts of each acct_type (tie-breaker: acct_id ascending). Return acct_type, acct_id and balance only.", "hint": "ROW_NUMBER in a subquery, then WHERE rn <= 2 outside.", "answer": "SELECT acct_type, acct_id, balance FROM (SELECT acct_type, acct_id, balance, ROW_NUMBER() OVER (PARTITION BY acct_type ORDER BY balance DESC, acct_id) AS rn FROM accounts) t WHERE rn <= 2 ORDER BY acct_type, balance DESC" },
+      { "level": "Hard", "task": "For each customer, find their single largest DEPOSIT transaction (tie-breaker: lowest txn_id). Return cust_id, txn_id and amount. Join transactions to accounts to get the customer.", "hint": "Filter txn_type = 'DEPOSIT', then ROW_NUMBER() OVER (PARTITION BY cust_id ORDER BY amount DESC, txn_id) and keep rn = 1.", "answer": "SELECT cust_id, txn_id, amount FROM (SELECT a.cust_id, t.txn_id, t.amount, ROW_NUMBER() OVER (PARTITION BY a.cust_id ORDER BY t.amount DESC, t.txn_id) AS rn FROM transactions t JOIN accounts a ON a.acct_id = t.acct_id WHERE t.txn_type = 'DEPOSIT') x WHERE rn = 1 ORDER BY cust_id" },
+      { "level": "Hard", "task": "Total each customer's balances across all their accounts, then split customers into 4 wealth quartiles where quartile 1 is the richest (tie-breaker: cust_id ascending). Return cust_id, total_balance and quartile.", "hint": "GROUP BY cust_id in a subquery, then NTILE(4) OVER (ORDER BY total_balance DESC, cust_id).", "answer": "SELECT cust_id, total_balance, NTILE(4) OVER (ORDER BY total_balance DESC, cust_id) AS quartile FROM (SELECT cust_id, SUM(balance) AS total_balance FROM accounts GROUP BY cust_id) t ORDER BY quartile, cust_id" }
+    ]
+  },
+  "quiz": [
+    { "q": "What does a window function do to the number of rows?", "options": ["Reduces them to one per group", "Keeps every row and adds a column", "Doubles them"], "answer": 1, "why": "Unlike GROUP BY, a window function never merges rows. It writes an extra value next to each existing row." },
+    { "q": "Two accounts tie for 2nd place. What does RANK() give the next account?", "options": ["3", "4", "2"], "answer": 1, "why": "RANK gives both tied rows 2 and then skips to 4. DENSE_RANK would give 3." },
+    { "q": "Which function never repeats a number, even for ties?", "options": ["ROW_NUMBER", "RANK", "DENSE_RANK"], "answer": 0, "why": "ROW_NUMBER always counts 1, 2, 3. That is why it is used to pick exactly one row per group." },
+    { "q": "What does PARTITION BY acct_type do inside OVER()?", "options": ["Sorts by account type", "Restarts the ranking for each account type", "Removes all but one row per type"], "answer": 1, "why": "PARTITION BY splits the rows into groups and the window function runs separately in each group." },
+    { "q": "Why does WHERE rn = 1 fail when rn is a window column in the same SELECT?", "options": ["WHERE runs before window functions are computed", "Window columns cannot be named", "rn must be a number"], "answer": 0, "why": "SQL evaluates WHERE before SELECT and its windows. Put the window in a subquery, or use QUALIFY on Snowflake." },
+    { "q": "Why add acct_id after balance DESC in the ORDER BY of a ROW_NUMBER window?", "options": ["To make the result faster", "To make the order unique when balances tie", "It is required syntax"], "answer": 1, "why": "Without a tie-breaker, tied rows can swap places between runs and your 'top 1' can change." }
+  ]
+}
+</script>

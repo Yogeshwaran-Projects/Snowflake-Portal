@@ -1,0 +1,290 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>SQL: Beginner to Advanced</span><span>Module 3 · Advanced</span><span>Lesson 3.3</span></div>
+  <h1>QUALIFY and de-duplication</h1>
+  <p class="lede">Filter on a window result in one clean step, and use it to remove duplicate rows the way real data pipelines do every day.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>25 min</span>
+    <span class="badge">Advanced</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice: 6 questions</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Say where QUALIFY sits in the order of SQL clauses</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Replace a ranking subquery with one QUALIFY line</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Keep the latest version of each record and drop the rest</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Find duplicates before they break a report</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">QUALIFY is a filter that runs after window functions are computed. It does for windows what HAVING does for GROUP BY.</p></div>
+  </div>
+  <p>The clauses of a query run in a fixed order: <code>FROM</code>, <code>WHERE</code>, <code>GROUP BY</code>, <code>HAVING</code>, window functions, <code>QUALIFY</code>, <code>SELECT</code> list, <code>ORDER BY</code>, <code>LIMIT</code>. WHERE runs too early to see a window result. QUALIFY runs right after the windows, so it can.</p>
+  <ul>
+    <li><b>WHERE</b> filters raw rows.</li>
+    <li><b>HAVING</b> filters groups.</li>
+    <li><b>QUALIFY</b> filters on window results.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a filter after the race results are in</h2>
+  <p>In a race, you cannot pick "the top three" before anyone has run. First everyone runs (the window computes). Then the judge looks at the finishing board and says "only the first three go on the podium". QUALIFY is that judge. WHERE would be a judge who tries to pick the winners before the starting gun, which makes no sense.</p>
+  <div class="map">
+    <div><small>At the race</small><b>Everyone runs</b><span>In SQL: the window function computes a value for every row.</span></div>
+    <div><small>At the race</small><b>The finishing board</b><span>In SQL: the ROW_NUMBER, RANK or COUNT value each row now carries.</span></div>
+    <div><small>At the race</small><b>The judge picks the podium</b><span>In SQL: QUALIFY rn = 1 keeps only the rows you want.</span></div>
+  </div>
+</section>
+
+<section class="sec" id="syntax" data-toc="Syntax">
+  <h2>Syntax, step by step</h2>
+  <p><b>Step 1: the long way</b> (what you learned in 3.1). The window goes in a subquery and the filter goes outside.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> acct_id, txn_id, txn_date
+<span class="kw">FROM</span> (
+  <span class="kw">SELECT</span> acct_id, txn_id, txn_date,
+         <span class="kw">ROW_NUMBER</span>() <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> acct_id <span class="kw">ORDER BY</span> txn_date <span class="kw">DESC</span>, txn_id <span class="kw">DESC</span>) <span class="kw">AS</span> rn
+  <span class="kw">FROM</span> transactions
+) t
+<span class="kw">WHERE</span> rn = 1;</pre></div>
+  <p><b>Step 2: the short way.</b> Same result, no subquery. The window can live directly in QUALIFY.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> acct_id, txn_id, txn_date
+<span class="kw">FROM</span> transactions
+<span class="kw">QUALIFY ROW_NUMBER</span>() <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> acct_id <span class="kw">ORDER BY</span> txn_date <span class="kw">DESC</span>, txn_id <span class="kw">DESC</span>) = 1;</pre></div>
+  <p><b>Step 3: the de-duplication pattern.</b> Memorise this shape. It appears in almost every data pipeline: "for each key, keep the newest row".</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> *
+<span class="kw">FROM</span> some_table
+<span class="kw">QUALIFY ROW_NUMBER</span>() <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> business_key <span class="kw">ORDER BY</span> loaded_on <span class="kw">DESC</span>) = 1;</pre></div>
+  <p>QUALIFY can also use a window that is already named in the SELECT list, and it can combine conditions with AND and OR like WHERE.</p>
+</section>
+
+<section class="sec" id="examples" data-toc="Worked examples">
+  <h2>Worked examples</h2>
+  <p><b>Example 1: top 3 balances.</b> One line instead of a subquery.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> acct_id, balance
+<span class="kw">FROM</span> accounts
+<span class="kw">QUALIFY ROW_NUMBER</span>() <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> balance <span class="kw">DESC</span>, acct_id) &lt;= 3;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>acct_id</th><th>balance</th></tr></thead>
+      <tbody>
+        <tr><td>103</td><td>310000</td></tr>
+        <tr><td>105</td><td>275000</td></tr>
+        <tr><td>113</td><td>240000</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p><b>Example 2: de-duplicate a customer feed.</b> The table <code>customer_loads</code> receives a new copy of a customer every time something changes. Customer 1 appears three times. Keep only the newest row per customer.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> cust_id, cust_name, city, segment, loaded_on
+<span class="kw">FROM</span> customer_loads
+<span class="kw">QUALIFY ROW_NUMBER</span>() <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> cust_id <span class="kw">ORDER BY</span> loaded_on <span class="kw">DESC</span>) = 1;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>cust_id</th><th>cust_name</th><th>city</th><th>segment</th><th>loaded_on</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Asha Rao</td><td>Pune</td><td>PREMIUM</td><td>2026-03-15</td></tr>
+        <tr><td>2</td><td>Vikram Shah</td><td>Delhi</td><td>PREMIUM</td><td>2026-03-01</td></tr>
+        <tr><td>3</td><td>Meera Iyer</td><td>Chennai</td><td>RETAIL</td><td>2026-03-08</td></tr>
+        <tr><td>...</td><td></td><td></td><td></td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Ten rows became six. The older rows for customers 1, 3 and 5 are gone.</p>
+
+  <p><b>Example 3: find the duplicates instead of removing them.</b> COUNT as a window tells each row how many rows share its key. Keep the rows where that count is more than 1.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> cust_id, cust_name, loaded_on
+<span class="kw">FROM</span> customer_loads
+<span class="kw">QUALIFY COUNT</span>(*) <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> cust_id) &gt; 1;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>cust_id</th><th>cust_name</th><th>loaded_on</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Asha Rao</td><td>2026-03-01</td></tr>
+        <tr><td>1</td><td>Asha Rao</td><td>2026-03-08</td></tr>
+        <tr><td>1</td><td>Asha Rao</td><td>2026-03-15</td></tr>
+        <tr><td>3</td><td>Meera Iyer</td><td>2026-03-01</td></tr>
+        <tr><td>...</td><td></td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p><b>Example 4: compare each row with its group.</b> QUALIFY is not only for ranks. Here it keeps accounts whose balance is above the average of their type.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> acct_id, acct_type, balance
+<span class="kw">FROM</span> accounts
+<span class="kw">QUALIFY</span> balance &gt; <span class="kw">AVG</span>(balance) <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> acct_type);</pre></div>
+</section>
+
+<section class="sec" id="mistakes" data-toc="Common mistakes">
+  <h2>Common mistakes</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Watch out</div><p><b>Using RANK for de-duplication.</b> If two loads share the same loaded_on, RANK gives both 1 and you keep two rows. ROW_NUMBER always keeps exactly one.</p>
+    <p><b>Wrong direction.</b> <code>ORDER BY loaded_on</code> (ascending) keeps the oldest row. For "latest", write <code>DESC</code>.</p>
+    <p><b>Mixing WHERE and QUALIFY jobs.</b> A plain filter such as <code>txn_type = 'DEPOSIT'</code> belongs in WHERE, so the window only ranks deposits. Putting it in QUALIFY ranks everything first and then filters, which gives a different answer.</p>
+    <p><b>SELECT DISTINCT is not de-duplication by key.</b> DISTINCT removes rows that are identical in every column. Two loads of the same customer with different cities are not identical, so DISTINCT keeps both.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="snowflake" data-toc="On Snowflake">
+  <h2>On Snowflake</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">QUALIFY is a Snowflake word</div><p>QUALIFY started in Teradata and Snowflake made it popular. It is not in standard SQL, and older engines such as MySQL, PostgreSQL and SQL Server do not have it; there you use the subquery form from Step 1. DuckDB, which runs the practice editor, supports QUALIFY with exactly the Snowflake syntax, so everything below works on both.</p>
+    <p>On Snowflake you will see this de-duplication pattern in almost every staging model, often written in dbt. Learn to read it at a glance: <code>QUALIFY ROW_NUMBER() OVER (PARTITION BY key ORDER BY updated_at DESC) = 1</code>.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="Practice">
+  <h2>Practice</h2>
+  <p>Tables: <code>accounts</code>, <code>transactions</code> and a messy feed called <code>customer_loads</code> where the same customer can appear on several load dates. Use QUALIFY in every answer. Grading compares values only.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>QUALIFY filters after the windows run, like a judge reading the finishing board. The de-duplication pattern is ROW_NUMBER over the key, ordered by newest first, QUALIFY = 1. Use ROW_NUMBER, never RANK, when you need exactly one row.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>QUALIFY</dt><dd>A clause that filters rows using window function results.</dd>
+    <dt>De-duplication</dt><dd>Keeping one row per key and dropping the other copies.</dd>
+    <dt>Business key</dt><dd>The column(s) that identify a real-world thing, such as cust_id.</dd>
+    <dt>Latest record</dt><dd>The row with the newest timestamp for a key.</dd>
+    <dt>Order of evaluation</dt><dd>FROM, WHERE, GROUP BY, HAVING, windows, QUALIFY, SELECT, ORDER BY, LIMIT.</dd>
+    <dt>Staging table</dt><dd>A raw landing table that often holds duplicates before cleaning.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#sql/3-4">3.4 Recursive CTEs, gaps and islands →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "accounts": {
+        "columns": [["acct_id","NUMBER"], ["cust_id","NUMBER"], ["acct_type","VARCHAR","SAVINGS or CURRENT"], ["balance","NUMBER","in rupees"], ["opened_on","DATE"]],
+        "rows": [
+          [101,1,"SAVINGS",125000,"2024-01-20"],
+          [102,1,"CURRENT",40000,"2024-06-01"],
+          [103,2,"SAVINGS",310000,"2023-06-15"],
+          [104,3,"SAVINGS",58000,"2024-03-25"],
+          [105,4,"SAVINGS",275000,"2022-11-10"],
+          [106,4,"CURRENT",92000,"2023-02-01"],
+          [107,5,"SAVINGS",21000,"2025-02-20"],
+          [108,6,"SAVINGS",67000,"2024-09-02"],
+          [109,7,"SAVINGS",189000,"2023-01-25"],
+          [110,7,"CURRENT",150000,"2024-04-10"],
+          [111,8,"SAVINGS",15500,"2025-05-03"],
+          [112,9,"SAVINGS",83000,"2024-12-15"],
+          [113,10,"SAVINGS",240000,"2023-09-12"],
+          [114,10,"CURRENT",125000,"2024-01-08"]
+        ]
+      },
+      "transactions": {
+        "columns": [["txn_id","NUMBER"], ["acct_id","NUMBER"], ["txn_date","DATE"], ["txn_type","VARCHAR","DEPOSIT, WITHDRAWAL or TRANSFER"], ["amount","NUMBER","in rupees"], ["channel","VARCHAR","APP, BRANCH, ATM or UPI"]],
+        "rows": [
+          [1001,101,"2026-03-01","DEPOSIT",20000,"APP"],
+          [1002,101,"2026-03-03","WITHDRAWAL",5000,"ATM"],
+          [1003,101,"2026-03-08","DEPOSIT",12000,"UPI"],
+          [1004,101,"2026-03-15","WITHDRAWAL",8000,"ATM"],
+          [1005,101,"2026-03-22","DEPOSIT",30000,"BRANCH"],
+          [1006,101,"2026-03-29","WITHDRAWAL",3000,"UPI"],
+          [1007,103,"2026-03-02","DEPOSIT",50000,"BRANCH"],
+          [1008,103,"2026-03-05","WITHDRAWAL",15000,"APP"],
+          [1009,103,"2026-03-11","DEPOSIT",25000,"APP"],
+          [1010,103,"2026-03-18","TRANSFER",40000,"APP"],
+          [1011,103,"2026-03-25","DEPOSIT",60000,"BRANCH"],
+          [1012,103,"2026-03-30","WITHDRAWAL",10000,"ATM"],
+          [1013,105,"2026-03-01","DEPOSIT",45000,"APP"],
+          [1014,105,"2026-03-06","WITHDRAWAL",20000,"ATM"],
+          [1015,105,"2026-03-12","DEPOSIT",35000,"UPI"],
+          [1016,105,"2026-03-19","TRANSFER",25000,"APP"],
+          [1017,105,"2026-03-26","DEPOSIT",15000,"UPI"],
+          [1018,109,"2026-03-03","DEPOSIT",30000,"APP"],
+          [1019,109,"2026-03-09","WITHDRAWAL",12000,"ATM"],
+          [1020,109,"2026-03-14","DEPOSIT",30000,"APP"],
+          [1021,109,"2026-03-21","TRANSFER",18000,"UPI"],
+          [1022,109,"2026-03-28","DEPOSIT",22000,"BRANCH"],
+          [1023,113,"2026-03-02","DEPOSIT",80000,"BRANCH"],
+          [1024,113,"2026-03-07","WITHDRAWAL",25000,"ATM"],
+          [1025,113,"2026-03-13","DEPOSIT",10000,"UPI"],
+          [1026,113,"2026-03-20","TRANSFER",50000,"APP"],
+          [1027,113,"2026-03-27","DEPOSIT",80000,"BRANCH"],
+          [1028,102,"2026-03-04","DEPOSIT",9000,"UPI"],
+          [1029,102,"2026-03-16","WITHDRAWAL",4000,"APP"],
+          [1030,104,"2026-03-05","DEPOSIT",7000,"UPI"],
+          [1031,104,"2026-03-17","DEPOSIT",7000,"UPI"],
+          [1032,106,"2026-03-10","TRANSFER",22000,"APP"],
+          [1033,107,"2026-03-08","DEPOSIT",6000,"APP"],
+          [1034,107,"2026-03-23","WITHDRAWAL",2000,"ATM"],
+          [1035,108,"2026-03-11","DEPOSIT",14000,"BRANCH"],
+          [1036,110,"2026-03-12","TRANSFER",35000,"APP"],
+          [1037,111,"2026-03-14","DEPOSIT",5000,"UPI"],
+          [1038,112,"2026-03-15","DEPOSIT",16000,"APP"],
+          [1039,112,"2026-03-24","WITHDRAWAL",6000,"ATM"],
+          [1040,114,"2026-03-18","DEPOSIT",28000,"BRANCH"]
+        ]
+      },
+      "customer_loads": {
+        "columns": [["cust_id","NUMBER"], ["cust_name","VARCHAR"], ["city","VARCHAR"], ["segment","VARCHAR"], ["loaded_on","DATE","the same customer can appear on several days"]],
+        "rows": [
+          [1,"Asha Rao","Mumbai","RETAIL","2026-03-01"],
+          [1,"Asha Rao","Mumbai","PREMIUM","2026-03-08"],
+          [1,"Asha Rao","Pune","PREMIUM","2026-03-15"],
+          [2,"Vikram Shah","Delhi","PREMIUM","2026-03-01"],
+          [3,"Meera Iyer","Chennai","RETAIL","2026-03-01"],
+          [3,"Meera Iyer","Chennai","RETAIL","2026-03-08"],
+          [4,"Rahul Nair","Mumbai","PREMIUM","2026-03-01"],
+          [5,"Priya Menon","Bengaluru","RETAIL","2026-03-08"],
+          [5,"Priya Menon","Bengaluru","PREMIUM","2026-03-15"],
+          [6,"Arjun Das","Delhi","RETAIL","2026-03-15"]
+        ]
+      }
+    },
+    "starter": "SELECT cust_id, cust_name, city, segment, loaded_on\nFROM customer_loads\nQUALIFY ROW_NUMBER() OVER (PARTITION BY cust_id ORDER BY loaded_on DESC) = 1\nORDER BY cust_id",
+    "examples": [
+      { "label": "Top 3 balances", "sql": "SELECT acct_id, balance\nFROM accounts\nQUALIFY ROW_NUMBER() OVER (ORDER BY balance DESC, acct_id) <= 3\nORDER BY balance DESC" },
+      { "label": "Latest row per customer", "sql": "SELECT cust_id, cust_name, city, segment, loaded_on\nFROM customer_loads\nQUALIFY ROW_NUMBER() OVER (PARTITION BY cust_id ORDER BY loaded_on DESC) = 1\nORDER BY cust_id" },
+      { "label": "Show the duplicates", "sql": "SELECT cust_id, cust_name, loaded_on\nFROM customer_loads\nQUALIFY COUNT(*) OVER (PARTITION BY cust_id) > 1\nORDER BY cust_id, loaded_on" }
+    ],
+    "challenges": [
+      { "level": "Easy", "task": "Using QUALIFY, return the 3 accounts with the largest balance (tie-breaker: acct_id ascending). Return acct_id and balance.", "hint": "QUALIFY ROW_NUMBER() OVER (ORDER BY balance DESC, acct_id) <= 3.", "answer": "SELECT acct_id, balance FROM accounts QUALIFY ROW_NUMBER() OVER (ORDER BY balance DESC, acct_id) <= 3 ORDER BY balance DESC, acct_id" },
+      { "level": "Easy", "task": "For each account, return its most recent transaction: acct_id, txn_id and txn_date (newest txn_date first; if two share a date, the higher txn_id wins).", "hint": "PARTITION BY acct_id ORDER BY txn_date DESC, txn_id DESC, keep row 1.", "answer": "SELECT acct_id, txn_id, txn_date FROM transactions QUALIFY ROW_NUMBER() OVER (PARTITION BY acct_id ORDER BY txn_date DESC, txn_id DESC) = 1 ORDER BY acct_id" },
+      { "level": "Medium", "task": "De-duplicate customer_loads: keep only the newest row (largest loaded_on) for each cust_id. Return cust_id, cust_name, city and loaded_on.", "hint": "The standard pattern: ROW_NUMBER() OVER (PARTITION BY cust_id ORDER BY loaded_on DESC) = 1.", "answer": "SELECT cust_id, cust_name, city, loaded_on FROM customer_loads QUALIFY ROW_NUMBER() OVER (PARTITION BY cust_id ORDER BY loaded_on DESC) = 1 ORDER BY cust_id" },
+      { "level": "Medium", "task": "Return the accounts whose balance is above the average balance of their own acct_type. Return acct_id, acct_type and balance.", "hint": "QUALIFY balance > AVG(balance) OVER (PARTITION BY acct_type).", "answer": "SELECT acct_id, acct_type, balance FROM accounts QUALIFY balance > AVG(balance) OVER (PARTITION BY acct_type) ORDER BY acct_id" },
+      { "level": "Hard", "task": "List every row of customer_loads that belongs to a customer who appears more than once in the table. Return cust_id, cust_name and loaded_on.", "hint": "QUALIFY COUNT(*) OVER (PARTITION BY cust_id) > 1.", "answer": "SELECT cust_id, cust_name, loaded_on FROM customer_loads QUALIFY COUNT(*) OVER (PARTITION BY cust_id) > 1 ORDER BY cust_id, loaded_on" },
+      { "level": "Hard", "task": "For each account that has at least 2 DEPOSIT transactions, return its second-largest deposit: acct_id, txn_id and amount (tie-breaker for equal amounts: lower txn_id ranks first). Filter to deposits before ranking.", "hint": "WHERE txn_type = 'DEPOSIT' then QUALIFY ROW_NUMBER() OVER (PARTITION BY acct_id ORDER BY amount DESC, txn_id) = 2.", "answer": "SELECT acct_id, txn_id, amount FROM transactions WHERE txn_type = 'DEPOSIT' QUALIFY ROW_NUMBER() OVER (PARTITION BY acct_id ORDER BY amount DESC, txn_id) = 2 ORDER BY acct_id" }
+    ]
+  },
+  "quiz": [
+    { "q": "When does QUALIFY run?", "options": ["Before WHERE", "After window functions are computed", "After ORDER BY and LIMIT"], "answer": 1, "why": "The order is FROM, WHERE, GROUP BY, HAVING, windows, QUALIFY, SELECT, ORDER BY, LIMIT." },
+    { "q": "QUALIFY is to window functions what ... is to GROUP BY.", "options": ["WHERE", "HAVING", "LIMIT"], "answer": 1, "why": "HAVING filters groups after aggregation; QUALIFY filters rows after window computation." },
+    { "q": "Which function guarantees exactly one row per key in the de-duplication pattern?", "options": ["RANK", "DENSE_RANK", "ROW_NUMBER"], "answer": 2, "why": "RANK and DENSE_RANK give ties the same value, so two rows can both be 1. ROW_NUMBER never ties." },
+    { "q": "To keep the newest row per customer, the ORDER BY inside the window should be...", "options": ["loaded_on ASC", "loaded_on DESC", "cust_id"], "answer": 1, "why": "DESC puts the newest date first, so it gets row number 1." },
+    { "q": "Does SELECT DISTINCT remove two rows of the same customer that have different cities?", "options": ["Yes", "No", "Only on Snowflake"], "answer": 1, "why": "DISTINCT only drops rows that match in every column. Different cities means different rows." },
+    { "q": "Is QUALIFY part of standard SQL that every database supports?", "options": ["Yes, every database has it", "No; Snowflake and DuckDB have it, many others do not", "Only MySQL has it"], "answer": 1, "why": "QUALIFY comes from Teradata and Snowflake. Engines without it need the subquery form." }
+  ]
+}
+</script>

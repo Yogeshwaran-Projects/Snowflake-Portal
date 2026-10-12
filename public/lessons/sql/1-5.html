@@ -1,0 +1,299 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>SQL: Beginner to Advanced</span><span>Module 1 · Beginner</span><span>Lesson 1.5</span></div>
+  <h1>NULL and CASE</h1>
+  <p class="lede">Real bank data has blanks: a missing age, a pending amount, a channel nobody recorded. NULL is how SQL stores a blank, and CASE is how you turn values into labels. The two meet constantly.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>25 min</span>
+    <span class="badge">Beginner</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice: 6 questions</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Find blanks with <code>IS NULL</code> and <code>IS NOT NULL</code></li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain why <code>= NULL</code> never matches and why maths on a blank gives a blank</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Fill a blank with <code>COALESCE</code></li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Turn values into labels with <code>CASE WHEN ... THEN ... ELSE ... END</code></li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">NULL means “no value here”. It is not zero, not an empty text, not false. It is a blank, and a blank is never equal to anything, not even another blank.</p></div>
+  </div>
+  <p>Because NULL is unknown, every comparison with it is unknown too. <code>age = NULL</code>, <code>age &lt;&gt; NULL</code>, even <code>NULL = NULL</code>: none of them is true, so WHERE drops the row. Maths and text work the same way: <code>NULL + 10</code> is NULL and <code>'Ms ' || NULL</code> is NULL.</p>
+  <p><b>CASE</b> is a different idea: a list of tests, read top to bottom. The first test that passes decides the value. It is how you write “if the balance is above 5 lakh call it HIGH, otherwise LOW” inside a query.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a blank field on the card</h2>
+  <p>Some index cards have a field nobody filled in. The librarian cannot say whether that blank age is 34, so she will not put the card in the “age is 34” pile and she will not put it in the “age is not 34” pile either. She only sorts it when you ask “is the field blank?”. If you want her to treat a blank as something, you must tell her what: “if the segment is blank, write UNKNOWN”. That is COALESCE.</p>
+  <div class="map">
+    <div><small>In the library</small><b>A blank field</b><span>In SQL: <code>NULL</code>; test it with <code>IS NULL</code></span></div>
+    <div><small>In the library</small><b>“If blank, write UNKNOWN”</b><span>In SQL: <code>COALESCE(segment, 'UNKNOWN')</code></span></div>
+    <div><small>In the library</small><b>A rulebook of labels</b><span>In SQL: <code>CASE WHEN ... THEN ... ELSE ... END</code></span></div>
+  </div>
+  <p>The rulebook is read top to bottom. The librarian stops at the first rule that fits, so the order of the rules matters.</p>
+</section>
+
+<section class="sec" id="syntax" data-toc="How to write it">
+  <h2>How to write it, step by step</h2>
+  <p>Step 1: test for blanks with IS NULL. Step 2: fill blanks with COALESCE. Step 3: write a CASE with one WHEN per rule, an ELSE for everything else, and END to close it.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> acct_id, balance,
+       <span class="kw">CASE</span>
+         <span class="kw">WHEN</span> balance <span class="kw">IS NULL</span>  <span class="kw">THEN</span> 'UNKNOWN'
+         <span class="kw">WHEN</span> balance &gt;= 500000 <span class="kw">THEN</span> 'HIGH'
+         <span class="kw">WHEN</span> balance &gt;= 50000  <span class="kw">THEN</span> 'MEDIUM'
+         <span class="kw">ELSE</span> 'LOW'
+       <span class="kw">END</span> <span class="kw">AS</span> band
+<span class="kw">FROM</span> accounts;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Keyword</th><th>What it means</th><th>Telling the librarian</th></tr></thead>
+      <tbody>
+        <tr><td><code>IS NULL</code></td><td>True when the field is blank</td><td>“Only cards with no segment.”</td></tr>
+        <tr><td><code>IS NOT NULL</code></td><td>True when the field has a value</td><td>“Only cards where the age is filled in.”</td></tr>
+        <tr><td><code>COALESCE(a, b)</code></td><td>a, or b when a is blank (more values allowed: first non-blank wins)</td><td>“If the segment is blank, write UNKNOWN.”</td></tr>
+        <tr><td><code>CASE WHEN test THEN value</code></td><td>One rule; the first passing rule wins</td><td>“If above 5 lakh, write HIGH.”</td></tr>
+        <tr><td><code>ELSE value</code></td><td>What to write when no rule passes (blank if you leave it out)</td><td>“Otherwise write LOW.”</td></tr>
+        <tr><td><code>END</code></td><td>Closes the CASE; put <code>AS name</code> after it</td><td>“That is the whole rulebook.”</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Two shapes of CASE exist. The <b>searched</b> form above takes any condition. The <b>simple</b> form compares one column to values: <code>CASE txn_type WHEN 'DEPOSIT' THEN 'IN' ELSE 'OUT' END</code>. Use the searched form when you need <code>&gt;</code>, <code>IS NULL</code> or AND.</p>
+</section>
+
+<section class="sec" id="examples" data-toc="Worked examples">
+  <h2>Worked examples</h2>
+  <p><b>Example 1: find the blanks.</b> One customer has no segment yet.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> cust_id, cust_name, segment
+<span class="kw">FROM</span> customers
+<span class="kw">WHERE</span> segment <span class="kw">IS NULL</span>;</pre></div>
+  <div class="table-wrap"><table><thead><tr><th>cust_id</th><th>cust_name</th><th>segment</th></tr></thead><tbody>
+    <tr><td>7</td><td>Sneha Pillai</td><td>NULL</td></tr>
+  </tbody></table></div>
+
+  <p><b>Example 2: fill the blank.</b> COALESCE leaves real values alone and only replaces blanks.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> cust_id, cust_name, <span class="kw">COALESCE</span>(segment, 'UNKNOWN') <span class="kw">AS</span> segment_filled
+<span class="kw">FROM</span> customers;</pre></div>
+  <div class="table-wrap"><table><thead><tr><th>cust_id</th><th>cust_name</th><th>segment_filled</th></tr></thead><tbody>
+    <tr><td>1</td><td>Asha Rao</td><td>PREMIUM</td></tr><tr><td>7</td><td>Sneha Pillai</td><td>UNKNOWN</td></tr><tr><td>…</td><td>…</td><td>16 rows in total</td></tr>
+  </tbody></table></div>
+
+  <p><b>Example 3: the blank falls through.</b> Account 119 has no balance. Neither <code>&gt;= 500000</code> nor <code>&gt;= 50000</code> is true for a blank, so it lands in ELSE and is called LOW. That is wrong for a report. The syntax block above fixes it by testing IS NULL first.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> acct_id, balance,
+       <span class="kw">CASE WHEN</span> balance &gt;= 500000 <span class="kw">THEN</span> 'HIGH'
+            <span class="kw">WHEN</span> balance &gt;= 50000  <span class="kw">THEN</span> 'MEDIUM'
+            <span class="kw">ELSE</span> 'LOW' <span class="kw">END</span> <span class="kw">AS</span> band
+<span class="kw">FROM</span> accounts;</pre></div>
+  <div class="table-wrap"><table><thead><tr><th>acct_id</th><th>balance</th><th>band</th></tr></thead><tbody>
+    <tr><td>101</td><td>250000</td><td>MEDIUM</td></tr><tr><td>102</td><td>1000000</td><td>HIGH</td></tr><tr><td>104</td><td>15500</td><td>LOW</td></tr><tr><td>119</td><td>NULL</td><td>LOW</td></tr>
+  </tbody></table></div>
+
+  <p><b>Example 4: a signed amount.</b> Deposits count as plus, everything else as minus. The pending deposit (blank amount) stays blank, because minus a blank is still a blank.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> txn_id, txn_type, amount,
+       <span class="kw">CASE WHEN</span> txn_type = 'DEPOSIT' <span class="kw">THEN</span> amount <span class="kw">ELSE</span> -amount <span class="kw">END</span> <span class="kw">AS</span> signed_amount,
+       <span class="kw">COALESCE</span>(channel, 'OTHER') <span class="kw">AS</span> channel_filled
+<span class="kw">FROM</span> transactions;</pre></div>
+  <div class="table-wrap"><table><thead><tr><th>txn_id</th><th>txn_type</th><th>amount</th><th>signed_amount</th><th>channel_filled</th></tr></thead><tbody>
+    <tr><td>1001</td><td>DEPOSIT</td><td>50000</td><td>50000</td><td>UPI</td></tr><tr><td>1002</td><td>WITHDRAWAL</td><td>8000</td><td>-8000</td><td>ATM</td></tr><tr><td>1010</td><td>DEPOSIT</td><td>9000</td><td>9000</td><td>OTHER</td></tr><tr><td>1023</td><td>DEPOSIT</td><td>NULL</td><td>NULL</td><td>BRANCH</td></tr>
+  </tbody></table></div>
+</section>
+
+<section class="sec" id="mistakes" data-toc="Common mistakes">
+  <h2>Common mistakes</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Watch out</div>
+      <p>1. <code>WHERE age = NULL</code> returns zero rows, always. Write <code>age IS NULL</code>.</p>
+      <p>2. <code>WHERE segment &lt;&gt; 'RETAIL'</code> silently drops the blank segment too. Eight customers are RETAIL, so you expect 8 others; you get 7. Add <code>OR segment IS NULL</code> if blanks should count.</p>
+      <p>3. Rules in the wrong order. <code>WHEN balance &gt;= 50000 THEN 'MEDIUM' WHEN balance &gt;= 500000 THEN 'HIGH'</code> never says HIGH, because the first rule already caught it. Put the strictest rule first.</p>
+      <p>4. Leaving out ELSE. A row that matches no rule gets NULL, not an error. Add an ELSE unless a blank is what you want.</p>
+      <p>5. Forgetting END. Every CASE needs END, and the alias goes after END.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="snowflake" data-toc="On Snowflake">
+  <h2>On Snowflake</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">What is different on your project</div>
+      <p><b>More ways to fill a blank.</b> Snowflake has <code>NVL(a, b)</code>, <code>IFNULL(a, b)</code> and <code>ZEROIFNULL(n)</code>. They do what COALESCE does with two values. COALESCE is the portable one and also takes a longer list.</p>
+      <p><b>IFF for a two-way choice.</b> <code>IFF(txn_type = 'DEPOSIT', amount, -amount)</code> is Snowflake's one-line CASE. The worksheet engine spells it <code>IF(...)</code>. CASE works the same on both, so prefer CASE in shared code.</p>
+      <p><b>NULLIF and EQUAL_NULL.</b> <code>NULLIF(a, b)</code> gives NULL when a equals b (handy to avoid dividing by zero) and works on both engines. Snowflake's <code>EQUAL_NULL(a, b)</code> is true when both are blank; the portable form is <code>a IS NOT DISTINCT FROM b</code>.</p>
+      <p><b>Empty text is not NULL.</b> On Snowflake and in the worksheet, <code>''</code> is a real value with length 0. Some older databases treat it as NULL; Snowflake does not.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="Practice">
+  <h2>Practice</h2>
+  <p>Same bank tables. Several rows hold blanks on purpose: one customer has no city, one has no segment, one has no age, one account has no balance, one transaction has no amount and one has no channel. Each question says how to treat them.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>NULL is a blank: test it with IS NULL, fill it with COALESCE, and remember that = and &lt;&gt; both drop it. CASE is a rulebook read top to bottom; put IS NULL and the strictest rule first, and always close with ELSE and END.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>NULL</dt><dd>A missing value. Not zero and not empty text.</dd>
+    <dt>IS NULL</dt><dd>The only test that is true for a blank.</dd>
+    <dt>Three-valued logic</dt><dd>A condition can be true, false or unknown. WHERE keeps only true.</dd>
+    <dt>COALESCE</dt><dd>Returns the first value in its list that is not blank.</dd>
+    <dt>CASE</dt><dd>An expression that picks a value by testing rules in order.</dd>
+    <dt>Searched CASE</dt><dd>CASE WHEN condition THEN ... with any condition.</dd>
+    <dt>Simple CASE</dt><dd>CASE column WHEN value THEN ... comparing one column to fixed values.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#sql/1-6">1.6 Aggregates →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "customers": {
+        "columns": [
+          ["cust_id","NUMBER"],
+          ["cust_name","VARCHAR"],
+          ["city","VARCHAR","NULL when unknown"],
+          ["segment","VARCHAR","RETAIL, PREMIUM or BUSINESS; NULL when not yet assigned"],
+          ["joined_on","DATE"],
+          ["age","NUMBER","NULL when not recorded"]
+        ],
+        "rows": [
+          [1,"Asha Rao","Mumbai","PREMIUM","2019-03-12",34],
+          [2,"Vikram Shah","Delhi","RETAIL","2020-07-01",45],
+          [3,"Meera Iyer","Chennai","RETAIL","2021-01-15",29],
+          [4,"Rahul Nair","Mumbai","BUSINESS","2018-11-20",52],
+          [5,"Priya Menon","Bengaluru","PREMIUM","2022-05-09",38],
+          [6,"Arjun Das","Delhi","RETAIL","2023-02-28",23],
+          [7,"Sneha Pillai","Chennai",null,"2021-09-30",31],
+          [8,"Karthik Reddy","Hyderabad","BUSINESS","2017-06-05",47],
+          [9,"Divya Kumar","Mumbai","RETAIL","2024-01-10",null],
+          [10,"Nikhil Joshi","Pune","RETAIL","2020-10-18",41],
+          [11,"Farah Khan","Mumbai","PREMIUM","2019-08-22",36],
+          [12,"Lakshmi Bose","Kolkata","RETAIL","2022-12-01",58],
+          [13,"Imran Sheikh","Hyderabad","RETAIL","2023-07-14",27],
+          [14,"Ananya Ghosh","Kolkata","PREMIUM","2016-04-03",61],
+          [15,"Rohan Mehta","Pune","BUSINESS","2024-06-25",33],
+          [16,"Kavya Nambiar",null,"RETAIL","2025-03-08",19]
+        ]
+      },
+      "accounts": {
+        "columns": [
+          ["acct_id","NUMBER"],
+          ["cust_id","NUMBER","the customer who owns the account"],
+          ["acct_type","VARCHAR","SAVINGS, CURRENT or FD"],
+          ["balance","NUMBER","in rupees; NULL when not yet calculated"],
+          ["opened_on","DATE"],
+          ["acct_status","VARCHAR","ACTIVE, DORMANT or CLOSED"]
+        ],
+        "rows": [
+          [101,1,"SAVINGS",250000,"2019-03-12","ACTIVE"],
+          [102,1,"FD",1000000,"2021-06-01","ACTIVE"],
+          [103,2,"SAVINGS",48000,"2020-07-01","ACTIVE"],
+          [104,3,"SAVINGS",15500,"2021-01-15","ACTIVE"],
+          [105,4,"CURRENT",820000,"2018-11-20","ACTIVE"],
+          [106,4,"SAVINGS",61000,"2019-02-10","DORMANT"],
+          [107,5,"SAVINGS",390000,"2022-05-09","ACTIVE"],
+          [108,5,"FD",500000,"2023-01-20","ACTIVE"],
+          [109,6,"SAVINGS",7200,"2023-02-28","ACTIVE"],
+          [110,7,"SAVINGS",33000,"2021-09-30","ACTIVE"],
+          [111,8,"CURRENT",1450000,"2017-06-05","ACTIVE"],
+          [112,9,"SAVINGS",12000,"2024-01-10","ACTIVE"],
+          [113,10,"SAVINGS",0,"2020-10-18","CLOSED"],
+          [114,11,"SAVINGS",275000,"2019-08-22","ACTIVE"],
+          [115,11,"FD",300000,"2020-02-14","ACTIVE"],
+          [116,12,"SAVINGS",89000,"2022-12-01","DORMANT"],
+          [117,13,"SAVINGS",5400,"2023-07-14","ACTIVE"],
+          [118,14,"SAVINGS",640000,"2016-04-03","ACTIVE"],
+          [119,15,"CURRENT",null,"2024-06-25","ACTIVE"],
+          [120,16,"SAVINGS",2500,"2025-03-08","ACTIVE"]
+        ]
+      },
+      "transactions": {
+        "columns": [
+          ["txn_id","NUMBER"],
+          ["acct_id","NUMBER","the account the money moved in or out of"],
+          ["txn_date","DATE"],
+          ["txn_type","VARCHAR","DEPOSIT, WITHDRAWAL or TRANSFER"],
+          ["amount","NUMBER","in rupees; NULL while still pending"],
+          ["channel","VARCHAR","UPI, ATM, BRANCH or NETBANKING; NULL when not captured"]
+        ],
+        "rows": [
+          [1001,101,"2026-08-28","DEPOSIT",50000,"UPI"],
+          [1002,103,"2026-08-30","WITHDRAWAL",8000,"ATM"],
+          [1003,105,"2026-08-31","DEPOSIT",200000,"NETBANKING"],
+          [1004,107,"2026-09-03","TRANSFER",25000,"UPI"],
+          [1005,109,"2026-09-03","WITHDRAWAL",1500,"ATM"],
+          [1006,111,"2026-09-04","DEPOSIT",350000,"BRANCH"],
+          [1007,104,"2026-09-05","DEPOSIT",12000,"UPI"],
+          [1008,114,"2026-09-06","WITHDRAWAL",40000,"NETBANKING"],
+          [1009,101,"2026-09-07","WITHDRAWAL",15000,"ATM"],
+          [1010,110,"2026-09-08","DEPOSIT",9000,null],
+          [1011,112,"2026-09-09","DEPOSIT",3000,"UPI"],
+          [1012,105,"2026-09-10","TRANSFER",75000,"NETBANKING"],
+          [1013,117,"2026-09-11","DEPOSIT",2000,"UPI"],
+          [1014,118,"2026-09-12","WITHDRAWAL",100000,"BRANCH"],
+          [1015,107,"2026-09-14","DEPOSIT",60000,"NETBANKING"],
+          [1016,103,"2026-09-15","DEPOSIT",22000,"BRANCH"],
+          [1017,111,"2026-09-16","WITHDRAWAL",500000,"NETBANKING"],
+          [1018,120,"2026-09-18","DEPOSIT",1000,"UPI"],
+          [1019,109,"2026-09-20","DEPOSIT",4500,"UPI"],
+          [1020,114,"2026-09-22","TRANSFER",30000,"UPI"],
+          [1021,116,"2026-09-25","WITHDRAWAL",5000,"ATM"],
+          [1022,101,"2026-09-28","DEPOSIT",80000,"NETBANKING"],
+          [1023,106,"2026-09-29","DEPOSIT",null,"BRANCH"],
+          [1024,112,"2026-09-30","WITHDRAWAL",500,"ATM"]
+        ]
+      }
+    },
+    "starter": "SELECT cust_id, cust_name, segment\nFROM customers\nWHERE segment IS NULL",
+    "examples": [
+      { "label": "Find the blanks", "sql": "SELECT cust_id, cust_name, segment\nFROM customers\nWHERE segment IS NULL" },
+      { "label": "Fill the blank", "sql": "SELECT cust_id, cust_name, COALESCE(segment, 'UNKNOWN') AS segment_filled\nFROM customers" },
+      { "label": "Bands (blank falls through)", "sql": "SELECT acct_id, balance,\n       CASE WHEN balance >= 500000 THEN 'HIGH'\n            WHEN balance >= 50000  THEN 'MEDIUM'\n            ELSE 'LOW' END AS band\nFROM accounts" },
+      { "label": "Signed amount", "sql": "SELECT txn_id, txn_type, amount,\n       CASE WHEN txn_type = 'DEPOSIT' THEN amount ELSE -amount END AS signed_amount,\n       COALESCE(channel, 'OTHER') AS channel_filled\nFROM transactions" }
+    ],
+    "challenges": [
+      { "level": "Easy", "task": "Show the cust_id and cust_name of every customer whose city is blank.", "hint": "WHERE city IS NULL.", "answer": "SELECT cust_id, cust_name FROM customers WHERE city IS NULL" },
+      { "level": "Easy", "task": "For every customer show cust_id, cust_name, and the segment with blanks replaced by the text UNKNOWN.", "hint": "COALESCE(segment, 'UNKNOWN').", "answer": "SELECT cust_id, cust_name, COALESCE(segment, 'UNKNOWN') AS segment_filled FROM customers" },
+      { "level": "Medium", "task": "For every account show acct_id, balance, and a band: HIGH when balance is 500000 or more, MEDIUM when 50000 or more, otherwise LOW. A blank balance must show LOW as well.", "hint": "Three rules in a CASE, strictest first, with ELSE 'LOW'. The blank falls into ELSE on its own.", "answer": "SELECT acct_id, balance, CASE WHEN balance >= 500000 THEN 'HIGH' WHEN balance >= 50000 THEN 'MEDIUM' ELSE 'LOW' END AS band FROM accounts" },
+      { "level": "Medium", "task": "For every transaction show txn_id, the channel with blanks replaced by OTHER, and a signed amount: the amount itself for a DEPOSIT, minus the amount for anything else. A blank amount stays blank.", "hint": "COALESCE(channel, 'OTHER') and CASE WHEN txn_type = 'DEPOSIT' THEN amount ELSE -amount END.", "answer": "SELECT txn_id, COALESCE(channel, 'OTHER') AS channel_filled, CASE WHEN txn_type = 'DEPOSIT' THEN amount ELSE -amount END AS signed_amount FROM transactions" },
+      { "level": "Medium", "task": "For every customer show cust_name, age, and an age band: UNKNOWN when age is blank, YOUNG when under 30, MID when under 50, otherwise SENIOR.", "hint": "Put WHEN age IS NULL first, then the two < rules, then ELSE 'SENIOR'.", "answer": "SELECT cust_name, age, CASE WHEN age IS NULL THEN 'UNKNOWN' WHEN age < 30 THEN 'YOUNG' WHEN age < 50 THEN 'MID' ELSE 'SENIOR' END AS age_band FROM customers" },
+      { "level": "Hard", "task": "For every account that is not CLOSED, show acct_id, balance, and a label: EMPTY when the balance is blank or 0, SMALL when below 50000, otherwise LARGE.", "hint": "WHERE acct_status <> 'CLOSED'. In the CASE, test COALESCE(balance, 0) = 0 first so the blank and the zero share one rule.", "answer": "SELECT acct_id, balance, CASE WHEN COALESCE(balance, 0) = 0 THEN 'EMPTY' WHEN balance < 50000 THEN 'SMALL' ELSE 'LARGE' END AS size_label FROM accounts WHERE acct_status <> 'CLOSED'" }
+    ]
+  },
+  "quiz": [
+    { "q": "How many rows does WHERE age = NULL return?", "options": ["All rows with a blank age", "Zero rows", "All rows"], "answer": 1, "why": "A comparison with NULL is never true, so WHERE keeps nothing. Use IS NULL." },
+    { "q": "What is NULL + 10?", "options": ["10", "0", "NULL"], "answer": 2, "why": "Maths on a blank gives a blank. Fill it first with COALESCE(x, 0) if 10 is what you want." },
+    { "q": "What does COALESCE(segment, 'UNKNOWN') return for a customer whose segment is PREMIUM?", "options": ["PREMIUM", "UNKNOWN", "NULL"], "answer": 0, "why": "COALESCE only replaces blanks. Real values pass through unchanged." },
+    { "q": "In a CASE with several WHEN rules, which one decides the value?", "options": ["The last rule that passes", "The first rule that passes", "All passing rules, joined"], "answer": 1, "why": "CASE is read top to bottom and stops at the first passing rule. Order matters." },
+    { "q": "A CASE has no ELSE and no rule passes. What is the result?", "options": ["An error", "An empty text", "NULL"], "answer": 2, "why": "Without ELSE the value is NULL. Add ELSE when a blank is not what you want." },
+    { "q": "Which Snowflake function is a one-line two-way CASE?", "options": ["NVL", "IFF", "ZEROIFNULL"], "answer": 1, "why": "IFF(condition, a, b) returns a when true, b otherwise. NVL and ZEROIFNULL fill blanks." }
+  ]
+}
+</script>

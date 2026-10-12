@@ -1,0 +1,303 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>SQL: Beginner to Advanced</span><span>Module 3 · Advanced</span><span>Lesson 3.7</span></div>
+  <h1>Performance on Snowflake</h1>
+  <p class="lede">Why one query takes 1 second and another takes 10 minutes on the same data. Micro-partitions, pruning, clustering, caches and the Query Profile, in plain words.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 min</span>
+    <span class="badge">Advanced</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice: 6 questions</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain micro-partitions and pruning with the box analogy</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Rewrite a query to filter early and select only needed columns</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Read a Query Profile and spot the slow step</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Know when clustering keys, search optimization and caches help</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">Snowflake stores every table in small compressed files called micro-partitions, each with a note of the smallest and largest value of every column inside. Pruning is skipping the files whose notes prove they cannot hold what you asked for. Fast queries are queries that prune well and read few columns.</p></div>
+  </div>
+  <p>Snowflake does not have indexes like a traditional database. Instead it keeps those min/max notes (metadata) for every micro-partition, and it stores data by column, so a query that needs 3 columns reads only those 3. Most performance advice follows from those two facts.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like packing boxes so librarians open fewer of them</h2>
+  <p>The library in the sky keeps its records in thousands of sealed boxes. On every box is a label: "dates from 1 March to 10 March, amounts from 10 to 90,000". When you ask for "transactions on 15 March", a librarian reads the labels and only opens the boxes whose date range includes 15 March. That is pruning. If records were packed in random order, every box's label would say "1 January to 31 March" and every box would need opening. Packing boxes by date is clustering. And inside each box, records are stored one column at a time, so asking for two columns means picking up two thin folders instead of the whole box.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Sealed boxes with labels</b><span>In Snowflake: micro-partitions with min/max metadata per column.</span></div>
+    <div><small>In the library</small><b>Reading labels, skipping boxes</b><span>In Snowflake: partition pruning, driven by your WHERE clause.</span></div>
+    <div><small>In the library</small><b>Packing boxes by date</b><span>In Snowflake: natural load order or a clustering key.</span></div>
+  </div>
+</section>
+
+<section class="sec" id="rules" data-toc="Rules that matter">
+  <h2>The rules that matter, step by step</h2>
+  <p><b>Rule 1: filter early, on the columns the data is packed by.</b> A WHERE on <code>txn_date</code> prunes boxes. Wrapping the column in a function (<code>WHERE YEAR(txn_date) = 2026</code>) hides the value from the labels, so nothing is pruned. Write a range instead.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- prunes: compares the raw column with constants</span>
+<span class="kw">WHERE</span> txn_date &gt;= <span class="kw">DATE</span> '2026-03-01' <span class="kw">AND</span> txn_date &lt; <span class="kw">DATE</span> '2026-04-01'
+<span class="cm">-- does not prune: the column is inside a function</span>
+<span class="kw">WHERE</span> <span class="kw">TO_CHAR</span>(txn_date, 'YYYY-MM') = '2026-03'</pre></div>
+  <p><b>Rule 2: select only the columns you need.</b> <code>SELECT *</code> on a 60-column table reads 60 folders per box. Name 3 columns and it reads 3.</p>
+  <p><b>Rule 3: filter before you join, not after.</b> Joining 4.5 million rows and then keeping 9,000 is wasted work. Put the WHERE on the smaller side first, or filter inside a CTE.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">WITH</span> march_deposits <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> acct_id, channel, amount <span class="kw">FROM</span> transactions
+  <span class="kw">WHERE</span> txn_type = 'DEPOSIT' <span class="kw">AND</span> txn_date &gt;= <span class="kw">DATE</span> '2026-03-01' <span class="kw">AND</span> txn_date &lt; <span class="kw">DATE</span> '2026-04-01'
+)
+<span class="kw">SELECT</span> a.acct_type, m.channel, <span class="kw">SUM</span>(m.amount) <span class="kw">AS</span> total
+<span class="kw">FROM</span> march_deposits m <span class="kw">JOIN</span> accounts a <span class="kw">ON</span> a.acct_id = m.acct_id
+<span class="kw">GROUP BY</span> a.acct_type, m.channel;</pre></div>
+  <p><b>Rule 4: avoid row explosion.</b> A join on a non-unique key multiplies rows. If a profile shows a Join step with more rows out than in, check the key.</p>
+  <p><b>Rule 5: let the caches work.</b> Snowflake returns an identical query's result from the <b>result cache</b> for 24 hours at no compute cost, as long as the data did not change. Small text differences break it.</p>
+</section>
+
+<section class="sec" id="tools" data-toc="Snowflake tools">
+  <h2>The Snowflake tools, one table</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Tool</th><th>What it is</th><th>When to use it</th></tr></thead>
+      <tbody>
+        <tr><td><b>Query Profile</b></td><td>A picture of every step a query ran, with rows and time per step, in Snowsight under Query History</td><td>First stop for any slow query. Look for the step with the most time and for "partitions scanned / partitions total".</td></tr>
+        <tr><td><b>Clustering key</b></td><td><code>ALTER TABLE t CLUSTER BY (txn_date)</code>: Snowflake keeps boxes packed by that column</td><td>Very large tables (hundreds of GB) that are always filtered on the same column and prune badly.</td></tr>
+        <tr><td><b>Search optimization</b></td><td>A hidden lookup structure for point queries such as <code>WHERE txn_id = 1037</code></td><td>Needle-in-a-haystack filters on huge tables. Costs storage and credits.</td></tr>
+        <tr><td><b>Result cache</b></td><td>Stored results, reused for identical queries for 24 hours</td><td>Dashboards that repeat the same query; nothing to configure.</td></tr>
+        <tr><td><b>Warehouse size</b></td><td>More compute per query (XS to 6XL); each size up doubles cost per hour and roughly halves time</td><td>Big scans and sorts. It does not fix a query that scans everything by mistake.</td></tr>
+        <tr><td><b>Materialized view</b></td><td>A pre-computed, auto-refreshed result</td><td>The same expensive aggregate asked many times a day.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="sec" id="examples" data-toc="Worked examples">
+  <h2>Worked examples</h2>
+  <p><b>Example 1: reading a profile.</b> The practice table <code>query_profile</code> holds the steps of three queries. Q1 filters after the scan; Q2 pushed the same filter into the scan.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> query_id, step_name, rows_in, rows_out, ms
+<span class="kw">FROM</span> query_profile
+<span class="kw">WHERE</span> query_id <span class="kw">IN</span> ('Q1', 'Q2')
+<span class="kw">ORDER BY</span> query_id, step_order;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>query_id</th><th>step_name</th><th>rows_in</th><th>rows_out</th><th>ms</th></tr></thead>
+      <tbody>
+        <tr><td>Q1</td><td>TableScan</td><td>4500000</td><td>4500000</td><td>8200</td></tr>
+        <tr><td>Q1</td><td>Filter</td><td>4500000</td><td>120000</td><td>900</td></tr>
+        <tr><td>Q1</td><td>Aggregate</td><td>120000</td><td>4</td><td>300</td></tr>
+        <tr><td>Q2</td><td>TableScan</td><td>4500000</td><td>120000</td><td>600</td></tr>
+        <tr><td>Q2</td><td>Aggregate</td><td>120000</td><td>4</td><td>300</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Q1 spends 8.2 seconds reading all 4.5 million rows; Q2's scan keeps only 120,000 rows and takes 0.6 seconds. Same answer, 10 times faster.</p>
+
+  <p><b>Example 2: counting pruned partitions.</b> The <code>partitions</code> table is the label on every box of a big transactions table. A query for one day must open each box whose range contains that day.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT COUNT</span>(*) <span class="kw">AS</span> partitions_scanned, <span class="kw">SUM</span>(row_count) <span class="kw">AS</span> rows_scanned
+<span class="kw">FROM</span> partitions
+<span class="kw">WHERE DATE</span> '2026-02-15' <span class="kw">BETWEEN</span> min_txn_date <span class="kw">AND</span> max_txn_date;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>partitions_scanned</th><th>rows_scanned</th></tr></thead>
+      <tbody><tr><td>2</td><td>530000</td></tr></tbody>
+    </table>
+  </div>
+  <p>Only 2 of 10 boxes are opened. One of them is partition 10, a badly packed box whose label spans January to March; it gets opened for almost every query. That is what a clustering key fixes.</p>
+
+  <p><b>Example 3: the rewrite habit.</b> Before: <code>SELECT * FROM transactions t JOIN accounts a ON ... WHERE a.acct_type = 'SAVINGS'</code> and then the report drops most columns. After: name the columns, filter deposits in the WHERE, and group.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> t.channel, <span class="kw">SUM</span>(t.amount) <span class="kw">AS</span> total_deposits
+<span class="kw">FROM</span> transactions t <span class="kw">JOIN</span> accounts a <span class="kw">ON</span> a.acct_id = t.acct_id
+<span class="kw">WHERE</span> t.txn_type = 'DEPOSIT' <span class="kw">AND</span> a.acct_type = 'SAVINGS'
+<span class="kw">GROUP BY</span> t.channel;</pre></div>
+</section>
+
+<section class="sec" id="mistakes" data-toc="Common mistakes">
+  <h2>Common mistakes</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Watch out</div><p><b>Making the warehouse bigger first.</b> A query that scans every partition is still slow on a 4XL; it is just expensive and slow. Fix the filter first.</p>
+    <p><b>Clustering a small table.</b> Tables under about 1 TB rarely need a clustering key; the natural load order already prunes well. Clustering costs credits to maintain.</p>
+    <p><b>Functions on filter columns.</b> <code>UPPER(channel) = 'APP'</code> or <code>DATE_TRUNC('month', txn_date) = ...</code> block pruning. Compare the raw column.</p>
+    <p><b>ORDER BY on millions of rows you then LIMIT.</b> Sorting is expensive; filter first, sort the small result.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="snowflake" data-toc="On Snowflake">
+  <h2>On Snowflake</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">What to open on your project</div><p>Open <b>Query History</b> in Snowsight, pick a slow query and click <b>Query Profile</b>. Read three numbers first: <i>Partitions scanned</i> versus <i>Partitions total</i> (pruning), <i>Bytes spilled to local or remote storage</i> (the warehouse ran out of memory; a larger size helps here), and the step with the biggest share of time.</p>
+    <p>Useful commands: <code>SELECT SYSTEM$CLUSTERING_INFORMATION('transactions', '(txn_date)')</code> shows how well a table is packed. <code>EXPLAIN SELECT ...</code> prints the plan without running it. <code>ALTER TABLE t CLUSTER BY (txn_date)</code> adds a clustering key; <code>ALTER TABLE t ADD SEARCH OPTIMIZATION</code> adds point-lookup help.</p>
+    <p>The practice editor is DuckDB in the browser, with no micro-partitions or Query Profile. So the practice uses two small tables that stand in for them: <code>partitions</code> (box labels) and <code>query_profile</code> (profile steps). Your rewritten queries are graded on their values, so a correct rewrite returns exactly what the slow version returned.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="Practice">
+  <h2>Practice</h2>
+  <p>Tables: <code>accounts</code>, <code>transactions</code>, <code>partitions</code> and <code>query_profile</code>. Some questions ask you to rewrite a query; the grader checks that your values match. Grading compares values only.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>Open fewer boxes and fewer folders: filter early on raw columns, select only what you need, filter before you join. Read the Query Profile before changing anything. Clustering keys and search optimization are for huge tables; the result cache is free.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Micro-partition</dt><dd>A small compressed file (50 to 500 MB uncompressed) holding part of a table.</dd>
+    <dt>Metadata</dt><dd>The min/max and count notes Snowflake keeps for each column of each micro-partition.</dd>
+    <dt>Pruning</dt><dd>Skipping micro-partitions whose metadata proves they cannot match the WHERE.</dd>
+    <dt>Clustering key</dt><dd>A column list Snowflake keeps the data sorted by, to improve pruning.</dd>
+    <dt>Query Profile</dt><dd>Snowsight's step-by-step view of how a query ran.</dd>
+    <dt>Result cache</dt><dd>Stored query results reused for identical queries within 24 hours.</dd>
+    <dt>Spilling</dt><dd>Writing intermediate data to disk because memory ran out; a sign to use a larger warehouse.</dd>
+    <dt>Search optimization</dt><dd>An optional structure that speeds up equality lookups on huge tables.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#sql/3-8">3.8 SQL for data science →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "accounts": {
+        "columns": [["acct_id","NUMBER"], ["cust_id","NUMBER"], ["acct_type","VARCHAR","SAVINGS or CURRENT"], ["balance","NUMBER","in rupees"], ["opened_on","DATE"]],
+        "rows": [
+          [101,1,"SAVINGS",125000,"2024-01-20"],
+          [102,1,"CURRENT",40000,"2024-06-01"],
+          [103,2,"SAVINGS",310000,"2023-06-15"],
+          [104,3,"SAVINGS",58000,"2024-03-25"],
+          [105,4,"SAVINGS",275000,"2022-11-10"],
+          [106,4,"CURRENT",92000,"2023-02-01"],
+          [107,5,"SAVINGS",21000,"2025-02-20"],
+          [108,6,"SAVINGS",67000,"2024-09-02"],
+          [109,7,"SAVINGS",189000,"2023-01-25"],
+          [110,7,"CURRENT",150000,"2024-04-10"],
+          [111,8,"SAVINGS",15500,"2025-05-03"],
+          [112,9,"SAVINGS",83000,"2024-12-15"],
+          [113,10,"SAVINGS",240000,"2023-09-12"],
+          [114,10,"CURRENT",125000,"2024-01-08"]
+        ]
+      },
+      "transactions": {
+        "columns": [["txn_id","NUMBER"], ["acct_id","NUMBER"], ["txn_date","DATE"], ["txn_type","VARCHAR","DEPOSIT, WITHDRAWAL or TRANSFER"], ["amount","NUMBER","in rupees"], ["channel","VARCHAR","APP, BRANCH, ATM or UPI"]],
+        "rows": [
+          [1001,101,"2026-03-01","DEPOSIT",20000,"APP"],
+          [1002,101,"2026-03-03","WITHDRAWAL",5000,"ATM"],
+          [1003,101,"2026-03-08","DEPOSIT",12000,"UPI"],
+          [1004,101,"2026-03-15","WITHDRAWAL",8000,"ATM"],
+          [1005,101,"2026-03-22","DEPOSIT",30000,"BRANCH"],
+          [1006,101,"2026-03-29","WITHDRAWAL",3000,"UPI"],
+          [1007,103,"2026-03-02","DEPOSIT",50000,"BRANCH"],
+          [1008,103,"2026-03-05","WITHDRAWAL",15000,"APP"],
+          [1009,103,"2026-03-11","DEPOSIT",25000,"APP"],
+          [1010,103,"2026-03-18","TRANSFER",40000,"APP"],
+          [1011,103,"2026-03-25","DEPOSIT",60000,"BRANCH"],
+          [1012,103,"2026-03-30","WITHDRAWAL",10000,"ATM"],
+          [1013,105,"2026-03-01","DEPOSIT",45000,"APP"],
+          [1014,105,"2026-03-06","WITHDRAWAL",20000,"ATM"],
+          [1015,105,"2026-03-12","DEPOSIT",35000,"UPI"],
+          [1016,105,"2026-03-19","TRANSFER",25000,"APP"],
+          [1017,105,"2026-03-26","DEPOSIT",15000,"UPI"],
+          [1018,109,"2026-03-03","DEPOSIT",30000,"APP"],
+          [1019,109,"2026-03-09","WITHDRAWAL",12000,"ATM"],
+          [1020,109,"2026-03-14","DEPOSIT",30000,"APP"],
+          [1021,109,"2026-03-21","TRANSFER",18000,"UPI"],
+          [1022,109,"2026-03-28","DEPOSIT",22000,"BRANCH"],
+          [1023,113,"2026-03-02","DEPOSIT",80000,"BRANCH"],
+          [1024,113,"2026-03-07","WITHDRAWAL",25000,"ATM"],
+          [1025,113,"2026-03-13","DEPOSIT",10000,"UPI"],
+          [1026,113,"2026-03-20","TRANSFER",50000,"APP"],
+          [1027,113,"2026-03-27","DEPOSIT",80000,"BRANCH"],
+          [1028,102,"2026-03-04","DEPOSIT",9000,"UPI"],
+          [1029,102,"2026-03-16","WITHDRAWAL",4000,"APP"],
+          [1030,104,"2026-03-05","DEPOSIT",7000,"UPI"],
+          [1031,104,"2026-03-17","DEPOSIT",7000,"UPI"],
+          [1032,106,"2026-03-10","TRANSFER",22000,"APP"],
+          [1033,107,"2026-03-08","DEPOSIT",6000,"APP"],
+          [1034,107,"2026-03-23","WITHDRAWAL",2000,"ATM"],
+          [1035,108,"2026-03-11","DEPOSIT",14000,"BRANCH"],
+          [1036,110,"2026-03-12","TRANSFER",35000,"APP"],
+          [1037,111,"2026-03-14","DEPOSIT",5000,"UPI"],
+          [1038,112,"2026-03-15","DEPOSIT",16000,"APP"],
+          [1039,112,"2026-03-24","WITHDRAWAL",6000,"ATM"],
+          [1040,114,"2026-03-18","DEPOSIT",28000,"BRANCH"]
+        ]
+      },
+      "partitions": {
+        "columns": [["partition_id","NUMBER"], ["min_txn_date","DATE","smallest txn_date inside the partition"], ["max_txn_date","DATE","largest txn_date inside the partition"], ["row_count","NUMBER"], ["size_mb","NUMBER"]],
+        "rows": [
+          [1,"2026-01-01","2026-01-10",480000,16],
+          [2,"2026-01-11","2026-01-20",510000,16],
+          [3,"2026-01-21","2026-01-31",530000,16],
+          [4,"2026-02-01","2026-02-10",470000,16],
+          [5,"2026-02-11","2026-02-20",495000,16],
+          [6,"2026-02-21","2026-02-28",420000,14],
+          [7,"2026-03-01","2026-03-10",505000,16],
+          [8,"2026-03-11","2026-03-20",515000,16],
+          [9,"2026-03-21","2026-03-31",540000,16],
+          [10,"2026-01-05","2026-03-28",35000,2]
+        ]
+      },
+      "query_profile": {
+        "columns": [["query_id","VARCHAR"], ["step_order","NUMBER"], ["step_name","VARCHAR"], ["rows_in","NUMBER"], ["rows_out","NUMBER"], ["ms","NUMBER","milliseconds spent in the step"]],
+        "rows": [
+          ["Q1",1,"TableScan",4500000,4500000,8200],
+          ["Q1",2,"Filter",4500000,120000,900],
+          ["Q1",3,"Aggregate",120000,4,300],
+          ["Q1",4,"Result",4,4,10],
+          ["Q2",1,"TableScan",4500000,120000,600],
+          ["Q2",2,"Aggregate",120000,4,300],
+          ["Q2",3,"Result",4,4,10],
+          ["Q3",1,"TableScan",4500000,4500000,8100],
+          ["Q3",2,"Join",4500000,4500000,5400],
+          ["Q3",3,"Filter",4500000,9000,700],
+          ["Q3",4,"Result",9000,9000,40]
+        ]
+      }
+    },
+    "starter": "SELECT query_id, step_order, step_name, rows_in, rows_out, ms\nFROM query_profile\nORDER BY query_id, step_order",
+    "examples": [
+      { "label": "Profile steps", "sql": "SELECT query_id, step_order, step_name, rows_in, rows_out, ms\nFROM query_profile\nORDER BY query_id, step_order" },
+      { "label": "Boxes opened for one day", "sql": "SELECT partition_id, min_txn_date, max_txn_date, row_count\nFROM partitions\nWHERE DATE '2026-02-15' BETWEEN min_txn_date AND max_txn_date\nORDER BY partition_id" },
+      { "label": "Filter early rewrite", "sql": "SELECT t.channel, SUM(t.amount) AS total_deposits\nFROM transactions t JOIN accounts a ON a.acct_id = t.acct_id\nWHERE t.txn_type = 'DEPOSIT' AND a.acct_type = 'SAVINGS'\nGROUP BY t.channel\nORDER BY t.channel" }
+    ],
+    "challenges": [
+      { "level": "Easy", "task": "A report runs SELECT * FROM transactions and then uses only two columns of the APP channel rows. Rewrite it to read only what it needs: return txn_id and amount for transactions where channel = 'APP'.", "hint": "Name the two columns and put the channel test in WHERE.", "answer": "SELECT txn_id, amount FROM transactions WHERE channel = 'APP' ORDER BY txn_id" },
+      { "level": "Easy", "task": "Using the partitions table, list the partition_id of every partition that a query for March 2026 (2026-03-01 to 2026-03-31) would have to open, that is, every partition whose date range overlaps March.", "hint": "max_txn_date >= DATE '2026-03-01' AND min_txn_date <= DATE '2026-03-31'.", "answer": "SELECT partition_id FROM partitions WHERE max_txn_date >= DATE '2026-03-01' AND min_txn_date <= DATE '2026-03-31' ORDER BY partition_id" },
+      { "level": "Medium", "task": "For a query filtered on exactly 2026-02-15, compute how many partitions must be scanned and how many rows those partitions hold in total. Return partitions_scanned and rows_scanned (one row).", "hint": "COUNT(*) and SUM(row_count) WHERE DATE '2026-02-15' BETWEEN min_txn_date AND max_txn_date.", "answer": "SELECT COUNT(*) AS partitions_scanned, SUM(row_count) AS rows_scanned FROM partitions WHERE DATE '2026-02-15' BETWEEN min_txn_date AND max_txn_date" },
+      { "level": "Medium", "task": "From query_profile, return the slowest step of each query: query_id, step_name and ms (if two steps tie on ms, take the lower step_order).", "hint": "QUALIFY ROW_NUMBER() OVER (PARTITION BY query_id ORDER BY ms DESC, step_order) = 1.", "answer": "SELECT query_id, step_name, ms FROM query_profile QUALIFY ROW_NUMBER() OVER (PARTITION BY query_id ORDER BY ms DESC, step_order) = 1 ORDER BY query_id" },
+      { "level": "Hard", "task": "A slow query joins all transactions to accounts with SELECT *, then filters in a wrapper. Rewrite it to filter early and return only channel and the total DEPOSIT amount per channel for SAVINGS accounts. Return channel and total_deposits.", "hint": "JOIN accounts, WHERE t.txn_type = 'DEPOSIT' AND a.acct_type = 'SAVINGS', GROUP BY channel.", "answer": "SELECT t.channel, SUM(t.amount) AS total_deposits FROM transactions t JOIN accounts a ON a.acct_id = t.acct_id WHERE t.txn_type = 'DEPOSIT' AND a.acct_type = 'SAVINGS' GROUP BY t.channel ORDER BY t.channel" },
+      { "level": "Hard", "task": "Measure how badly packed the table is: for each partition, count how many OTHER partitions have a date range that overlaps its own range. Return partition_id and the overlap count (a partition with no overlaps gets 0).", "hint": "Self-join partitions p to partitions o ON o.partition_id <> p.partition_id AND o.min_txn_date <= p.max_txn_date AND o.max_txn_date >= p.min_txn_date, LEFT JOIN so zeros appear, COUNT(o.partition_id).", "answer": "SELECT p.partition_id, COUNT(o.partition_id) AS overlapping_partitions FROM partitions p LEFT JOIN partitions o ON o.partition_id <> p.partition_id AND o.min_txn_date <= p.max_txn_date AND o.max_txn_date >= p.min_txn_date GROUP BY p.partition_id ORDER BY p.partition_id" }
+    ]
+  },
+  "quiz": [
+    { "q": "What is pruning?", "options": ["Deleting old rows", "Skipping micro-partitions whose min/max metadata cannot match the WHERE", "Compressing a table"], "answer": 1, "why": "Snowflake reads each partition's labels and opens only the partitions that could hold matching rows." },
+    { "q": "Which WHERE clause prunes on txn_date?", "options": ["WHERE TO_CHAR(txn_date, 'YYYY-MM') = '2026-03'", "WHERE txn_date >= DATE '2026-03-01' AND txn_date < DATE '2026-04-01'", "Both prune equally"], "answer": 1, "why": "A function on the column hides its value from the metadata. A plain range on the raw column can be checked against min and max." },
+    { "q": "Why does SELECT * cost more than naming three columns?", "options": ["It does not", "Data is stored by column, so every extra column is extra data read", "It uses a bigger warehouse"], "answer": 1, "why": "Columnar storage means the engine reads only the columns you ask for. SELECT * asks for all of them." },
+    { "q": "What is the first thing to open for a slow query?", "options": ["The warehouse size menu", "The Query Profile", "ALTER TABLE ... CLUSTER BY"], "answer": 1, "why": "The profile shows which step is slow, how many partitions were scanned and whether data spilled. Fix what it shows." },
+    { "q": "When does the result cache return an answer for free?", "options": ["Always", "When the exact same query text runs again within 24 hours and the data did not change", "Only for SELECT *"], "answer": 1, "why": "The result cache matches query text and data version. Any change to either means a fresh run." },
+    { "q": "Which table usually benefits from a clustering key?", "options": ["Any table", "A very large table that is always filtered on the same column and prunes badly", "A table with fewer than 1,000 rows"], "answer": 1, "why": "Clustering costs credits to maintain and only pays off when a huge table is queried on a column it is not naturally sorted by." }
+  ]
+}
+</script>

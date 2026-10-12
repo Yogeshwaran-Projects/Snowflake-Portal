@@ -1,0 +1,352 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Cortex Masterclass</span><span>Module 2 · AI SQL functions</span><span>Lesson 2.2</span></div>
+  <h1>Classify, filter and sentiment</h1>
+  <p class="lede">Three task functions that turn free text into columns you can count: AI_CLASSIFY sorts, AI_FILTER answers yes or no, AI_SENTIMENT reads the mood, overall and per topic.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 min</span>
+    <span class="badge">Intermediate</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>2 simulators + lab + project step P2</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Classify text with AI_CLASSIFY using labels, descriptions, a task description and multi-label mode</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Use AI_FILTER with PROMPT() in SELECT and WHERE</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Read overall and aspect sentiment from AI_SENTIMENT</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Build the COMPLAINTS.ENRICHED table with CATEGORY, SENTIMENT and IS_URGENT</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+<div class="callout def">
+  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+  <div><div class="label">Key definition</div><p class="big">AI_CLASSIFY puts text into categories you name. AI_FILTER returns TRUE or FALSE for a yes/no question about text. AI_SENTIMENT returns the mood of text (positive, negative, neutral, mixed or unknown) overall and for up to ten aspects you list.</p></div>
+</div>
+<p>All three use a Snowflake-managed model, so you do not pick one, and each already contains a tuned prompt. You give the labels, the question or the aspects. They are cheaper to get right than <code>AI_COMPLETE</code> and their output shape is fixed, which makes them ideal for nightly pipelines.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a mail room</h2>
+<p>Picture the bank’s mail room. One clerk drops each letter into one of six labelled trays (classify). A second clerk stamps a red URGENT mark on letters that mention fraud or lost money (filter). A third reads each letter and puts a smiley, a frown or a straight face sticker on it, and separate stickers for “fees”, “staff” and “app” if those are mentioned (sentiment with aspects).</p>
+<div class="map">
+  <div><small>In the library</small><b>Labelled trays</b><span>In Snowflake: AI_CLASSIFY with your list of categories</span></div>
+  <div><small>In the library</small><b>Red URGENT stamp</b><span>In Snowflake: AI_FILTER returning TRUE or FALSE</span></div>
+  <div><small>In the library</small><b>Mood stickers</b><span>In Snowflake: AI_SENTIMENT, overall plus up to ten aspects</span></div>
+</div>
+</section>
+
+<section class="sec" id="classify" data-toc="AI_CLASSIFY">
+  <h2>AI_CLASSIFY in depth</h2>
+<div class="code"><button class="copy" type="button">Copy</button><pre>AI_CLASSIFY( &lt;input&gt;, &lt;list_of_categories&gt; [, &lt;config_object&gt;] [, &lt;return_error_details&gt;] )
+-- returns {"labels": ["..."]}</pre></div>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Part</th><th>Rules from the docs</th></tr></thead>
+    <tbody>
+      <tr><td><b>Categories</b></td><td>At least two unique values. Plain strings, or objects with <code>label</code> and an optional <code>description</code> of up to 25 words. More than about 20 categories can reduce accuracy. Labels are case sensitive.</td></tr>
+      <tr><td><code>task_description</code></td><td>Up to 50 words explaining the job. Helps when the link between text and labels is not obvious.</td></tr>
+      <tr><td><code>output_mode</code></td><td><code>'single'</code> (default, exactly one label) or <code>'multi'</code> (one or more labels).</td></tr>
+      <tr><td><code>examples</code></td><td>Few-shot list: each has <code>input</code>, <code>labels</code> and <code>explanation</code>.</td></tr>
+      <tr><td><b>Cost</b></td><td>Labels, descriptions and examples are input tokens on every row, not once per query.</td></tr>
+      <tr><td><b>Best results</b></td><td>English text and labels, descriptive labels (not “cat1”), mutually exclusive categories.</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- Multi-label: a late fee on a card can be both topics</span>
+<span class="kw">SELECT</span> AI_CLASSIFY(
+  'I paid my credit card bill on time but you charged a late payment fee.',
+  ['Fees and charges', 'Card issues', 'Fraud'],
+  {'output_mode': 'multi'}):labels <span class="kw">AS</span> LABELS;
+<span class="cm">-- ['Fees and charges', 'Card issues']</span></pre></div>
+</section>
+
+<section class="sec" id="filter" data-toc="AI_FILTER">
+  <h2>AI_FILTER in depth</h2>
+<p><code>AI_FILTER</code> returns a BOOLEAN, so it works anywhere SQL expects TRUE or FALSE: in <code>WHERE</code>, in <code>CASE</code>, or as a column. Use <code>PROMPT()</code> to place the row text inside a clear question.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- As a WHERE clause: keep only refund requests</span>
+<span class="kw">SELECT</span> COMPLAINT_ID, COMPLAINT_TEXT
+<span class="kw">FROM</span> BANK_AI.COMPLAINTS.RAW_COMPLAINTS
+<span class="kw">WHERE</span> AI_FILTER(PROMPT('Is the customer asking for money back in this complaint? {0}', COMPLAINT_TEXT));
+
+<span class="cm">-- As a column you can count</span>
+<span class="kw">SELECT</span> PRODUCT,
+       COUNT_IF(AI_FILTER(PROMPT('Does this complaint mention a fee or charge? {0}', COMPLAINT_TEXT))) <span class="kw">AS</span> FEE_MENTIONS
+<span class="kw">FROM</span> BANK_AI.COMPLAINTS.RAW_COMPLAINTS
+<span class="kw">GROUP</span> <span class="kw">BY</span> PRODUCT;</pre></div>
+<div class="callout note">
+  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+  <div><div class="label">Write the question well</div><p>The docs advise plain English, a question form and details: not “sounds angry” but “In the following bank complaint, does the customer threaten to close the account?”. Also keep NULLs out of the column you pass in.</p></div>
+</div>
+</section>
+
+<section class="sec" id="sentiment" data-toc="AI_SENTIMENT">
+  <h2>AI_SENTIMENT in depth</h2>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Feature</th><th>Detail</th></tr></thead>
+    <tbody>
+      <tr><td><b>Output</b></td><td>Object with a <code>categories</code> array. Each item has <code>name</code> and <code>sentiment</code>. The <code>overall</code> item is always included and comes first.</td></tr>
+      <tr><td><b>Labels</b></td><td><code>positive</code>, <code>negative</code>, <code>neutral</code>, <code>mixed</code> and, for aspects not mentioned, <code>unknown</code>.</td></tr>
+      <tr><td><b>Aspects</b></td><td>Up to 10 names, each up to 30 characters, for example <code>['fees', 'staff', 'app']</code>.</td></tr>
+      <tr><td><b>Languages</b></td><td>English, French, German, Hindi, Italian, Spanish and Portuguese.</td></tr>
+      <tr><td><b>Size</b></td><td>Optimised for inputs up to 2,048 tokens (about 1,600 words).</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> AI_SENTIMENT(
+  'The branch staff were very kind but the minimum balance charge of Rs 590 is unfair.',
+  ['staff', 'fees', 'app']) <span class="kw">AS</span> S;
+<span class="cm">-- {"categories":[{"name":"overall","sentiment":"mixed"},</span>
+<span class="cm">--   {"name":"staff","sentiment":"positive"},{"name":"fees","sentiment":"negative"},</span>
+<span class="cm">--   {"name":"app","sentiment":"unknown"}]}</span></pre></div>
+<div class="callout note">
+  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+  <div><div class="label">Old function, different answer</div><p>SNOWFLAKE.CORTEX.SENTIMENT returns a number from -1 to 1. AI_SENTIMENT returns labels. Do not mix them in one report.</p></div>
+</div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+<p>A bank’s complaints head wants three things on Monday morning: how many complaints per topic, how angry customers are per product, and a list of urgent cases that must be called back today. That is exactly one AI_CLASSIFY, one AI_SENTIMENT and one AI_FILTER per row. The urgent list is not left to the model alone: the team also checks every TRUE row by hand for the first month and tracks how many were really urgent (precision) and how many urgent cases the filter missed (recall).</p>
+</section>
+
+<section class="sec" id="sim" data-toc="Simulators">
+  <h2>Simulators: three functions, then the project table</h2>
+<div data-simulator="cortex-2-2-functions"></div>
+<div data-simulator="cortex-2-2-enriched"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+<p>The <code>enriched</code> table is what P2 builds: the 60 complaints with <code>category</code> (from AI_CLASSIFY), <code>sentiment</code> (from AI_SENTIMENT) and <code>is_urgent</code> (from AI_FILTER, 1 = TRUE), all pre-computed. Answer the questions the complaints head asks on Monday.</p>
+<div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: try each function on your data</h2>
+<div class="panel">
+  <div class="panel-head">
+    <h3>One function at a time</h3>
+    <div class="meta"><span>About 15 min</span><span>Uses BANK_AI from P1</span></div>
+  </div>
+  <ol class="steps">
+    <li><div>
+      <p>Classify ten complaints with plain labels, then with descriptions. Compare.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> COMPLAINT_ID,
+  AI_CLASSIFY(COMPLAINT_TEXT, ['Fees and charges','Card issues','Loan servicing','App and UPI','Customer service','Fraud']):labels[0]::<span class="kw">STRING</span> <span class="kw">AS</span> PLAIN_LABEL
+<span class="kw">FROM</span> BANK_AI.COMPLAINTS.RAW_COMPLAINTS <span class="kw">WHERE</span> COMPLAINT_ID BETWEEN 1 <span class="kw">AND</span> 10 <span class="kw">ORDER</span> <span class="kw">BY</span> COMPLAINT_ID;</pre></div>
+<p class="expect">Expected: one label per row; ids 5 and 13 should be Fraud.</p>
+      <label><input type="checkbox"> Done</label>
+    </div></li>
+    <li><div>
+      <p>Find refund requests with AI_FILTER in WHERE (the first query in the AI_FILTER section).</p>
+<p class="expect">Expected: rows such as 2, 7, 16 and 43 where the customer wants money back.</p>
+      <label><input type="checkbox"> Done</label>
+    </div></li>
+    <li><div>
+      <p>Read aspect sentiment for fee complaints.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> COMPLAINT_ID, AI_SENTIMENT(COMPLAINT_TEXT, ['fees', 'staff', 'app']) <span class="kw">AS</span> S
+<span class="kw">FROM</span> BANK_AI.COMPLAINTS.RAW_COMPLAINTS <span class="kw">WHERE</span> COMPLAINT_ID <span class="kw">IN</span> (1, 8, 22);</pre></div>
+<p class="expect">Expected: <code>fees</code> negative for 1 and 8; <code>staff</code> or overall negative for 22, and <code>unknown</code> where an aspect is not mentioned.</p>
+      <label><input type="checkbox"> Done</label>
+    </div></li>
+  </ol>
+</div>
+</section>
+
+<section class="sec" id="project" data-toc="Project step P2">
+  <h2>Project step P2: Classify and score sentiment</h2>
+<div class="callout project">
+  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21V4h12l-2 4 2 4H4"/></svg>
+  <div><div class="label">Complaint Intelligence · P2</div><p>We create <code>BANK_AI.COMPLAINTS.ENRICHED</code>: every column of RAW_COMPLAINTS plus <code>CATEGORY</code> (VARCHAR, one of six labels), <code>SENTIMENT</code> (VARCHAR, overall label) and <code>IS_URGENT</code> (BOOLEAN). P3 adds more columns to this same table.</p></div>
+</div>
+<p><b>1. Build the table.</b> One statement, three AI calls per row, 60 rows: a few thousand tokens in total.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE</span> <span class="kw">WAREHOUSE</span> LEARN_WH;
+<span class="kw">USE</span> <span class="kw">SCHEMA</span> BANK_AI.COMPLAINTS;
+
+<span class="kw">CREATE</span> <span class="kw">OR</span> <span class="kw">REPLACE</span> <span class="kw">TABLE</span> BANK_AI.COMPLAINTS.ENRICHED <span class="kw">AS</span>
+<span class="kw">SELECT</span> r.COMPLAINT_ID, r.CUSTOMER_ID, r.PRODUCT, r.CHANNEL, r.SUBMITTED_AT, r.COMPLAINT_TEXT,
+       <span class="cm">-- 1. Topic: one label from six, with short descriptions to remove doubt</span>
+       AI_CLASSIFY(r.COMPLAINT_TEXT, [
+         {'label': 'Fees and charges', 'description': 'annual fees, penalties, GST, processing, foreclosure or minimum balance charges'},
+         {'label': 'Card issues',      'description': 'card limits, PIN, delivery, blocking by the bank, rewards, contactless or EMI conversion'},
+         {'label': 'Loan servicing',   'description': 'EMIs, interest rates, statements, certificates, closure documents or recovery calls'},
+         {'label': 'App and UPI',      'description': 'mobile app, login, UPI payments, transfers and recharges'},
+         {'label': 'Customer service', 'description': 'staff behaviour, waiting time, branch or call centre requests, account updates'},
+         {'label': 'Fraud',            'description': 'transactions or loans the customer did not make, scams, stolen money'}
+       ], {'task_description': 'Classify a retail bank customer complaint by its main topic'}
+       ):labels[0]::<span class="kw">STRING</span> <span class="kw">AS</span> CATEGORY,
+       <span class="cm">-- 2. Overall mood: positive, negative, neutral or mixed</span>
+       AI_SENTIMENT(r.COMPLAINT_TEXT):categories[0]:sentiment::<span class="kw">STRING</span> <span class="kw">AS</span> SENTIMENT,
+       <span class="cm">-- 3. Urgent: fraud, money lost or blocked access</span>
+       AI_FILTER(PROMPT('In this bank complaint, does the customer report fraud or a scam, money lost or debited without the service, or being blocked from their account, card or app? Complaint: {0}', r.COMPLAINT_TEXT)) <span class="kw">AS</span> IS_URGENT
+<span class="kw">FROM</span> BANK_AI.COMPLAINTS.RAW_COMPLAINTS r;</pre></div>
+<p><b>2. Check it.</b></p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> CATEGORY, <span class="kw">COUNT</span>(*) <span class="kw">AS</span> COMPLAINTS,
+       COUNT_IF(IS_URGENT) <span class="kw">AS</span> URGENT,
+       COUNT_IF(SENTIMENT = 'negative') <span class="kw">AS</span> NEGATIVE
+<span class="kw">FROM</span> BANK_AI.COMPLAINTS.ENRICHED
+<span class="kw">GROUP</span> <span class="kw">BY</span> CATEGORY
+<span class="kw">ORDER</span> <span class="kw">BY</span> COMPLAINTS <span class="kw">DESC</span>;</pre></div>
+<p class="expect">Expected: six categories adding to 60, with App and UPI and Loan servicing the largest, and most Fraud rows urgent. Your exact counts may differ by one or two from the worksheet: that is normal for AI labels. Read every row where CATEGORY looks wrong.</p>
+<p><b>3. Note for P3.</b> AI_CLASSIFY works best on English. Rows 20, 32, 51 and 59 are Hindi or Hinglish; after P3 adds <code>TEXT_EN</code> you can re-run the classification on the English text for those rows.</p>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+<div class="callout key">
+  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+  <div><div class="label">Remember</div><p>Use the task functions before AI_COMPLETE: AI_CLASSIFY for topics, AI_FILTER for yes/no questions, AI_SENTIMENT for mood. Clear labels, descriptions and questions matter more than anything else, and every label is billed on every row.</p></div>
+</div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+<dl class="glossary">
+  <dt>AI_CLASSIFY</dt><dd>Sorts text, images or documents into the categories you list. Returns {"labels": [...]}.</dd>
+  <dt>Multi-label</dt><dd>output_mode multi: a row may get more than one label.</dd>
+  <dt>AI_FILTER</dt><dd>Returns TRUE or FALSE for a natural-language condition. Usable in WHERE.</dd>
+  <dt>AI_SENTIMENT</dt><dd>Returns mood labels overall and for up to ten aspects.</dd>
+  <dt>Aspect</dt><dd>A topic inside the text you want a separate mood for, such as fees or staff.</dd>
+  <dt>COUNT_IF</dt><dd>Snowflake function that counts rows where a condition is TRUE.</dd>
+  <dt>Precision / recall</dt><dd>Share of flagged rows that are really urgent / share of urgent rows that were flagged.</dd>
+  <dt>ENRICHED</dt><dd>Project table: raw complaints plus AI columns.</dd>
+</dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#cortex/2-3">2.3 Extract, summarise and translate →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "enriched": {
+        "columns": [
+          ["complaint_id","NUMBER"],
+          ["product","VARCHAR"],
+          ["channel","VARCHAR"],
+          ["complaint_text","VARCHAR"],
+          ["category","VARCHAR","pre-computed by AI_CLASSIFY"],
+          ["sentiment","VARCHAR","pre-computed by AI_SENTIMENT"],
+          ["is_urgent","NUMBER","AI_FILTER result: 1 = TRUE, 0 = FALSE"]
+        ],
+        "rows": [
+          [1,"CREDIT_CARD","APP","I was charged an annual fee of Rs 2,999 on my credit card even though the sales agent promised it would be lifetime free. Please reverse this fee.","Fees and charges","negative",0],
+          [2,"UPI","APP","My UPI payment of Rs 4,500 to a merchant failed but the money was debited from my savings account. It has been 5 days and there is no refund yet.","App and UPI","negative",1],
+          [3,"HOME_LOAN","EMAIL","I requested a certificate of interest paid on my home loan for income tax filing three weeks ago. Still waiting. Very slow service.","Loan servicing","negative",0],
+          [4,"MOBILE_APP","APP","The new app update is excellent. Login with fingerprint is quick and the spending charts are really useful. Thank you!","App and UPI","positive",0],
+          [5,"CREDIT_CARD","CALL_CENTER","I got an SMS for a transaction of Rs 18,750 at an online electronics store that I never made. My card is with me. Please block the card immediately.","Fraud","negative",1],
+          [6,"SAVINGS","BRANCH","The branch staff in Andheri were very patient and helped my elderly father update his KYC in ten minutes. Great experience.","Customer service","positive",0],
+          [7,"PERSONAL_LOAN","EMAIL","My personal loan EMI was debited twice this month, Rs 12,400 each time. Please refund the extra EMI.","Loan servicing","negative",1],
+          [8,"SAVINGS","APP","Why is there a charge of Rs 590 for not maintaining minimum balance? I was never informed that the minimum balance went up to Rs 10,000.","Fees and charges","negative",0],
+          [9,"UPI","APP","UPI is not working since morning. Every payment shows bank server down. I could not even pay my milk vendor.","App and UPI","negative",0],
+          [10,"CREDIT_CARD","APP","My credit card limit was reduced from Rs 1,50,000 to Rs 60,000 without any notice. It is embarrassing when my card gets declined at shops.","Card issues","negative",0],
+          [11,"HOME_LOAN","BRANCH","Thank you for processing my home loan top-up so quickly. The relationship manager explained every charge clearly.","Loan servicing","positive",0],
+          [12,"MOBILE_APP","APP","The app keeps logging me out every two minutes. I tried reinstalling but the problem continues. Very frustrating.","App and UPI","negative",0],
+          [13,"SAVINGS","CALL_CENTER","Someone called pretending to be from the bank and I shared an OTP. Rs 35,000 has been transferred out of my savings account. Please help urgently.","Fraud","negative",1],
+          [14,"CREDIT_CARD","EMAIL","I paid my credit card bill of Rs 22,310 on the due date but you have charged a late payment fee of Rs 1,200 plus interest. Please check your records.","Fees and charges","negative",0],
+          [15,"PERSONAL_LOAN","APP","Personal loan approved within 10 minutes in the app. Smooth process, and the interest rate was exactly as quoted.","Loan servicing","positive",0],
+          [16,"UPI","APP","I sent Rs 2,000 by UPI to a wrong UPI ID by mistake. How do I get the money back? The other person is not responding.","App and UPI","negative",1],
+          [17,"CREDIT_CARD","BRANCH","My new credit card was delivered but the PIN never arrived. I have visited the branch twice already.","Card issues","negative",0],
+          [18,"SAVINGS","EMAIL","Please update my registered mobile number. I submitted the form at the branch on 2 September and nothing has happened.","Customer service","neutral",0],
+          [19,"HOME_LOAN","CALL_CENTER","My home loan interest rate was not reduced even though the repo rate came down in August. Other banks have passed on the cut.","Loan servicing","negative",0],
+          [20,"MOBILE_APP","APP","मेरे खाते से 1,500 रुपये कट गए लेकिन मोबाइल रिचार्ज नहीं हुआ। कृपया पैसे वापस करें।","App and UPI","negative",1],
+          [21,"CREDIT_CARD","APP","Reward points on my credit card expired without any reminder. I lost almost 8,000 points.","Card issues","negative",0],
+          [22,"SAVINGS","BRANCH","Waited 50 minutes at the branch just to deposit a cheque. Only one counter was open.","Customer service","negative",0],
+          [23,"PERSONAL_LOAN","CALL_CENTER","Recovery agents are calling me at 10 PM about an EMI that I already paid. This is harassment.","Loan servicing","negative",0],
+          [24,"UPI","APP","UPI payments are fast and I have never had a failure in two years. Keep it up.","App and UPI","positive",0],
+          [25,"CREDIT_CARD","EMAIL","There are three international transactions in US dollars on my card statement from last night. I have never travelled abroad. Block my card now.","Fraud","negative",1],
+          [26,"HOME_LOAN","EMAIL","I want to prepay Rs 5,00,000 of my home loan. Please confirm whether there is any prepayment charge.","Loan servicing","neutral",0],
+          [27,"SAVINGS","APP","A debit card annual maintenance charge of Rs 799 was deducted. Nobody told me about this charge when I opened the account.","Fees and charges","negative",0],
+          [28,"MOBILE_APP","APP","I cannot log in after the update. It says device not registered and the OTP never comes.","App and UPI","negative",1],
+          [29,"CREDIT_CARD","CALL_CENTER","The call centre agent was rude and disconnected the call when I asked about my card replacement.","Customer service","negative",0],
+          [30,"PERSONAL_LOAN","EMAIL","I closed my personal loan in July but the no objection certificate has not been issued. My credit report still shows the loan as active.","Loan servicing","negative",0],
+          [31,"SAVINGS","BRANCH","My fixed deposit renewal was done smoothly and the branch manager explained the new rates. Happy with the service.","Customer service","positive",0],
+          [32,"UPI","APP","Bhai UPI se 750 rupaye bheje, paise kat gaye par dukaandaar ko mile hi nahi. Refund kab aayega?","App and UPI","negative",1],
+          [33,"CREDIT_CARD","APP","My card was blocked after three wrong PIN attempts while I was travelling in Goa. I could not pay my hotel bill.","Card issues","negative",1],
+          [34,"HOME_LOAN","BRANCH","The property documents for my closed home loan are still not returned after 45 days. I need them to sell the flat.","Loan servicing","negative",0],
+          [35,"MOBILE_APP","APP","Please add a dark mode to the app. Otherwise the app works well.","App and UPI","neutral",0],
+          [36,"SAVINGS","CALL_CENTER","My account has been frozen without any reason and I cannot withdraw money for my rent. The branch says it is a KYC issue but I updated KYC last month.","Customer service","negative",1],
+          [37,"CREDIT_CARD","EMAIL","GST of Rs 216 was charged on a fee that you already reversed. Please reverse the GST also.","Fees and charges","negative",0],
+          [38,"PERSONAL_LOAN","APP","A processing fee of 2.5 percent was deducted from my loan amount but the app showed 1 percent when I applied.","Fees and charges","negative",0],
+          [39,"UPI","APP","I received a UPI collect request for Rs 9,999 saying I had won a prize. I almost approved it. Please warn customers about this scam.","Fraud","negative",1],
+          [40,"SAVINGS","APP","The interest credited on my savings account looks lower than the 3.5 percent advertised. Can someone explain the calculation?","Customer service","neutral",0],
+          [41,"CREDIT_CARD","BRANCH","I applied for a new credit card three weeks ago and there is no update. Nobody at the branch knows the status.","Card issues","negative",0],
+          [42,"HOME_LOAN","CALL_CENTER","The EMI for my home loan went up by Rs 3,200 without any letter or SMS. I want an explanation.","Loan servicing","negative",0],
+          [43,"MOBILE_APP","APP","A fund transfer of Rs 25,000 to my mother is stuck on processing in the app. It is neither successful nor refunded.","App and UPI","negative",1],
+          [44,"SAVINGS","EMAIL","I am very happy with the zero balance salary account. The doorstep banking service for my mother is a big help.","Customer service","positive",0],
+          [45,"CREDIT_CARD","APP","EMI conversion on my credit card purchase of Rs 45,000 was not done even though I requested it before the statement date.","Card issues","negative",0],
+          [46,"PERSONAL_LOAN","CALL_CENTER","I never applied for a personal loan but my credit report shows a loan of Rs 2,00,000 from your bank. Someone has used my PAN.","Fraud","negative",1],
+          [47,"UPI","APP","My UPI Lite balance of Rs 1,200 disappeared after I changed my phone.","App and UPI","negative",1],
+          [48,"SAVINGS","BRANCH","The cheque book I requested 20 days ago has not arrived. The branch says it was dispatched but the courier has no record.","Customer service","negative",0],
+          [49,"HOME_LOAN","APP","The home loan section of the app shows the wrong outstanding balance, about Rs 40,000 more than my statement.","Loan servicing","negative",0],
+          [50,"CREDIT_CARD","CALL_CENTER","Thank you to the fraud team who called me within a minute of a suspicious transaction and blocked it. Excellent service.","Fraud","positive",0],
+          [51,"MOBILE_APP","APP","ऐप में हिंदी भाषा का विकल्प अच्छा है, लेकिन स्टेटमेंट डाउनलोड करते समय ऐप बंद हो जाता है।","App and UPI","mixed",0],
+          [52,"SAVINGS","CALL_CENTER","I have called customer care five times about a wrong ATM withdrawal charge of Rs 23. Each agent gives a different answer.","Fees and charges","negative",0],
+          [53,"PERSONAL_LOAN","EMAIL","Foreclosure charges of 4 percent are too high. The agreement says 2 percent. Please correct the foreclosure statement.","Fees and charges","negative",0],
+          [54,"CREDIT_CARD","APP","Contactless payment on my credit card is not working at any shop since last week. Chip and PIN works.","Card issues","negative",0],
+          [55,"UPI","APP","I am unable to set my UPI PIN because the app says my debit card details are invalid, but the card works at ATMs.","App and UPI","negative",1],
+          [56,"HOME_LOAN","EMAIL","Good support from the loan team during the balance transfer. The paperwork was simple.","Loan servicing","positive",0],
+          [57,"SAVINGS","APP","An SMS alert charge of Rs 15 per quarter is unfair when most alerts are about offers.","Fees and charges","negative",0],
+          [58,"CREDIT_CARD","EMAIL","My credit card was used at an ATM in Kolkata while I was in Pune. Rs 40,000 was withdrawn. Please refund and block the card.","Fraud","negative",1],
+          [59,"MOBILE_APP","CALL_CENTER","Aapka app bahut slow hai, balance check karne mein bhi ek minute lagta hai.","App and UPI","negative",0],
+          [60,"PERSONAL_LOAN","BRANCH","Branch staff helped me restructure my personal loan after I lost my job. The lower EMI has given my family breathing space. Grateful.","Loan servicing","positive",0]
+        ]
+      }
+    },
+    "starter": "SELECT category, COUNT(*) AS complaints, SUM(is_urgent) AS urgent\nFROM enriched\nGROUP BY category\nORDER BY complaints DESC, category",
+    "examples": [
+      {"label":"Urgent list","sql":"SELECT complaint_id, product, category, complaint_text\nFROM enriched\nWHERE is_urgent = 1\nORDER BY complaint_id"},
+      {"label":"Mood by product","sql":"SELECT product, sentiment, COUNT(*) AS complaints\nFROM enriched\nGROUP BY product, sentiment\nORDER BY product, sentiment"},
+      {"label":"Praise","sql":"SELECT complaint_id, category, complaint_text\nFROM enriched\nWHERE sentiment = 'positive'\nORDER BY complaint_id"}
+    ],
+    "challenges": [
+      {"task":"How many urgent complaints does each category have? Show only categories with at least one urgent complaint, sorted by category.","hint":"WHERE is_urgent = 1, GROUP BY category, ORDER BY category.","answer":"SELECT category, COUNT(*) FROM enriched WHERE is_urgent = 1 GROUP BY category ORDER BY category"},
+      {"task":"Which channel has the most negative complaints? Show channel and the count of negative rows, biggest first.","hint":"WHERE sentiment = 'negative' then GROUP BY channel ORDER BY the count DESC.","answer":"SELECT channel, COUNT(*) AS negatives FROM enriched WHERE sentiment = 'negative' GROUP BY channel ORDER BY negatives DESC"},
+      {"task":"For each product, what share of complaints is negative? Show product and ROUND(100.0 * negatives / total, 1) as pct_negative, sorted by product.","hint":"SUM(CASE WHEN sentiment = 'negative' THEN 1 ELSE 0 END) divided by COUNT(*).","answer":"SELECT product, ROUND(100.0 * SUM(CASE WHEN sentiment = 'negative' THEN 1 ELSE 0 END) / COUNT(*), 1) AS pct_negative FROM enriched GROUP BY product ORDER BY product"}
+    ]
+  },
+  "quiz": [
+    {"q":"What does AI_CLASSIFY return?","options":["A string with the label","An object with a labels array","A number from 0 to 1"],"answer":1,"why":"It returns an object whose labels field is an array; take labels[0] for single-label mode."},
+    {"q":"How do you let one complaint have two topics?","options":["Pass {'output_mode': 'multi'}","Call AI_CLASSIFY twice","Use temperature 1"],"answer":0,"why":"output_mode multi enables multi-label classification. The default is single."},
+    {"q":"Where can AI_FILTER be used?","options":["Only in SELECT","Anywhere a BOOLEAN fits, such as WHERE or CASE","Only inside AI_COMPLETE"],"answer":1,"why":"AI_FILTER returns TRUE or FALSE, so it works in WHERE, CASE, COUNT_IF and as a column."},
+    {"q":"AI_SENTIMENT returns unknown for the aspect app. What does that mean?","options":["The model failed","The text does not mention the app","The app is neutral"],"answer":1,"why":"unknown means the category was not mentioned in the text."},
+    {"q":"You add 25-word descriptions to six labels. What happens to cost?","options":["Nothing","Input tokens rise on every row","Cost halves"],"answer":1,"why":"Labels, descriptions and examples are counted as input tokens for each record processed."},
+    {"q":"Which language list matches AI_SENTIMENT?","options":["English only","English, French, German, Hindi, Italian, Spanish and Portuguese","Any language"],"answer":1,"why":"The docs list those seven languages, so Hindi complaints can be scored directly."}
+  ],
+  "simulators": [
+    {
+      "id": "cortex-2-2-functions", "title": "Classify, filter and sentiment on real complaints", "tool": "cortex",
+      "intro": "BANK_AI.COMPLAINTS.RAW_COMPLAINTS from P1, warehouse LEARN_WH.",
+      "steps": [
+        {"prompt":"SELECT COMPLAINT_ID, AI_CLASSIFY(COMPLAINT_TEXT, ['Fees and charges','Card issues','Loan servicing','App and UPI','Customer service','Fraud']):labels[0]::STRING AS CATEGORY FROM BANK_AI.COMPLAINTS.RAW_COMPLAINTS WHERE COMPLAINT_ID IN (1, 5, 7, 22);","say":"One label per row, always from your list.","output":{"columns":["COMPLAINT_ID","CATEGORY"],"rows":[[1,"Fees and charges"],[5,"Fraud"],[7,"Loan servicing"],[22,"Customer service"]]},"check":["Every value is exactly one of the six labels","Read the text of any row that surprises you"]},
+        {"prompt":"SELECT AI_CLASSIFY('I paid my credit card bill on time but you charged a late payment fee.', ['Fees and charges','Card issues','Fraud'], {'output_mode': 'multi'});","say":"Multi-label mode allowed two labels because the complaint is about both.","outputText":"{ \"labels\": [\"Fees and charges\", \"Card issues\"] }","check":["Use multi only when a report can handle several topics per row"]},
+        {"prompt":"SELECT COMPLAINT_ID FROM BANK_AI.COMPLAINTS.RAW_COMPLAINTS WHERE AI_FILTER(PROMPT('Does the customer report fraud or a scam? {0}', COMPLAINT_TEXT)) ORDER BY 1;","say":"AI_FILTER answered yes or no for each row and WHERE kept the yes rows.","output":{"columns":["COMPLAINT_ID"],"rows":[[5],[13],[25],[39],[46],[50],[58]]},"check":["50 is praise for the fraud team: a correct TRUE for the question asked, but not urgent. Word questions carefully"]},
+        {"prompt":"SELECT AI_SENTIMENT(COMPLAINT_TEXT, ['fees','staff','app']) FROM BANK_AI.COMPLAINTS.RAW_COMPLAINTS WHERE COMPLAINT_ID = 51;","say":"Hindi text, scored directly. The overall mood is mixed: praise for the Hindi option, a complaint about crashes.","outputText":"{\"categories\":[{\"name\":\"overall\",\"sentiment\":\"mixed\"},{\"name\":\"fees\",\"sentiment\":\"unknown\"},{\"name\":\"staff\",\"sentiment\":\"unknown\"},{\"name\":\"app\",\"sentiment\":\"mixed\"}]}","check":["overall always comes first","Aspects can be named in English even for Hindi text"]}
+      ]
+    },
+    {
+      "id": "cortex-2-2-enriched", "title": "Project P2: build ENRICHED", "tool": "cortex",
+      "intro": "Run the P2 script from this lesson.",
+      "steps": [
+        {"prompt":"CREATE OR REPLACE TABLE BANK_AI.COMPLAINTS.ENRICHED AS SELECT ... AI_CLASSIFY ... AI_SENTIMENT ... AI_FILTER ... FROM RAW_COMPLAINTS r;","say":"Snowflake ran three AI calls for each of the 60 rows and stored the results as normal columns.","outputText":"Table ENRICHED successfully created.","check":["The table has 9 columns: 6 from RAW plus CATEGORY, SENTIMENT, IS_URGENT"]},
+        {"prompt":"SELECT CATEGORY, COUNT(*) AS COMPLAINTS, COUNT_IF(IS_URGENT) AS URGENT FROM BANK_AI.COMPLAINTS.ENRICHED GROUP BY CATEGORY ORDER BY COMPLAINTS DESC;","say":"Now the AI output is ordinary data. This query uses no AI and costs only warehouse time.","output":{"columns":["CATEGORY","COMPLAINTS","URGENT"],"rows":[["App and UPI",15,8],["Loan servicing",13,1],["Customer service",9,1],["Fees and charges",9,0],["Card issues",7,1],["Fraud",7,6]]},"check":["Counts add to 60","Store AI results once, query them many times"]}
+      ]
+    }
+  ]
+}
+</script>

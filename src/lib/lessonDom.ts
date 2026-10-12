@@ -82,26 +82,35 @@ export function insertJump(root: ParentNode, sections: Section[]): Cleanup {
 
 // ─────────── copy buttons ───────────
 
+/** Copies `pre`'s text and flashes "Copied" on `btn`. Returns the reset
+ *  timer so the caller can clear it on unmount. Shared with the Simulator so
+ *  both copy paths behave the same, fallback included. */
+export function copyPreText(btn: HTMLElement, pre: HTMLElement, onTimer: (t: number) => void) {
+  const text = pre.innerText;
+  const clip = navigator.clipboard;
+  const write = clip ? clip.writeText(text) : Promise.reject(new Error('clipboard unavailable'));
+  write.then(() => {
+    btn.textContent = 'Copied';
+    onTimer(window.setTimeout(() => { btn.textContent = 'Copy'; }, 1500));
+  }).catch(() => {
+    // Insecure context or denied permission: select the block so the
+    // learner can copy with the keyboard instead of getting nothing.
+    const range = document.createRange();
+    range.selectNodeContents(pre);
+    const sel = getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+  });
+}
+
+// Simulator copy buttons are React-owned ([data-sim-copy]) and skipped here:
+// wiring them too would copy twice and fight React over the button text.
 export function wireCopyButtons(root: ParentNode): Cleanup {
   const timers: number[] = [];
-  const offs = [...root.querySelectorAll<HTMLElement>('.copy')].map(btn => listen(btn, 'click', () => {
+  const offs = [...root.querySelectorAll<HTMLElement>('.copy:not([data-sim-copy])')].map(btn => listen(btn, 'click', () => {
     const pre = btn.nextElementSibling;
     if (!(pre instanceof HTMLElement)) return;
-    const text = pre.innerText;
-    const clip = navigator.clipboard;
-    const write = clip ? clip.writeText(text) : Promise.reject(new Error('clipboard unavailable'));
-    write.then(() => {
-      btn.textContent = 'Copied';
-      timers.push(window.setTimeout(() => { btn.textContent = 'Copy'; }, 1500));
-    }).catch(() => {
-      // Insecure context or denied permission: select the block so the
-      // learner can copy with the keyboard instead of getting nothing.
-      const range = document.createRange();
-      range.selectNodeContents(pre);
-      const sel = getSelection();
-      sel?.removeAllRanges();
-      sel?.addRange(range);
-    });
+    copyPreText(btn, pre, t => timers.push(t));
   }));
   return () => { joinCleanups(offs)(); timers.forEach(t => clearTimeout(t)); };
 }

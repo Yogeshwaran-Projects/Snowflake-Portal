@@ -1,0 +1,297 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>SQL: Beginner to Advanced</span><span>Module 3 · Advanced</span><span>Lesson 3.6</span></div>
+  <h1>Changing data: INSERT, UPDATE, DELETE, MERGE</h1>
+  <p class="lede">So far you only read data. Now you add rows, change rows, remove rows, and sync a whole table from a feed in one statement with MERGE.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 min</span>
+    <span class="badge">Advanced</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice: 6 questions</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Add, change and remove rows safely, always with a WHERE</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Update one table from another with UPDATE ... FROM</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Write a MERGE that updates matches and inserts new rows</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Practise on a copy so the real table is never at risk</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">INSERT adds rows, UPDATE changes rows, DELETE removes rows. MERGE compares a source to a target and does the right one of those for each row in a single statement. Together they are called DML: Data Manipulation Language.</p></div>
+  </div>
+  <p>SELECT asks a question and leaves the table alone. DML changes the table. That means mistakes have consequences, so this lesson adds one habit: <b>work on a copy</b>. Every practice answer starts by rebuilding a copy table, changes the copy, and ends with a SELECT so you can see the result.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like syncing two address books</h2>
+  <p>You keep an address book (the target table). A friend sends you their newer address book (the source). For each person in the friend's book you ask: "Do I already have them?" If yes, you update the address. If no, you add a new entry. Sometimes a note says "moved away", and you cross that person out. Doing this person by person is INSERT, UPDATE and DELETE by hand. MERGE is doing the whole sync in one pass.</p>
+  <div class="map">
+    <div><small>Address books</small><b>Your book</b><span>In SQL: the target table, the one that changes (MERGE INTO target).</span></div>
+    <div><small>Address books</small><b>Your friend's newer book</b><span>In SQL: the source (USING source), often a staging table or feed.</span></div>
+    <div><small>Address books</small><b>"Do I have this person?"</b><span>In SQL: the ON condition, usually the business key; MATCHED or NOT MATCHED.</span></div>
+  </div>
+</section>
+
+<section class="sec" id="syntax" data-toc="Syntax">
+  <h2>Syntax, step by step</h2>
+  <p><b>Step 0: make a copy to practise on.</b> <code>CREATE OR REPLACE TABLE ... AS SELECT</code> builds a fresh copy every time you run it, so you can re-run your query as often as you like and always start from the same data.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE OR REPLACE TABLE</span> accounts_copy <span class="kw">AS SELECT</span> * <span class="kw">FROM</span> accounts;</pre></div>
+  <p><b>Step 1: INSERT.</b> Name the columns, then give values in the same order. You can also insert the result of a SELECT.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">INSERT INTO</span> accounts_copy (acct_id, cust_id, acct_type, balance, opened_on)
+<span class="kw">VALUES</span> (115, 5, 'CURRENT', 5000, <span class="kw">DATE</span> '2026-04-01');</pre></div>
+  <p><b>Step 2: UPDATE.</b> SET the new values, and ALWAYS write a WHERE. Without one, every row changes.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">UPDATE</span> accounts_copy <span class="kw">SET</span> balance = balance + 1000 <span class="kw">WHERE</span> acct_type = 'SAVINGS';</pre></div>
+  <p><b>Step 3: DELETE.</b> Same warning. Run the matching SELECT first to see which rows will go.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">DELETE FROM</span> accounts_copy <span class="kw">WHERE</span> balance &lt; 20000;</pre></div>
+  <p><b>Step 4: UPDATE from another table.</b> Join inside the UPDATE to copy values across.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">UPDATE</span> customers_copy
+<span class="kw">SET</span> segment = u.segment
+<span class="kw">FROM</span> customers_updates u
+<span class="kw">WHERE</span> customers_copy.cust_id = u.cust_id;</pre></div>
+  <p><b>Step 5: MERGE.</b> One statement that updates the rows it finds and inserts the rows it does not. This form runs unchanged on Snowflake and in the practice editor.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">MERGE INTO</span> customers_copy c
+<span class="kw">USING</span> customers_updates u
+  <span class="kw">ON</span> c.cust_id = u.cust_id
+<span class="kw">WHEN MATCHED THEN UPDATE SET</span> city = u.city, segment = u.segment
+<span class="kw">WHEN NOT MATCHED THEN INSERT</span> (cust_id, cust_name, city, segment, joined_on)
+  <span class="kw">VALUES</span> (u.cust_id, u.cust_name, u.city, u.segment, u.joined_on);</pre></div>
+  <p>Snowflake also allows a conditional delete branch: <code>WHEN MATCHED AND u.status = 'CLOSED' THEN DELETE</code>. Branches are checked in order, so put the DELETE branch before the UPDATE branch.</p>
+</section>
+
+<section class="sec" id="examples" data-toc="Worked examples">
+  <h2>Worked examples</h2>
+  <p><b>Example 1: check, then delete.</b> First see what will go, then remove it, then confirm.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE OR REPLACE TABLE</span> accounts_copy <span class="kw">AS SELECT</span> * <span class="kw">FROM</span> accounts;
+<span class="kw">DELETE FROM</span> accounts_copy <span class="kw">WHERE</span> balance &lt; 20000;
+<span class="kw">SELECT COUNT</span>(*) <span class="kw">AS</span> accounts_left <span class="kw">FROM</span> accounts_copy;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>accounts_left</th></tr></thead>
+      <tbody><tr><td>13</td></tr></tbody>
+    </table>
+  </div>
+  <p>Account 111 (15,500) is gone; 13 of 14 remain.</p>
+
+  <p><b>Example 2: MERGE a customer feed.</b> <code>customers_updates</code> holds 4 rows: customers 2 and 5 with changes, and new customers 11 and 12.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE OR REPLACE TABLE</span> customers_copy <span class="kw">AS SELECT</span> * <span class="kw">FROM</span> customers;
+<span class="kw">MERGE INTO</span> customers_copy c
+<span class="kw">USING</span> customers_updates u <span class="kw">ON</span> c.cust_id = u.cust_id
+<span class="kw">WHEN MATCHED THEN UPDATE SET</span> city = u.city, segment = u.segment
+<span class="kw">WHEN NOT MATCHED THEN INSERT</span> (cust_id, cust_name, city, segment, joined_on)
+  <span class="kw">VALUES</span> (u.cust_id, u.cust_name, u.city, u.segment, u.joined_on);
+<span class="kw">SELECT</span> cust_id, city, segment <span class="kw">FROM</span> customers_copy <span class="kw">WHERE</span> cust_id <span class="kw">IN</span> (2, 5, 11, 12);</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>cust_id</th><th>city</th><th>segment</th></tr></thead>
+      <tbody>
+        <tr><td>2</td><td>Gurugram</td><td>PREMIUM</td></tr>
+        <tr><td>5</td><td>Bengaluru</td><td>PREMIUM</td></tr>
+        <tr><td>11</td><td>Hyderabad</td><td>RETAIL</td></tr>
+        <tr><td>12</td><td>Pune</td><td>PREMIUM</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Two rows updated (2 moved to Gurugram, 5 became PREMIUM) and two rows inserted. Ten customers became twelve.</p>
+
+  <p><b>Example 3: the same sync without MERGE.</b> Some engines have no MERGE. Then you write two statements: an UPDATE from the source, and an INSERT of the source rows that do not exist yet. The practice editor supports MERGE, but learn this form too; you will meet it in older code.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">UPDATE</span> customers_copy <span class="kw">SET</span> city = u.city, segment = u.segment
+<span class="kw">FROM</span> customers_updates u <span class="kw">WHERE</span> customers_copy.cust_id = u.cust_id;
+
+<span class="kw">INSERT INTO</span> customers_copy
+<span class="kw">SELECT</span> u.cust_id, u.cust_name, u.city, u.segment, u.joined_on
+<span class="kw">FROM</span> customers_updates u
+<span class="kw">WHERE NOT EXISTS</span> (<span class="kw">SELECT</span> 1 <span class="kw">FROM</span> customers_copy c <span class="kw">WHERE</span> c.cust_id = u.cust_id);</pre></div>
+
+  <p><b>Example 4: MERGE with a computed source.</b> The source can be any query. Here it adds each account's March deposits to its balance.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">MERGE INTO</span> accounts_copy a
+<span class="kw">USING</span> (<span class="kw">SELECT</span> acct_id, <span class="kw">SUM</span>(amount) <span class="kw">AS</span> deposits <span class="kw">FROM</span> transactions
+       <span class="kw">WHERE</span> txn_type = 'DEPOSIT' <span class="kw">GROUP BY</span> acct_id) d
+  <span class="kw">ON</span> a.acct_id = d.acct_id
+<span class="kw">WHEN MATCHED THEN UPDATE SET</span> balance = a.balance + d.deposits;</pre></div>
+</section>
+
+<section class="sec" id="mistakes" data-toc="Common mistakes">
+  <h2>Common mistakes</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Watch out</div><p><b>UPDATE or DELETE without WHERE.</b> Every row changes or disappears. Type the WHERE first, then the rest.</p>
+    <p><b>Duplicate keys in the MERGE source.</b> If the source has two rows for cust_id 2, Snowflake raises a "nondeterministic" error. De-duplicate the source with QUALIFY (Lesson 3.3) first.</p>
+    <p><b>Running a change twice.</b> <code>balance = balance + 1000</code> adds 2000 if you run it twice. In the practice editor the checker runs your query and then the answer, so every answer must rebuild the copy first; that makes it safe to repeat.</p>
+    <p><b>Forgetting the final SELECT.</b> DML returns a row count, not the data. End with a SELECT so you (and the checker) can see the result.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="snowflake" data-toc="On Snowflake">
+  <h2>On Snowflake</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">MERGE is the workhorse of Snowflake loads</div><p>The MERGE form above is Snowflake's. Snowflake also lets you prefix target columns in SET (<code>SET c.city = u.city</code>); the practice editor (DuckDB) does not accept that prefix, so write <code>SET city = u.city</code>, which works on both.</p>
+    <p>Snowflake extras: <code>WHEN MATCHED AND condition THEN DELETE</code>, <code>WHEN NOT MATCHED AND condition THEN INSERT</code>, and <code>INSERT OVERWRITE</code> to replace a table's contents. Every DML statement in Snowflake is transactional, and Time Travel lets you query the table as it was before a bad UPDATE: <code>SELECT * FROM t AT (OFFSET =&gt; -600)</code> (ten minutes ago). <code>UNDROP TABLE</code> brings back a dropped table.</p>
+    <p>Most project pipelines land files into a staging table with <code>COPY INTO</code>, de-duplicate with QUALIFY, then MERGE into the final table. That is the whole pattern you now know.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="Practice">
+  <h2>Practice</h2>
+  <p>Tables: <code>customers</code>, <code>accounts</code>, <code>transactions</code> and the feed <code>customers_updates</code>. <b>Every answer must follow this shape:</b> first <code>CREATE OR REPLACE TABLE accounts_copy AS SELECT * FROM accounts;</code> (or customers_copy from customers), then your INSERT, UPDATE, DELETE or MERGE on the copy, then a final SELECT that returns the columns the task asks for. The checker runs your statements and then the model answer on the same database, so the copy must be rebuilt at the start. Grading compares the values of your final SELECT.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>INSERT adds, UPDATE changes, DELETE removes; each UPDATE and DELETE needs a WHERE. MERGE syncs a source into a target: MATCHED rows update, NOT MATCHED rows insert. Practise on a copy, and end with a SELECT.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>DML</dt><dd>Data Manipulation Language: INSERT, UPDATE, DELETE, MERGE.</dd>
+    <dt>Target</dt><dd>The table that MERGE changes (MERGE INTO target).</dd>
+    <dt>Source</dt><dd>The table or query MERGE reads from (USING source).</dd>
+    <dt>MATCHED</dt><dd>A source row whose key exists in the target.</dd>
+    <dt>NOT MATCHED</dt><dd>A source row whose key is new to the target.</dd>
+    <dt>Idempotent</dt><dd>Safe to run again with the same result; rebuilding the copy first makes a script idempotent.</dd>
+    <dt>Staging table</dt><dd>A landing table for new data before it is merged into the final table.</dd>
+    <dt>Time Travel</dt><dd>Snowflake feature to read a table as it was at an earlier time.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#sql/3-7">3.7 Performance on Snowflake →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "customers": {
+        "columns": [["cust_id","NUMBER"], ["cust_name","VARCHAR"], ["city","VARCHAR"], ["segment","VARCHAR","RETAIL or PREMIUM"], ["joined_on","DATE"]],
+        "rows": [
+          [1,"Asha Rao","Mumbai","RETAIL","2024-01-15"],
+          [2,"Vikram Shah","Delhi","PREMIUM","2023-06-10"],
+          [3,"Meera Iyer","Chennai","RETAIL","2024-03-22"],
+          [4,"Rahul Nair","Mumbai","PREMIUM","2022-11-05"],
+          [5,"Priya Menon","Bengaluru","RETAIL","2025-02-14"],
+          [6,"Arjun Das","Delhi","RETAIL","2024-08-30"],
+          [7,"Sneha Pillai","Chennai","PREMIUM","2023-01-20"],
+          [8,"Karthik Reddy","Bengaluru","RETAIL","2025-05-01"],
+          [9,"Divya Kumar","Mumbai","RETAIL","2024-12-12"],
+          [10,"Farah Khan","Delhi","PREMIUM","2023-09-09"]
+        ]
+      },
+      "accounts": {
+        "columns": [["acct_id","NUMBER"], ["cust_id","NUMBER"], ["acct_type","VARCHAR","SAVINGS or CURRENT"], ["balance","NUMBER","in rupees"], ["opened_on","DATE"]],
+        "rows": [
+          [101,1,"SAVINGS",125000,"2024-01-20"],
+          [102,1,"CURRENT",40000,"2024-06-01"],
+          [103,2,"SAVINGS",310000,"2023-06-15"],
+          [104,3,"SAVINGS",58000,"2024-03-25"],
+          [105,4,"SAVINGS",275000,"2022-11-10"],
+          [106,4,"CURRENT",92000,"2023-02-01"],
+          [107,5,"SAVINGS",21000,"2025-02-20"],
+          [108,6,"SAVINGS",67000,"2024-09-02"],
+          [109,7,"SAVINGS",189000,"2023-01-25"],
+          [110,7,"CURRENT",150000,"2024-04-10"],
+          [111,8,"SAVINGS",15500,"2025-05-03"],
+          [112,9,"SAVINGS",83000,"2024-12-15"],
+          [113,10,"SAVINGS",240000,"2023-09-12"],
+          [114,10,"CURRENT",125000,"2024-01-08"]
+        ]
+      },
+      "transactions": {
+        "columns": [["txn_id","NUMBER"], ["acct_id","NUMBER"], ["txn_date","DATE"], ["txn_type","VARCHAR","DEPOSIT, WITHDRAWAL or TRANSFER"], ["amount","NUMBER","in rupees"], ["channel","VARCHAR","APP, BRANCH, ATM or UPI"]],
+        "rows": [
+          [1001,101,"2026-03-01","DEPOSIT",20000,"APP"],
+          [1002,101,"2026-03-03","WITHDRAWAL",5000,"ATM"],
+          [1003,101,"2026-03-08","DEPOSIT",12000,"UPI"],
+          [1004,101,"2026-03-15","WITHDRAWAL",8000,"ATM"],
+          [1005,101,"2026-03-22","DEPOSIT",30000,"BRANCH"],
+          [1006,101,"2026-03-29","WITHDRAWAL",3000,"UPI"],
+          [1007,103,"2026-03-02","DEPOSIT",50000,"BRANCH"],
+          [1008,103,"2026-03-05","WITHDRAWAL",15000,"APP"],
+          [1009,103,"2026-03-11","DEPOSIT",25000,"APP"],
+          [1010,103,"2026-03-18","TRANSFER",40000,"APP"],
+          [1011,103,"2026-03-25","DEPOSIT",60000,"BRANCH"],
+          [1012,103,"2026-03-30","WITHDRAWAL",10000,"ATM"],
+          [1013,105,"2026-03-01","DEPOSIT",45000,"APP"],
+          [1014,105,"2026-03-06","WITHDRAWAL",20000,"ATM"],
+          [1015,105,"2026-03-12","DEPOSIT",35000,"UPI"],
+          [1016,105,"2026-03-19","TRANSFER",25000,"APP"],
+          [1017,105,"2026-03-26","DEPOSIT",15000,"UPI"],
+          [1018,109,"2026-03-03","DEPOSIT",30000,"APP"],
+          [1019,109,"2026-03-09","WITHDRAWAL",12000,"ATM"],
+          [1020,109,"2026-03-14","DEPOSIT",30000,"APP"],
+          [1021,109,"2026-03-21","TRANSFER",18000,"UPI"],
+          [1022,109,"2026-03-28","DEPOSIT",22000,"BRANCH"],
+          [1023,113,"2026-03-02","DEPOSIT",80000,"BRANCH"],
+          [1024,113,"2026-03-07","WITHDRAWAL",25000,"ATM"],
+          [1025,113,"2026-03-13","DEPOSIT",10000,"UPI"],
+          [1026,113,"2026-03-20","TRANSFER",50000,"APP"],
+          [1027,113,"2026-03-27","DEPOSIT",80000,"BRANCH"],
+          [1028,102,"2026-03-04","DEPOSIT",9000,"UPI"],
+          [1029,102,"2026-03-16","WITHDRAWAL",4000,"APP"],
+          [1030,104,"2026-03-05","DEPOSIT",7000,"UPI"],
+          [1031,104,"2026-03-17","DEPOSIT",7000,"UPI"],
+          [1032,106,"2026-03-10","TRANSFER",22000,"APP"],
+          [1033,107,"2026-03-08","DEPOSIT",6000,"APP"],
+          [1034,107,"2026-03-23","WITHDRAWAL",2000,"ATM"],
+          [1035,108,"2026-03-11","DEPOSIT",14000,"BRANCH"],
+          [1036,110,"2026-03-12","TRANSFER",35000,"APP"],
+          [1037,111,"2026-03-14","DEPOSIT",5000,"UPI"],
+          [1038,112,"2026-03-15","DEPOSIT",16000,"APP"],
+          [1039,112,"2026-03-24","WITHDRAWAL",6000,"ATM"],
+          [1040,114,"2026-03-18","DEPOSIT",28000,"BRANCH"]
+        ]
+      },
+      "customers_updates": {
+        "columns": [["cust_id","NUMBER"], ["cust_name","VARCHAR"], ["city","VARCHAR"], ["segment","VARCHAR"], ["joined_on","DATE"]],
+        "rows": [
+          [2,"Vikram Shah","Gurugram","PREMIUM","2023-06-10"],
+          [5,"Priya Menon","Bengaluru","PREMIUM","2025-02-14"],
+          [11,"Imran Sheikh","Hyderabad","RETAIL","2026-03-01"],
+          [12,"Lata Verma","Pune","PREMIUM","2026-03-05"]
+        ]
+      }
+    },
+    "starter": "CREATE OR REPLACE TABLE accounts_copy AS SELECT * FROM accounts;\nUPDATE accounts_copy SET balance = balance + 1000 WHERE acct_type = 'SAVINGS';\nSELECT acct_id, acct_type, balance FROM accounts_copy ORDER BY acct_id",
+    "examples": [
+      { "label": "Delete on a copy", "sql": "CREATE OR REPLACE TABLE accounts_copy AS SELECT * FROM accounts;\nDELETE FROM accounts_copy WHERE balance < 20000;\nSELECT COUNT(*) AS accounts_left FROM accounts_copy" },
+      { "label": "MERGE the feed", "sql": "CREATE OR REPLACE TABLE customers_copy AS SELECT * FROM customers;\nMERGE INTO customers_copy c\nUSING customers_updates u ON c.cust_id = u.cust_id\nWHEN MATCHED THEN UPDATE SET city = u.city, segment = u.segment\nWHEN NOT MATCHED THEN INSERT (cust_id, cust_name, city, segment, joined_on)\n  VALUES (u.cust_id, u.cust_name, u.city, u.segment, u.joined_on);\nSELECT cust_id, cust_name, city, segment FROM customers_copy ORDER BY cust_id" },
+      { "label": "Sync without MERGE", "sql": "CREATE OR REPLACE TABLE customers_copy AS SELECT * FROM customers;\nUPDATE customers_copy SET city = u.city, segment = u.segment\nFROM customers_updates u WHERE customers_copy.cust_id = u.cust_id;\nINSERT INTO customers_copy\nSELECT u.cust_id, u.cust_name, u.city, u.segment, u.joined_on\nFROM customers_updates u\nWHERE NOT EXISTS (SELECT 1 FROM customers_copy c WHERE c.cust_id = u.cust_id);\nSELECT cust_id, cust_name, city, segment FROM customers_copy ORDER BY cust_id" }
+    ],
+    "challenges": [
+      { "level": "Easy", "task": "Rebuild accounts_copy from accounts. Insert a new account: acct_id 115, cust_id 5, acct_type 'CURRENT', balance 5000, opened_on 2026-04-01. Then return the number of accounts and the total balance of accounts_copy (two columns, one row).", "hint": "INSERT INTO accounts_copy (acct_id, cust_id, acct_type, balance, opened_on) VALUES (...); then SELECT COUNT(*), SUM(balance).", "answer": "CREATE OR REPLACE TABLE accounts_copy AS SELECT * FROM accounts;\nINSERT INTO accounts_copy (acct_id, cust_id, acct_type, balance, opened_on) VALUES (115, 5, 'CURRENT', 5000, DATE '2026-04-01');\nSELECT COUNT(*) AS accounts_now, SUM(balance) AS total_balance FROM accounts_copy" },
+      { "level": "Easy", "task": "Rebuild accounts_copy. Add 1000 to the balance of every SAVINGS account. Then return acct_id and balance of the SAVINGS accounts only.", "hint": "UPDATE accounts_copy SET balance = balance + 1000 WHERE acct_type = 'SAVINGS'.", "answer": "CREATE OR REPLACE TABLE accounts_copy AS SELECT * FROM accounts;\nUPDATE accounts_copy SET balance = balance + 1000 WHERE acct_type = 'SAVINGS';\nSELECT acct_id, balance FROM accounts_copy WHERE acct_type = 'SAVINGS' ORDER BY acct_id" },
+      { "level": "Medium", "task": "Rebuild accounts_copy. Delete every account whose balance is below 20000. Then return acct_id and balance of all remaining rows.", "hint": "DELETE FROM accounts_copy WHERE balance < 20000.", "answer": "CREATE OR REPLACE TABLE accounts_copy AS SELECT * FROM accounts;\nDELETE FROM accounts_copy WHERE balance < 20000;\nSELECT acct_id, balance FROM accounts_copy ORDER BY acct_id" },
+      { "level": "Medium", "task": "Rebuild customers_copy from customers. Using UPDATE ... FROM, set each customer's segment to the segment in customers_updates where the cust_id matches. Then return cust_id and segment for all rows of customers_copy.", "hint": "UPDATE customers_copy SET segment = u.segment FROM customers_updates u WHERE customers_copy.cust_id = u.cust_id.", "answer": "CREATE OR REPLACE TABLE customers_copy AS SELECT * FROM customers;\nUPDATE customers_copy SET segment = u.segment FROM customers_updates u WHERE customers_copy.cust_id = u.cust_id;\nSELECT cust_id, segment FROM customers_copy ORDER BY cust_id" },
+      { "level": "Hard", "task": "Rebuild customers_copy. MERGE customers_updates into it on cust_id: matched rows get the new city and segment; unmatched rows are inserted with all five columns. Then return cust_id, cust_name, city and segment for every row of customers_copy.", "hint": "MERGE INTO customers_copy c USING customers_updates u ON c.cust_id = u.cust_id WHEN MATCHED THEN UPDATE SET city = u.city, segment = u.segment WHEN NOT MATCHED THEN INSERT (...) VALUES (...).", "answer": "CREATE OR REPLACE TABLE customers_copy AS SELECT * FROM customers;\nMERGE INTO customers_copy c USING customers_updates u ON c.cust_id = u.cust_id\nWHEN MATCHED THEN UPDATE SET city = u.city, segment = u.segment\nWHEN NOT MATCHED THEN INSERT (cust_id, cust_name, city, segment, joined_on) VALUES (u.cust_id, u.cust_name, u.city, u.segment, u.joined_on);\nSELECT cust_id, cust_name, city, segment FROM customers_copy ORDER BY cust_id" },
+      { "level": "Hard", "task": "Rebuild accounts_copy. Use MERGE with a query as the source to add each account's total DEPOSIT amount from transactions to its balance (accounts with no deposits stay unchanged). Then return acct_id and balance for all accounts.", "hint": "USING (SELECT acct_id, SUM(amount) AS deposits FROM transactions WHERE txn_type = 'DEPOSIT' GROUP BY acct_id) d ON a.acct_id = d.acct_id WHEN MATCHED THEN UPDATE SET balance = a.balance + d.deposits.", "answer": "CREATE OR REPLACE TABLE accounts_copy AS SELECT * FROM accounts;\nMERGE INTO accounts_copy a USING (SELECT acct_id, SUM(amount) AS deposits FROM transactions WHERE txn_type = 'DEPOSIT' GROUP BY acct_id) d ON a.acct_id = d.acct_id\nWHEN MATCHED THEN UPDATE SET balance = a.balance + d.deposits;\nSELECT acct_id, balance FROM accounts_copy ORDER BY acct_id" }
+    ]
+  },
+  "quiz": [
+    { "q": "What happens if you run UPDATE accounts SET balance = 0 with no WHERE?", "options": ["Nothing, it needs a WHERE", "Every account's balance becomes 0", "Only the first row changes"], "answer": 1, "why": "Without WHERE, UPDATE touches every row. Always write the WHERE first." },
+    { "q": "In MERGE, what does WHEN NOT MATCHED mean?", "options": ["The target row has no source row", "The source row's key does not exist in the target", "The two rows have different values"], "answer": 1, "why": "NOT MATCHED is a source row whose key was not found in the target, so it is usually inserted." },
+    { "q": "Why does each practice answer start with CREATE OR REPLACE TABLE ... AS SELECT?", "options": ["To make it faster", "So the change starts from the same data every run and is safe to repeat", "It is required by MERGE"], "answer": 1, "why": "Rebuilding the copy makes the script idempotent: running it twice gives the same result and the real table is never touched." },
+    { "q": "What does Snowflake do if the MERGE source has two rows with the same key?", "options": ["Uses the first one", "Raises a nondeterministic merge error", "Inserts both"], "answer": 1, "why": "Snowflake cannot tell which source row should win. De-duplicate the source with QUALIFY first." },
+    { "q": "Which two statements replace a MERGE on an engine that lacks it?", "options": ["SELECT and GROUP BY", "UPDATE ... FROM and INSERT ... SELECT ... WHERE NOT EXISTS", "DELETE and TRUNCATE"], "answer": 1, "why": "The UPDATE handles matched rows and the INSERT with NOT EXISTS handles the new ones." },
+    { "q": "After a bad UPDATE on Snowflake, how can you see the data as it was ten minutes ago?", "options": ["You cannot", "Time Travel: SELECT ... AT (OFFSET => -600)", "Run the UPDATE in reverse"], "answer": 1, "why": "Time Travel keeps earlier versions of the table for the retention period, so you can read or restore them." }
+  ]
+}
+</script>

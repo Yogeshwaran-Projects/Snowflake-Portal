@@ -1,0 +1,295 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>SQL: Beginner to Advanced</span><span>Module 1 · Beginner</span><span>Lesson 1.2</span></div>
+  <h1>Filtering with WHERE</h1>
+  <p class="lede">Most questions are about some rows, not all of them. WHERE keeps only the rows that match a rule. This is the keyword you will type most often in your whole career.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>25 min</span>
+    <span class="badge">Beginner</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice: 6 questions</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Keep only matching rows with <code>WHERE</code></li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Compare numbers, text and dates with <code>=</code>, <code>&lt;&gt;</code>, <code>&gt;</code>, <code>&lt;</code></li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Combine rules with <code>AND</code>, <code>OR</code>, <code>NOT</code> and brackets</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Use the shortcuts <code>IN</code>, <code>BETWEEN</code> and <code>LIKE</code></li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">WHERE is a rule tested on every row. A row that passes the rule stays in the result. A row that fails is left out.</p></div>
+  </div>
+  <p>The rule is called a <b>condition</b>. It is a tiny yes-or-no question such as “is the city Mumbai?” or “is the balance above 5 lakh?”. SQL asks that question of every row, one at a time, and keeps the rows that answer yes.</p>
+  <p>WHERE filters <b>rows</b>. SELECT picks <b>columns</b>. Keep those two jobs apart in your head and queries become easy to read.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a sticky note on the request slip</h2>
+  <p>You hand the librarian the usual slip: “copy name and city from the customers shelf”. Now you add a sticky note: “only cards where the city says Mumbai”. She still picks up every card on the shelf, but she only copies the ones that match the note. The rest go straight back. The shelf itself is untouched.</p>
+  <div class="map">
+    <div><small>In the library</small><b>The sticky note</b><span>In SQL: the <code>WHERE</code> clause</span></div>
+    <div><small>In the library</small><b>“city says Mumbai”</b><span>In SQL: a condition, <code>city = 'Mumbai'</code></span></div>
+    <div><small>In the library</small><b>Two notes joined by “and”</b><span>In SQL: <code>AND</code> (both must be true) or <code>OR</code> (either is enough)</span></div>
+  </div>
+  <p>A good sticky note is exact. “Big balance” means nothing to the librarian. “balance above 500000” she can test on every card.</p>
+</section>
+
+<section class="sec" id="syntax" data-toc="How to write it">
+  <h2>How to write it, step by step</h2>
+  <p>Step 1: write the normal SELECT and FROM. Step 2: add WHERE and one condition. Step 3: join more conditions with AND or OR.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> cust_name, city, segment
+<span class="kw">FROM</span> customers
+<span class="kw">WHERE</span> city = 'Mumbai' <span class="kw">AND</span> segment = 'PREMIUM';</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Keyword</th><th>What it means</th><th>Telling the librarian</th></tr></thead>
+      <tbody>
+        <tr><td><code>=</code>  <code>&lt;&gt;</code></td><td>Equal, not equal (<code>!=</code> also works)</td><td>“city is Mumbai” / “city is not Mumbai”</td></tr>
+        <tr><td><code>&gt;</code> <code>&gt;=</code> <code>&lt;</code> <code>&lt;=</code></td><td>Bigger, bigger or equal, smaller, smaller or equal</td><td>“balance is above 500000”</td></tr>
+        <tr><td><code>AND</code></td><td>Both rules must be true</td><td>“Mumbai, and also premium”</td></tr>
+        <tr><td><code>OR</code></td><td>Either rule is enough</td><td>“Delhi, or else Pune”</td></tr>
+        <tr><td><code>NOT</code></td><td>Flip the rule</td><td>“anything except Mumbai”</td></tr>
+        <tr><td><code>IN (a, b, c)</code></td><td>Equal to any value in the list</td><td>“city is one of Delhi, Pune, Kolkata”</td></tr>
+        <tr><td><code>BETWEEN x AND y</code></td><td>From x to y, both ends included</td><td>“dated 1 to 30 September”</td></tr>
+        <tr><td><code>LIKE 'A%'</code></td><td>Text pattern: <code>%</code> is any run of letters, <code>_</code> is one letter</td><td>“name starts with A”</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Three rules for values. Text goes in single quotes and is case-sensitive: <code>'Mumbai'</code> is not <code>'mumbai'</code>. Numbers have no quotes: <code>balance &gt; 500000</code>. Dates are written as text in the form <code>'YYYY-MM-DD'</code>: <code>txn_date &gt;= '2026-09-01'</code>.</p>
+  <p>Brackets decide the order. <code>AND</code> is tested before <code>OR</code>, so <code>a OR b AND c</code> means <code>a OR (b AND c)</code>. When you mix them, always add brackets so the slip says exactly what you mean.</p>
+</section>
+
+<section class="sec" id="examples" data-toc="Worked examples">
+  <h2>Worked examples</h2>
+  <p><b>Example 1: one condition on text.</b> Four of the sixteen customers live in Mumbai.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> cust_name, city
+<span class="kw">FROM</span> customers
+<span class="kw">WHERE</span> city = 'Mumbai';</pre></div>
+  <div class="table-wrap"><table><thead><tr><th>cust_name</th><th>city</th></tr></thead><tbody>
+    <tr><td>Asha Rao</td><td>Mumbai</td></tr><tr><td>Rahul Nair</td><td>Mumbai</td></tr><tr><td>Divya Kumar</td><td>Mumbai</td></tr><tr><td>Farah Khan</td><td>Mumbai</td></tr>
+  </tbody></table></div>
+
+  <p><b>Example 2: a number and AND.</b> Big savings accounts: type SAVINGS and balance above 2.5 lakh.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> acct_id, acct_type, balance
+<span class="kw">FROM</span> accounts
+<span class="kw">WHERE</span> acct_type = 'SAVINGS' <span class="kw">AND</span> balance &gt; 250000;</pre></div>
+  <div class="table-wrap"><table><thead><tr><th>acct_id</th><th>acct_type</th><th>balance</th></tr></thead><tbody>
+    <tr><td>107</td><td>SAVINGS</td><td>390000</td></tr><tr><td>114</td><td>SAVINGS</td><td>275000</td></tr><tr><td>118</td><td>SAVINGS</td><td>640000</td></tr>
+  </tbody></table></div>
+  <p>Account 101 has exactly 250000. It is not above 250000, so it is out. Use <code>&gt;=</code> when the edge should count.</p>
+
+  <p><b>Example 3: dates with BETWEEN.</b> Every withdrawal in September 2026. Both end dates are included.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> txn_id, txn_date, amount
+<span class="kw">FROM</span> transactions
+<span class="kw">WHERE</span> txn_type = 'WITHDRAWAL'
+  <span class="kw">AND</span> txn_date <span class="kw">BETWEEN</span> '2026-09-01' <span class="kw">AND</span> '2026-09-30';</pre></div>
+  <div class="table-wrap"><table><thead><tr><th>txn_id</th><th>txn_date</th><th>amount</th></tr></thead><tbody>
+    <tr><td>1005</td><td>2026-09-03</td><td>1500</td></tr><tr><td>1008</td><td>2026-09-06</td><td>40000</td></tr><tr><td>1009</td><td>2026-09-07</td><td>15000</td></tr><tr><td>…</td><td>…</td><td>7 rows in total</td></tr>
+  </tbody></table></div>
+
+  <p><b>Example 4: IN and LIKE.</b> Customers in two cities whose name starts with A. Without brackets the OR would swallow the LIKE.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> cust_name, city
+<span class="kw">FROM</span> customers
+<span class="kw">WHERE</span> city <span class="kw">IN</span> ('Mumbai', 'Delhi') <span class="kw">AND</span> cust_name <span class="kw">LIKE</span> 'A%';</pre></div>
+  <div class="table-wrap"><table><thead><tr><th>cust_name</th><th>city</th></tr></thead><tbody>
+    <tr><td>Asha Rao</td><td>Mumbai</td></tr><tr><td>Arjun Das</td><td>Delhi</td></tr>
+  </tbody></table></div>
+</section>
+
+<section class="sec" id="mistakes" data-toc="Common mistakes">
+  <h2>Common mistakes</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Watch out</div>
+      <p>1. <code>WHERE city = 'mumbai'</code> returns nothing. Text matching is exact, including capital letters.</p>
+      <p>2. <code>WHERE city = 'Delhi' OR 'Pune'</code> is an error. Each side of OR is a full condition: <code>city = 'Delhi' OR city = 'Pune'</code>, or shorter, <code>city IN ('Delhi', 'Pune')</code>.</p>
+      <p>3. <code>segment = 'RETAIL' AND city = 'Delhi' OR city = 'Pune'</code> gives every Pune customer, retail or not. AND wins over OR. Add brackets.</p>
+      <p>4. <code>WHERE age = NULL</code> never matches anything. A blank field needs <code>IS NULL</code>. Lesson 1.5 explains why.</p>
+      <p>5. <code>LIKE 'a%'</code> does not find Asha. Patterns are case-sensitive too. Use <code>LIKE 'A%'</code>, or see the Snowflake note below.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="snowflake" data-toc="On Snowflake">
+  <h2>On Snowflake</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">What is different on your project</div>
+      <p><b>ILIKE ignores case.</b> Snowflake has <code>cust_name ILIKE 'a%'</code>, which matches Asha, Arjun and Ananya. The worksheet engine (DuckDB) supports it too. The portable way is <code>UPPER(cust_name) LIKE 'A%'</code>, which you learn in lesson 1.4.</p>
+      <p><b>Date literals.</b> <code>txn_date &gt;= '2026-09-01'</code> works in both. The explicit form <code>DATE '2026-09-01'</code> also works in both and makes your intent obvious to a reader.</p>
+      <p><b>Values are still case-sensitive.</b> Table and column <i>names</i> are not case-sensitive in Snowflake, but the <i>text inside</i> a column is. <code>'Mumbai'</code> and <code>'MUMBAI'</code> are different values on both engines.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="Practice">
+  <h2>Practice</h2>
+  <p>Same bank, now all three tables: <code>customers</code>, <code>accounts</code> and <code>transactions</code> (24 rows of money moving in September 2026 and the last days of August). Each question names the columns to return. The checker compares values only.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>WHERE is a yes-or-no rule tested on every row. Text in single quotes and exact case, numbers bare, dates as 'YYYY-MM-DD'. Brackets whenever AND meets OR.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Condition</dt><dd>A yes-or-no test on one row, such as balance &gt; 500000.</dd>
+    <dt>Filter</dt><dd>Keeping only the rows that pass a condition. WHERE is the filter.</dd>
+    <dt>Operator</dt><dd>A comparison symbol or word: =, &lt;&gt;, &gt;, IN, BETWEEN, LIKE.</dd>
+    <dt>Literal</dt><dd>A fixed value typed into the query, such as 'Mumbai' or 500000.</dd>
+    <dt>Wildcard</dt><dd>In LIKE, % stands for any text and _ for one character.</dd>
+    <dt>Precedence</dt><dd>The order rules are tested: NOT first, then AND, then OR. Brackets override it.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#sql/1-3">1.3 Sorting and LIMIT →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "customers": {
+        "columns": [
+          ["cust_id","NUMBER"],
+          ["cust_name","VARCHAR"],
+          ["city","VARCHAR","NULL when unknown"],
+          ["segment","VARCHAR","RETAIL, PREMIUM or BUSINESS; NULL when not yet assigned"],
+          ["joined_on","DATE"],
+          ["age","NUMBER","NULL when not recorded"]
+        ],
+        "rows": [
+          [1,"Asha Rao","Mumbai","PREMIUM","2019-03-12",34],
+          [2,"Vikram Shah","Delhi","RETAIL","2020-07-01",45],
+          [3,"Meera Iyer","Chennai","RETAIL","2021-01-15",29],
+          [4,"Rahul Nair","Mumbai","BUSINESS","2018-11-20",52],
+          [5,"Priya Menon","Bengaluru","PREMIUM","2022-05-09",38],
+          [6,"Arjun Das","Delhi","RETAIL","2023-02-28",23],
+          [7,"Sneha Pillai","Chennai",null,"2021-09-30",31],
+          [8,"Karthik Reddy","Hyderabad","BUSINESS","2017-06-05",47],
+          [9,"Divya Kumar","Mumbai","RETAIL","2024-01-10",null],
+          [10,"Nikhil Joshi","Pune","RETAIL","2020-10-18",41],
+          [11,"Farah Khan","Mumbai","PREMIUM","2019-08-22",36],
+          [12,"Lakshmi Bose","Kolkata","RETAIL","2022-12-01",58],
+          [13,"Imran Sheikh","Hyderabad","RETAIL","2023-07-14",27],
+          [14,"Ananya Ghosh","Kolkata","PREMIUM","2016-04-03",61],
+          [15,"Rohan Mehta","Pune","BUSINESS","2024-06-25",33],
+          [16,"Kavya Nambiar",null,"RETAIL","2025-03-08",19]
+        ]
+      },
+      "accounts": {
+        "columns": [
+          ["acct_id","NUMBER"],
+          ["cust_id","NUMBER","the customer who owns the account"],
+          ["acct_type","VARCHAR","SAVINGS, CURRENT or FD"],
+          ["balance","NUMBER","in rupees; NULL when not yet calculated"],
+          ["opened_on","DATE"],
+          ["acct_status","VARCHAR","ACTIVE, DORMANT or CLOSED"]
+        ],
+        "rows": [
+          [101,1,"SAVINGS",250000,"2019-03-12","ACTIVE"],
+          [102,1,"FD",1000000,"2021-06-01","ACTIVE"],
+          [103,2,"SAVINGS",48000,"2020-07-01","ACTIVE"],
+          [104,3,"SAVINGS",15500,"2021-01-15","ACTIVE"],
+          [105,4,"CURRENT",820000,"2018-11-20","ACTIVE"],
+          [106,4,"SAVINGS",61000,"2019-02-10","DORMANT"],
+          [107,5,"SAVINGS",390000,"2022-05-09","ACTIVE"],
+          [108,5,"FD",500000,"2023-01-20","ACTIVE"],
+          [109,6,"SAVINGS",7200,"2023-02-28","ACTIVE"],
+          [110,7,"SAVINGS",33000,"2021-09-30","ACTIVE"],
+          [111,8,"CURRENT",1450000,"2017-06-05","ACTIVE"],
+          [112,9,"SAVINGS",12000,"2024-01-10","ACTIVE"],
+          [113,10,"SAVINGS",0,"2020-10-18","CLOSED"],
+          [114,11,"SAVINGS",275000,"2019-08-22","ACTIVE"],
+          [115,11,"FD",300000,"2020-02-14","ACTIVE"],
+          [116,12,"SAVINGS",89000,"2022-12-01","DORMANT"],
+          [117,13,"SAVINGS",5400,"2023-07-14","ACTIVE"],
+          [118,14,"SAVINGS",640000,"2016-04-03","ACTIVE"],
+          [119,15,"CURRENT",null,"2024-06-25","ACTIVE"],
+          [120,16,"SAVINGS",2500,"2025-03-08","ACTIVE"]
+        ]
+      },
+      "transactions": {
+        "columns": [
+          ["txn_id","NUMBER"],
+          ["acct_id","NUMBER","the account the money moved in or out of"],
+          ["txn_date","DATE"],
+          ["txn_type","VARCHAR","DEPOSIT, WITHDRAWAL or TRANSFER"],
+          ["amount","NUMBER","in rupees; NULL while still pending"],
+          ["channel","VARCHAR","UPI, ATM, BRANCH or NETBANKING; NULL when not captured"]
+        ],
+        "rows": [
+          [1001,101,"2026-08-28","DEPOSIT",50000,"UPI"],
+          [1002,103,"2026-08-30","WITHDRAWAL",8000,"ATM"],
+          [1003,105,"2026-08-31","DEPOSIT",200000,"NETBANKING"],
+          [1004,107,"2026-09-03","TRANSFER",25000,"UPI"],
+          [1005,109,"2026-09-03","WITHDRAWAL",1500,"ATM"],
+          [1006,111,"2026-09-04","DEPOSIT",350000,"BRANCH"],
+          [1007,104,"2026-09-05","DEPOSIT",12000,"UPI"],
+          [1008,114,"2026-09-06","WITHDRAWAL",40000,"NETBANKING"],
+          [1009,101,"2026-09-07","WITHDRAWAL",15000,"ATM"],
+          [1010,110,"2026-09-08","DEPOSIT",9000,null],
+          [1011,112,"2026-09-09","DEPOSIT",3000,"UPI"],
+          [1012,105,"2026-09-10","TRANSFER",75000,"NETBANKING"],
+          [1013,117,"2026-09-11","DEPOSIT",2000,"UPI"],
+          [1014,118,"2026-09-12","WITHDRAWAL",100000,"BRANCH"],
+          [1015,107,"2026-09-14","DEPOSIT",60000,"NETBANKING"],
+          [1016,103,"2026-09-15","DEPOSIT",22000,"BRANCH"],
+          [1017,111,"2026-09-16","WITHDRAWAL",500000,"NETBANKING"],
+          [1018,120,"2026-09-18","DEPOSIT",1000,"UPI"],
+          [1019,109,"2026-09-20","DEPOSIT",4500,"UPI"],
+          [1020,114,"2026-09-22","TRANSFER",30000,"UPI"],
+          [1021,116,"2026-09-25","WITHDRAWAL",5000,"ATM"],
+          [1022,101,"2026-09-28","DEPOSIT",80000,"NETBANKING"],
+          [1023,106,"2026-09-29","DEPOSIT",null,"BRANCH"],
+          [1024,112,"2026-09-30","WITHDRAWAL",500,"ATM"]
+        ]
+      }
+    },
+    "starter": "SELECT cust_name, city\nFROM customers\nWHERE city = 'Mumbai'",
+    "examples": [
+      { "label": "Mumbai customers", "sql": "SELECT cust_name, city\nFROM customers\nWHERE city = 'Mumbai'" },
+      { "label": "Big savings accounts", "sql": "SELECT acct_id, acct_type, balance\nFROM accounts\nWHERE acct_type = 'SAVINGS' AND balance > 250000" },
+      { "label": "September withdrawals", "sql": "SELECT txn_id, txn_date, amount\nFROM transactions\nWHERE txn_type = 'WITHDRAWAL'\n  AND txn_date BETWEEN '2026-09-01' AND '2026-09-30'" },
+      { "label": "IN and LIKE", "sql": "SELECT cust_name, city\nFROM customers\nWHERE city IN ('Mumbai', 'Delhi') AND cust_name LIKE 'A%'" }
+    ],
+    "challenges": [
+      { "level": "Easy", "task": "Show the cust_name and city of every customer who lives in Chennai.", "hint": "WHERE city = 'Chennai'. Mind the capital C.", "answer": "SELECT cust_name, city FROM customers WHERE city = 'Chennai'" },
+      { "level": "Easy", "task": "Show the acct_id and balance of every account with a balance of more than 500000.", "hint": "More than means >, so exactly 500000 is not included.", "answer": "SELECT acct_id, balance FROM accounts WHERE balance > 500000" },
+      { "level": "Medium", "task": "Show the txn_id and amount of every WITHDRAWAL dated in September 2026 (1 to 30 September).", "hint": "Two conditions joined by AND. Use BETWEEN for the dates.", "answer": "SELECT txn_id, amount FROM transactions WHERE txn_type = 'WITHDRAWAL' AND txn_date BETWEEN '2026-09-01' AND '2026-09-30'" },
+      { "level": "Medium", "task": "Show the cust_name and city of every RETAIL customer who lives in Delhi or Pune.", "hint": "Brackets around the OR part, or use city IN ('Delhi', 'Pune').", "answer": "SELECT cust_name, city FROM customers WHERE segment = 'RETAIL' AND city IN ('Delhi', 'Pune')" },
+      { "level": "Medium", "task": "Show the cust_id and cust_name of every customer whose name starts with the letter A.", "hint": "LIKE 'A%' means A followed by anything.", "answer": "SELECT cust_id, cust_name FROM customers WHERE cust_name LIKE 'A%'" },
+      { "level": "Hard", "task": "Show the txn_id, acct_id and amount of every transaction made through UPI or ATM, with an amount from 1000 to 10000 (both ends included), that is not a DEPOSIT.", "hint": "Three conditions with AND: channel IN (...), amount BETWEEN ... AND ..., txn_type <> 'DEPOSIT'.", "answer": "SELECT txn_id, acct_id, amount FROM transactions WHERE channel IN ('UPI', 'ATM') AND amount BETWEEN 1000 AND 10000 AND txn_type <> 'DEPOSIT'" }
+    ]
+  },
+  "quiz": [
+    { "q": "What does WHERE act on?", "options": ["Columns", "Rows", "Table names"], "answer": 1, "why": "WHERE tests every row and keeps the ones that pass. SELECT is the part that picks columns." },
+    { "q": "Which condition finds customers in Mumbai?", "options": ["city = Mumbai", "city = 'mumbai'", "city = 'Mumbai'"], "answer": 2, "why": "Text needs single quotes and exact case. Without quotes SQL looks for a column called Mumbai." },
+    { "q": "balance BETWEEN 1000 AND 5000 includes which values?", "options": ["1001 to 4999", "1000 to 5000, both ends included", "Only 1000 and 5000"], "answer": 1, "why": "BETWEEN includes both ends. It is the same as balance >= 1000 AND balance <= 5000." },
+    { "q": "Which is a correct way to ask for Delhi or Pune?", "options": ["city = 'Delhi' OR 'Pune'", "city IN ('Delhi', 'Pune')", "city = 'Delhi' AND city = 'Pune'"], "answer": 1, "why": "IN checks a list. The first option is a syntax error, and the third can never be true because one city cannot be both." },
+    { "q": "What does cust_name LIKE '_a%' match?", "options": ["Names whose second letter is a", "Names that start with a", "Names that contain an underscore"], "answer": 0, "why": "The underscore stands for exactly one character, then a, then anything. Rahul, Karthik, Farah, Lakshmi and Kavya match; Asha does not." },
+    { "q": "On Snowflake, what does ILIKE add over LIKE?", "options": ["It matches numbers", "It ignores upper and lower case", "It is faster"], "answer": 1, "why": "ILIKE is case-insensitive pattern matching. The portable alternative is UPPER(column) LIKE 'A%'." }
+  ]
+}
+</script>

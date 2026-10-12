@@ -1,0 +1,270 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>CoCo Masterclass</span><span>Module 2 · CoCo for SQL and data</span><span>Lesson 2.4</span></div>
+  <h1>Optimise queries and cost</h1>
+  <p class="lede">Every query pays librarian wages. Learn how Snowflake charges, how to read a Query Profile, why pruning matters, when clustering helps, how to size a warehouse, and how to keep CoCo itself within budget.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 min</span>
+    <span class="badge">Intermediate</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain how warehouse credits are charged, and estimate a query's cost</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Read a Query Profile: partitions, spilling and the most expensive step</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Ask CoCo to make a query cheaper while keeping the result identical</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Check and cap what CoCo itself costs</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+<div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">Optimising means getting the <b>same answer</b> for less time and fewer credits. In Snowflake that mostly means reading less data (pruning), doing less work (better SQL), and using the right warehouse size for the right job.</p></div>
+  </div>
+  <p>Two separate bills matter on a CoCo project: <b>warehouse credits</b> for every query that runs, and <b>CoCo credits</b> for the tokens CoCo reads and writes. This lesson covers both.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like paying librarians by the minute</h2>
+<p>Librarians (the warehouse) are paid by the minute while they work, and a bigger team costs more per minute. If you ask for "every book in the library" when you needed one shelf, they walk every aisle and you pay for it. A good request slip names the shelf and the date range, so they skip whole aisles. That skipping is <b>pruning</b>.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Wages per minute</b><span>In Snowflake: credits per hour, billed per second, at least 60 seconds each time a warehouse starts</span></div>
+    <div><small>In the library</small><b>Skipping aisles</b><span>In Snowflake: pruning micro-partitions using filters</span></div>
+    <div><small>In the library</small><b>Team size</b><span>In Snowflake: warehouse size, XSMALL upwards, each size double the last</span></div>
+  </div>
+</section>
+
+<section class="sec" id="credits" data-toc="How credits work">
+  <h2>How Snowflake charges for queries</h2>
+<div class="table-wrap">
+    <table>
+      <thead><tr><th>Size</th><th>Credits per hour</th><th>Typical use</th></tr></thead>
+      <tbody>
+        <tr><td><b>XSMALL</b></td><td>1</td><td>Learning, small tables, most of this course (LEARN_WH)</td></tr>
+        <tr><td><b>SMALL</b></td><td>2</td><td>Team development</td></tr>
+        <tr><td><b>MEDIUM</b></td><td>4</td><td>Heavier transformations</td></tr>
+        <tr><td><b>LARGE</b></td><td>8</td><td>Big monthly jobs</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <ul>
+    <li>Billing is <b>per second</b> while the warehouse runs, with a <b>60-second minimum</b> each time it resumes.</li>
+    <li><code>AUTO_SUSPEND = 60</code> stops paying 60 seconds after the last query; <code>AUTO_RESUME = TRUE</code> wakes it on the next query.</li>
+    <li>A bigger warehouse is not always more expensive: if LARGE finishes in 1 minute what XSMALL does in 8, the cost is the same and you wait less. If it does not get faster, you just pay more.</li>
+    <li>Running the exact same query again within 24 hours can come back from the <b>result cache</b>, using no warehouse time, if the data has not changed.</li>
+  </ul>
+</section>
+
+<section class="sec" id="profile" data-toc="Query Profile">
+  <h2>Reading a Query Profile</h2>
+<p>Open <b>Monitoring » Query History</b>, select a query, then the <b>Query Profile</b> tab. Four things to look at:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Look at</th><th>Healthy</th><th>Problem sign</th><th>Ask CoCo</th></tr></thead>
+      <tbody>
+        <tr><td><b>Most expensive nodes</b></td><td>A scan or aggregate on a big table</td><td>A huge Join or Sort</td><td>"Why is this join the most expensive step?"</td></tr>
+        <tr><td><b>Partitions scanned vs total</b></td><td>Scanned is a small part of total</td><td>Scanned = total on a filtered query</td><td>"Why does this filter not prune?"</td></tr>
+        <tr><td><b>Bytes spilled to local / remote storage</b></td><td>None</td><td>Any remote spilling</td><td>"How can I reduce spilling: less data, or a bigger warehouse?"</td></tr>
+        <tr><td><b>Rows out of each join</b></td><td>Close to the rows in</td><td>Many times more (fan-out)</td><td>"Is this join multiplying rows?"</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>CoCo can read the same numbers with SQL: <code>SELECT * FROM TABLE(GET_QUERY_OPERATOR_STATS(LAST_QUERY_ID()));</code> returns the profile of your last query as rows.</p>
+</section>
+
+<section class="sec" id="pruning" data-toc="Pruning and clustering">
+  <h2>Pruning and clustering basics</h2>
+<p>Snowflake stores each table in small chunks called <b>micro-partitions</b> and remembers the minimum and maximum of each column in each chunk. When you filter <code>WHERE TXN_DATE &gt;= '2026-07-01'</code>, it skips every chunk whose maximum date is earlier. That is pruning.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Habit</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td><b>Filter on the raw column: <code>TXN_DATE &gt;= '2026-09-01'</code></b></td><td>Wrapping it, as in <code>TO_CHAR(TXN_DATE, 'YYYY-MM') = '2026-09'</code>, can stop pruning</td></tr>
+        <tr><td><b>Select only the columns you need, not SELECT *</b></td><td>Snowflake stores columns separately; fewer columns, fewer bytes</td></tr>
+        <tr><td><b>Aggregate before joining</b></td><td>Smaller inputs to the join</td></tr>
+        <tr><td><b>Use LIMIT while testing</b></td><td>Cheap first look</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p><b>Clustering</b> (<code>ALTER TABLE ... CLUSTER BY (TXN_DATE)</code>) keeps rows with similar values in the same micro-partitions, so pruning works better. It is meant for <b>very large</b> tables where queries filter on the same columns, and automatic reclustering costs credits. On a 100,000-row table it is not worth it. You can inspect a table with <code>SELECT SYSTEM$CLUSTERING_INFORMATION('BANK_DS.RAW.TRANSACTIONS', '(TXN_DATE)');</code></p>
+</section>
+
+<section class="sec" id="cococost" data-toc="CoCo's own cost">
+  <h2>What CoCo itself costs</h2>
+<p>CoCo is billed by tokens. Admins control it with three per-user daily limits, one per surface:</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre>-- -1 = no limit (default), 0 = blocked, a positive number = cap over a rolling 24 hours
+ALTER ACCOUNT SET CORTEX_CODE_SNOWSIGHT_DAILY_EST_CREDIT_LIMIT_PER_USER = 5;
+ALTER ACCOUNT SET CORTEX_CODE_CLI_DAILY_EST_CREDIT_LIMIT_PER_USER = 5;
+ALTER ACCOUNT SET CORTEX_CODE_DESKTOP_DAILY_EST_CREDIT_LIMIT_PER_USER = 5;
+
+-- What did CoCo in Snowsight cost per user in the last 30 days? (view latency up to 1 hour)
+SELECT USER_NAME, ROUND(SUM(TOKEN_CREDITS), 4) AS COCO_CREDITS, SUM(TOKENS) AS TOKENS
+FROM SNOWFLAKE.ACCOUNT_USAGE.CORTEX_CODE_SNOWSIGHT_USAGE_HISTORY
+WHERE USAGE_TIME &gt;= DATEADD(DAY, -30, CURRENT_TIMESTAMP())
+GROUP BY USER_NAME
+ORDER BY COCO_CREDITS DESC;</pre></div>
+  <p>CLI usage is in <code>SNOWFLAKE.ACCOUNT_USAGE.CORTEX_CODE_CLI_USAGE_HISTORY</code>. Queries CoCo runs also use warehouse credits, which show in the normal query and warehouse history. Cheaper habits: one task per chat, point with @ instead of pasting long outputs, and pick <b>Auto Efficient</b> for simple tasks if your team allows it.</p>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+<p>A month-end churn report runs on a MEDIUM warehouse for 40 minutes: 4 credits × 40/60 hours ≈ 2.7 credits per run. The Query Profile shows it scans two years of transactions to report one month. You ask CoCo:</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre>Here is the month-end churn query. Make it cheaper. The result must stay identical.
+Explain each change in one line, and give me a query that compares old and new
+results (EXCEPT both ways) so I can prove they match.</pre></div>
+  <p>CoCo moves the date filter onto the raw TXN_DATE column, aggregates before the join and drops SELECT *. The new run prunes most partitions and finishes in 4 minutes on SMALL: 2 × 4/60 ≈ 0.13 credits. The EXCEPT check returns zero rows, so you can prove nothing changed.</p>
+</section>
+
+<section class="sec" id="sim" data-toc="Simulator: make it cheaper">
+  <h2>Try it: optimise a slow query with CoCo</h2>
+<div data-simulator="coco-2-4-optimise"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+<p><code>query_log</code> is a slice of query history; <code>coco_usage</code> is a slice of CoCo usage. Write the SQL CoCo should produce. Credits for one query ≈ seconds ÷ 3600 × credits per hour (ignoring the 60-second minimum).</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: see cost with your own eyes</h2>
+<div class="panel">
+    <div class="panel-head">
+      <h3>Cache, profile, pruning and CoCo usage on BANK_DS</h3>
+      <div class="meta"><span>About 15 min</span><span>Your trial + BANK_DS</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>Run this twice in a Workspaces SQL file. Note the time of each run.</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre>USE WAREHOUSE LEARN_WH;
+SELECT TXN_TYPE, COUNT(*) AS TXNS, SUM(AMOUNT) AS TOTAL
+FROM BANK_DS.CLEAN.TRANSACTIONS
+GROUP BY TXN_TYPE;</pre></div>
+        <p class="expect">Expected: the second run is near-instant: it came from the result cache.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Open <b>Monitoring » Query History</b>, select the first run and open <b>Query Profile</b>. Find partitions scanned vs total.</p>
+        <p class="expect">Expected: a small table, so very few partitions. On big tables this ratio is where savings hide.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Ask CoCo to review a wasteful query.</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre>Make this cheaper without changing the result, and explain each change:
+SELECT * FROM BANK_DS.CLEAN.TRANSACTIONS T JOIN BANK_DS.CLEAN.CUSTOMERS C ON C.CUSTOMER_ID = T.CUSTOMER_ID WHERE TO_CHAR(T.TXN_DATE, 'YYYY-MM') = '2026-09';</pre></div>
+        <p class="expect">Expected: suggestions such as a date range on TXN_DATE, only the needed columns, and maybe aggregating first. Ask it for an EXCEPT check to prove the result is the same.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Ask CoCo to show the warehouse settings.</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre>SHOW WAREHOUSES LIKE 'LEARN_WH';</pre></div>
+        <p class="expect">Expected: size X-Small, auto_suspend 60, auto_resume true.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Ask CoCo what it has cost you so far (it can take up to an hour to appear).</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre>SELECT ROUND(SUM(TOKEN_CREDITS), 4) AS MY_COCO_CREDITS
+FROM SNOWFLAKE.ACCOUNT_USAGE.CORTEX_CODE_SNOWSIGHT_USAGE_HISTORY
+WHERE USER_NAME = CURRENT_USER();</pre></div>
+        <p class="expect">Expected: a small number of credits. If it is empty, wait and try again later.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+<div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember it</div><p>Same answer, less work: filter on raw columns so Snowflake can prune, select only what you need, aggregate before joining, and size the warehouse to the job. Read the Query Profile before guessing. And watch CoCo's own token bill with the daily limits and the usage views.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+<dl class="glossary">
+    <dt>Credit</dt><dd>The unit Snowflake bills compute in. XSMALL uses 1 credit per hour.</dd>
+    <dt>Micro-partition</dt><dd>A small chunk of a table with min/max metadata per column.</dd>
+    <dt>Pruning</dt><dd>Skipping micro-partitions that cannot match a filter.</dd>
+    <dt>Clustering</dt><dd>Keeping similar values together in micro-partitions to improve pruning on very large tables.</dd>
+    <dt>Spilling</dt><dd>When a query runs out of memory and writes to disk. Slow.</dd>
+    <dt>Result cache</dt><dd>Stored results of a query, reused for 24 hours if the data has not changed.</dd>
+    <dt>Query Profile</dt><dd>A Snowsight view of how a query ran, step by step.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+<div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#coco/2-5">2.5 Document your data →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+   "tables": {
+    "query_log": {
+      "columns": [["query_id", "NUMBER"], ["user_name", "VARCHAR"], ["warehouse_size", "VARCHAR"], ["credits_per_hour", "NUMBER"], ["elapsed_sec", "NUMBER"], ["partitions_scanned", "NUMBER"], ["partitions_total", "NUMBER"], ["spilled_mb", "NUMBER"]],
+      "rows": [
+        [1, "ASHA", "XSMALL", 1, 12, 3, 40, 0],
+        [2, "ASHA", "XSMALL", 1, 340, 40, 40, 0],
+        [3, "RAVI", "MEDIUM", 4, 2400, 980, 1000, 850],
+        [4, "RAVI", "MEDIUM", 4, 95, 60, 1000, 0],
+        [5, "MEERA", "SMALL", 2, 60, 10, 200, 0],
+        [6, "MEERA", "LARGE", 8, 600, 1000, 1000, 120],
+        [7, "ASHA", "XSMALL", 1, 8, 1, 40, 0]
+      ]
+    },
+    "coco_usage": {
+      "columns": [["user_name", "VARCHAR"], ["usage_date", "DATE"], ["token_credits", "NUMBER"]],
+      "rows": [
+        ["ASHA", "2026-10-01", 0.42],
+        ["ASHA", "2026-10-02", 0.18],
+        ["RAVI", "2026-10-01", 1.35],
+        ["RAVI", "2026-10-03", 2.1],
+        ["MEERA", "2026-10-02", 0.05],
+        ["ASHA", "2026-10-05", 0.3]
+      ]
+    }
+   },
+   "starter": "-- You asked CoCo: 'Estimated credits per query, most expensive first.'\nSELECT query_id, user_name, warehouse_size,\n       ROUND(elapsed_sec / 3600.0 * credits_per_hour, 3) AS est_credits\nFROM query_log\nORDER BY est_credits DESC, query_id",
+   "examples": [
+    {"label": "Pruning ratio", "sql": "SELECT query_id,\n       ROUND(100.0 * partitions_scanned / partitions_total, 1) AS pct_scanned\nFROM query_log\nORDER BY pct_scanned DESC, query_id"},
+    {"label": "Queries that spilled", "sql": "SELECT query_id, user_name, warehouse_size, spilled_mb\nFROM query_log\nWHERE spilled_mb > 0\nORDER BY spilled_mb DESC"}
+   ],
+   "challenges": [
+    {"task": "You asked CoCo: 'Which queries scanned more than 80% of partitions? Show query_id and the percent, highest first.' Write the SQL it should produce.", "hint": "Compute 100.0 * partitions_scanned / partitions_total and filter on the same expression with WHERE.", "answer": "SELECT query_id, ROUND(100.0 * partitions_scanned / partitions_total, 1) AS pct_scanned FROM query_log WHERE 100.0 * partitions_scanned / partitions_total > 80 ORDER BY pct_scanned DESC, query_id"},
+    {"task": "You asked CoCo: 'Total estimated warehouse credits per user, highest first.' Write the SQL it should produce (user_name, est_credits rounded to 3 decimals).", "hint": "SUM(elapsed_sec / 3600.0 * credits_per_hour), GROUP BY user_name.", "answer": "SELECT user_name, ROUND(SUM(elapsed_sec / 3600.0 * credits_per_hour), 3) AS est_credits FROM query_log GROUP BY user_name ORDER BY est_credits DESC"},
+    {"task": "You asked CoCo: 'Total CoCo token credits per user, highest first.' Write the SQL it should produce.", "hint": "SUM(token_credits) from coco_usage, GROUP BY user_name.", "answer": "SELECT user_name, SUM(token_credits) AS coco_credits FROM coco_usage GROUP BY user_name ORDER BY coco_credits DESC"}
+   ]
+  },
+  "simulators": [
+    {"id": "coco-2-4-optimise", "title": "Make it cheaper, prove it is the same", "tool": "coco", "intro": "A teammate's monthly query on BANK_DS feels slow. You paste it into the CoCo panel.", "steps": [
+      {"prompt": "Why might this be slow or expensive? SELECT * FROM BANK_DS.CLEAN.TRANSACTIONS T JOIN BANK_DS.CLEAN.CUSTOMERS C ON C.CUSTOMER_ID = T.CUSTOMER_ID WHERE TO_CHAR(T.TXN_DATE, 'YYYY-MM') = '2026-09';", "say": "Three issues. 1) TO_CHAR on TXN_DATE can stop Snowflake from pruning by date. 2) SELECT * reads every column of both tables. 3) It returns every transaction row; if you need totals, aggregate first. I read the profile of your last run with this query:", "code": {"lang": "sql", "text": "SELECT OPERATOR_TYPE, OPERATOR_STATISTICS:pruning AS PRUNING\nFROM TABLE(GET_QUERY_OPERATOR_STATS(LAST_QUERY_ID()))\nWHERE OPERATOR_TYPE = 'TableScan';"}, "check": ["Reasons are specific, not generic", "It read the actual profile instead of guessing"]},
+      {"prompt": "I need total September amount per segment. Rewrite it cheaper.", "code": {"lang": "sql", "text": "WITH SEPT AS (\n  SELECT CUSTOMER_ID, SUM(AMOUNT) AS AMOUNT\n  FROM BANK_DS.CLEAN.TRANSACTIONS\n  WHERE TXN_DATE >= '2026-09-01' AND TXN_DATE < '2026-10-01'\n  GROUP BY CUSTOMER_ID\n)\nSELECT C.SEGMENT, SUM(S.AMOUNT) AS SEPT_AMOUNT\nFROM SEPT S\nJOIN BANK_DS.CLEAN.CUSTOMERS C ON C.CUSTOMER_ID = S.CUSTOMER_ID\nGROUP BY C.SEGMENT\nORDER BY SEPT_AMOUNT DESC;"}, "check": ["Date filter on the raw column, as a half-open range (>= start, < next month)", "Only two columns read from transactions", "Aggregated before the join"]},
+      {"prompt": "Prove the new result equals the old logic. Use EXCEPT both ways.", "code": {"lang": "sql", "text": "WITH OLD AS (\n  SELECT C.SEGMENT, SUM(T.AMOUNT) AS SEPT_AMOUNT\n  FROM BANK_DS.CLEAN.TRANSACTIONS T\n  JOIN BANK_DS.CLEAN.CUSTOMERS C ON C.CUSTOMER_ID = T.CUSTOMER_ID\n  WHERE TO_CHAR(T.TXN_DATE, 'YYYY-MM') = '2026-09'\n  GROUP BY C.SEGMENT\n),\nNEW AS (\n  -- the rewritten query from the previous step, without ORDER BY\n  SELECT ...\n)\nSELECT 'only in old' AS SIDE, * FROM (SELECT * FROM OLD EXCEPT SELECT * FROM NEW)\nUNION ALL\nSELECT 'only in new', * FROM (SELECT * FROM NEW EXCEPT SELECT * FROM OLD);"}, "outputText": "Query produced no results.", "check": ["Zero rows both ways: same answer", "Do this every time you accept an optimisation"]},
+      {"prompt": "Should I make LEARN_WH bigger or cluster TRANSACTIONS by TXN_DATE?", "say": "No to both for now. TRANSACTIONS has 100,000 rows and the query finishes in about a second on XSMALL. Clustering is meant for very large tables, and reclustering costs credits. A bigger warehouse would cost twice as much per second without a real speed-up.", "check": ["Advice fits the table size", "If CoCo recommends clustering a small table, push back"]}
+    ]}
+  ],
+  "quiz": [
+    {"q": "How many credits per hour does an XSMALL warehouse use?", "options": ["1", "4", "8"], "answer": 0, "why": "XSMALL is 1 credit per hour; each size up doubles it: SMALL 2, MEDIUM 4, LARGE 8."},
+    {"q": "Which filter lets Snowflake prune by date best?", "options": ["WHERE TO_CHAR(TXN_DATE, 'YYYY-MM') = '2026-09'", "WHERE TXN_DATE >= '2026-09-01' AND TXN_DATE < '2026-10-01'", "WHERE YEAR(TXN_DATE) * 100 + MONTH(TXN_DATE) = 202609"], "answer": 1, "why": "Filtering the raw column lets Snowflake compare with each micro-partition's min and max date."},
+    {"q": "In a Query Profile, partitions scanned equals partitions total on a filtered query. What does that suggest?", "options": ["Perfect pruning", "The filter is not pruning", "The result came from cache"], "answer": 1, "why": "Good pruning scans only a small part of the partitions."},
+    {"q": "When is clustering worth it?", "options": ["On every table", "On very large tables that are often filtered on the same columns", "Only on tables under 1,000 rows"], "answer": 1, "why": "Clustering helps pruning on big tables, and automatic reclustering costs credits."},
+    {"q": "CORTEX_CODE_SNOWSIGHT_DAILY_EST_CREDIT_LIMIT_PER_USER is -1. What does that mean?", "options": ["CoCo is blocked", "No limit", "1 credit per day"], "answer": 1, "why": "-1 is the default and means unlimited. 0 blocks; a positive number caps estimated credits over a rolling 24 hours."},
+    {"q": "CoCo rewrites a query to be cheaper. How do you prove the result did not change?", "options": ["Trust it", "Compare old and new with EXCEPT both ways and expect zero rows", "Run the new one twice"], "answer": 1, "why": "EXCEPT in both directions shows any row that differs. Zero rows both ways means the same result."}
+  ]
+}
+</script>

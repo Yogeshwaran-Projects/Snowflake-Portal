@@ -1,0 +1,352 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>SQL: Beginner to Advanced</span><span>Module 2 · Intermediate</span><span>Lesson 2.2</span></div>
+  <h1>Outer joins and anti-joins</h1>
+  <p class="lede">“All customers, even the ones with no account.” “Which branches have no customers?” Outer joins keep the rows an inner join throws away, and anti-joins find the rows with no partner.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 min</span>
+    <span class="badge">Intermediate</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice: 6 questions</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Choose between INNER, LEFT, RIGHT and FULL joins</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Find rows with no match (an anti-join) using LEFT JOIN … IS NULL</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Count children per parent and show 0, not a missing row</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Put a filter in ON or in WHERE on purpose, not by accident</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">An outer join keeps every row from one side (or both sides) even when there is no match, and fills the missing side with NULL.</p></div>
+  </div>
+  <ul>
+    <li><b>LEFT JOIN</b>: keep every row from the left table. Right-side columns are NULL where nothing matched.</li>
+    <li><b>RIGHT JOIN</b>: the mirror image. Keep every row from the right table.</li>
+    <li><b>FULL JOIN</b>: keep every row from both sides.</li>
+    <li><b>Anti-join</b>: a LEFT JOIN followed by <code>WHERE right.key IS NULL</code>. It returns the left rows that have <b>no</b> partner.</li>
+  </ul>
+  <p>Almost everyone writes LEFT JOIN and never RIGHT JOIN. You can always swap the table order to turn a RIGHT into a LEFT.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like keeping every card from the left shelf</h2>
+  <p>Back to the two shelves of index cards. With an inner join, a customer card with no account card goes back on the shelf. With a LEFT JOIN you keep that customer card anyway and lay a <b>blank card</b> next to it. The blank card is NULL. Now you can also ask the opposite question: “show me only the customers who got a blank card”. That is the anti-join.</p>
+  <div class="map">
+    <div><small>On the shelves</small><b>Keep every left card</b><span>In SQL: LEFT JOIN. Every customer appears at least once</span></div>
+    <div><small>On the shelves</small><b>The blank card</b><span>In SQL: NULL in every column from the right table</span></div>
+    <div><small>On the shelves</small><b>Only the blank-card customers</b><span>In SQL: WHERE a.acct_id IS NULL, the anti-join</span></div>
+  </div>
+</section>
+
+<section class="sec" id="syntax" data-toc="Syntax">
+  <h2>Syntax step by step</h2>
+  <p>The only change from Lesson 2.1 is one word before JOIN. The table written first is the left table.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> c.cust_name, a.acct_id, a.balance
+<span class="kw">FROM</span> customers c
+<span class="kw">LEFT JOIN</span> accounts a <span class="kw">ON</span> a.cust_id = c.cust_id;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>customers (left)</th><th>accounts (right)</th><th>INNER</th><th>LEFT</th></tr></thead>
+      <tbody>
+        <tr><td>2 Bhavna Desai</td><td>1003 SAVINGS</td><td>Yes</td><td>Yes</td></tr>
+        <tr><td>2 Bhavna Desai</td><td>1014 FD</td><td>Yes</td><td>Yes</td></tr>
+        <tr><td>10 Jay Mehta</td><td>(none)</td><td>Dropped</td><td>Kept, acct_id NULL</td></tr>
+        <tr><td>12 Kavya Iyer</td><td>(none)</td><td>Dropped</td><td>Kept, acct_id NULL</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Inner: 14 rows. Left: 16 rows, because two customers come back with a blank card.</p>
+  <h3>The anti-join</h3>
+  <p>Add a WHERE that keeps only the blank cards. Test a column that can never be NULL in a real match, such as the right table’s primary key.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> c.cust_name
+<span class="kw">FROM</span> customers c
+<span class="kw">LEFT JOIN</span> accounts a <span class="kw">ON</span> a.cust_id = c.cust_id
+<span class="kw">WHERE</span> a.acct_id <span class="kw">IS NULL</span>;</pre></div>
+  <p>Result: Jay Mehta and Kavya Iyer. The same question can be written with <code>NOT EXISTS</code> (Lesson 2.4). Both are correct. Pick the one your team reads most easily.</p>
+  <h3>FULL JOIN</h3>
+  <p>Use FULL JOIN to reconcile two lists: rows in A only, rows in B only, and rows in both. Banks use it to compare yesterday’s file with today’s.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> b.branch_name, c.cust_name
+<span class="kw">FROM</span> branches b
+<span class="kw">FULL JOIN</span> customers c <span class="kw">ON</span> c.branch_id = b.branch_id;</pre></div>
+  <p>Salt Lake appears with a NULL customer. Jay Mehta appears with a NULL branch. Everyone else pairs up.</p>
+</section>
+
+<section class="sec" id="examples" data-toc="Worked examples">
+  <h2>Worked examples</h2>
+  <p><b>Example 1: accounts per customer, with zeros.</b> Count the right table’s key, not <code>*</code>. <code>COUNT(a.acct_id)</code> ignores the NULL blank card, so Jay and Kavya show 0. <code>COUNT(*)</code> would wrongly give them 1.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> c.cust_name, <span class="kw">COUNT</span>(a.acct_id) <span class="kw">AS</span> accounts_held
+<span class="kw">FROM</span> customers c
+<span class="kw">LEFT JOIN</span> accounts a <span class="kw">ON</span> a.cust_id = c.cust_id
+<span class="kw">GROUP BY</span> c.cust_id, c.cust_name;</pre></div>
+  <p><b>Example 2: filter in ON, not WHERE.</b> “Every branch and its ACTIVE balance, 0 when none.” If you put <code>acct_status = 'ACTIVE'</code> in WHERE, the NULL blank cards fail the test and Salt Lake vanishes. Put the filter in ON so it only decides which cards match.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> b.branch_name, <span class="kw">COALESCE</span>(<span class="kw">SUM</span>(a.balance), 0) <span class="kw">AS</span> active_balance
+<span class="kw">FROM</span> branches b
+<span class="kw">LEFT JOIN</span> customers c <span class="kw">ON</span> c.branch_id = b.branch_id
+<span class="kw">LEFT JOIN</span> accounts a  <span class="kw">ON</span> a.cust_id = c.cust_id
+                     <span class="kw">AND</span> a.acct_status = 'ACTIVE'
+<span class="kw">GROUP BY</span> b.branch_id, b.branch_name;</pre></div>
+  <p>Result: 6 rows. Salt Lake shows 0. <code>COALESCE</code> turns the NULL sum into 0.</p>
+  <p><b>Example 3: loan customers with no account.</b> Start from loans, join to customers, LEFT JOIN accounts, keep the blanks.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> c.cust_name, l.loan_type
+<span class="kw">FROM</span> loans l
+<span class="kw">JOIN</span> customers c <span class="kw">ON</span> c.cust_id = l.cust_id
+<span class="kw">LEFT JOIN</span> accounts a <span class="kw">ON</span> a.cust_id = c.cust_id
+<span class="kw">WHERE</span> a.acct_id <span class="kw">IS NULL</span>;</pre></div>
+  <p>Result: Jay Mehta, PERSONAL. A bank calls this “a lending-only relationship”, and it is a classic cross-sell list.</p>
+</section>
+
+<section class="sec" id="mistakes" data-toc="Common mistakes">
+  <h2>Common mistakes</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">A WHERE on the right table turns LEFT into INNER</div><p><code>LEFT JOIN accounts a … WHERE a.balance &gt; 0</code> drops every blank card, because NULL &gt; 0 is not true. You asked for all customers and silently got only those with accounts. If the filter belongs to the right table, write it in ON. If you really want to filter the result, add <code>OR a.acct_id IS NULL</code> on purpose.</p></div>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">COUNT(*) on a LEFT JOIN never returns 0</div><p>The blank card is still a row. Count a right-side column, <code>COUNT(a.acct_id)</code>, so blanks count as 0.</p></div>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Anti-join on the wrong column</div><p>Test a column that cannot be NULL in a real match. <code>WHERE a.balance IS NULL</code> would also catch a real account whose balance happens to be NULL. Use the key: <code>a.acct_id IS NULL</code>.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="snowflake" data-toc="On Snowflake">
+  <h2>On Snowflake</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Portable, with one legacy trap</div><p>LEFT, RIGHT and FULL OUTER JOIN work the same on Snowflake. You will meet old code with <code>(+)</code> in the WHERE clause, such as <code>WHERE a.cust_id(+) = c.cust_id</code>. That is Oracle-style outer join syntax, and Snowflake still accepts it. Read it as a LEFT JOIN and rewrite it with ON when you touch the query. Snowflake also lets you write <code>LEFT OUTER JOIN</code>; the word OUTER is optional.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice">
+  <h2>Practice</h2>
+  <p>Tables: <code>customers</code>, <code>accounts</code>, <code>loans</code> and <code>branches</code>. Two customers have no account, one branch has no customers, and one loan customer has no account. Those gaps are the point of this lesson.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>LEFT JOIN keeps every left row and fills gaps with NULL. Filters on the right table go in ON. “Who has none?” is LEFT JOIN plus WHERE right.key IS NULL.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Outer join</dt><dd>A join that keeps unmatched rows from one or both sides.</dd>
+    <dt>LEFT JOIN</dt><dd>Keep every row of the first (left) table.</dd>
+    <dt>RIGHT JOIN</dt><dd>Keep every row of the second (right) table. Rarely used; swap the tables and use LEFT instead.</dd>
+    <dt>FULL JOIN</dt><dd>Keep every row of both tables.</dd>
+    <dt>Anti-join</dt><dd>Rows from one table that have no match in the other.</dd>
+    <dt>COALESCE</dt><dd>Returns the first non-NULL value in its list, such as COALESCE(SUM(x), 0).</dd>
+    <dt>Blank card</dt><dd>This course’s nickname for the NULL-filled right side of an unmatched row.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#sql/2-3">2.3 Self and cross joins →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "customers": {
+        "columns": [
+          ["cust_id", "NUMBER"],
+          ["cust_name", "VARCHAR"],
+          ["city", "VARCHAR"],
+          ["segment", "VARCHAR", "RETAIL, PREMIUM or SME"],
+          ["joined_on", "DATE"],
+          ["branch_id", "NUMBER", "NULL for online-only customers"]
+        ],
+        "rows": [
+          [1, "Anil Kapoor", "Mumbai", "RETAIL", "2019-03-15", 1],
+          [2, "Bhavna Desai", "Mumbai", "PREMIUM", "2020-07-01", 1],
+          [3, "Chetan Patel", "Delhi", "RETAIL", "2021-01-20", 2],
+          [4, "Deepa Nair", "Delhi", "PREMIUM", "2018-11-05", 2],
+          [5, "Esha Singh", "Chennai", "RETAIL", "2022-05-10", 3],
+          [6, "Farhan Ali", "Chennai", "SME", "2020-02-28", 3],
+          [7, "Gita Rao", "Bengaluru", "PREMIUM", "2023-08-14", 4],
+          [8, "Harish Kumar", "Bengaluru", "RETAIL", "2024-01-09", 4],
+          [9, "Isha Verma", "Hyderabad", "SME", "2024-06-30", 5],
+          [10, "Jay Mehta", "Pune", "RETAIL", "2025-02-11", null],
+          [11, "Anil Kapoor", "Delhi", "RETAIL", "2025-09-01", 2],
+          [12, "Kavya Iyer", "Chennai", "RETAIL", "2026-03-03", 3]
+        ]
+      },
+      "accounts": {
+        "columns": [
+          ["acct_id", "NUMBER"],
+          ["cust_id", "NUMBER"],
+          ["acct_type", "VARCHAR", "SAVINGS, CURRENT or FD"],
+          ["balance", "NUMBER", "in rupees"],
+          ["opened_on", "DATE"],
+          ["acct_status", "VARCHAR", "ACTIVE, DORMANT or CLOSED"]
+        ],
+        "rows": [
+          [1001, 1, "SAVINGS", 85000, "2019-03-15", "ACTIVE"],
+          [1002, 1, "CURRENT", 240000, "2020-01-10", "ACTIVE"],
+          [1003, 2, "SAVINGS", 520000, "2020-07-01", "ACTIVE"],
+          [1004, 3, "SAVINGS", 15000, "2021-01-20", "ACTIVE"],
+          [1005, 4, "SAVINGS", 310000, "2018-11-05", "ACTIVE"],
+          [1006, 4, "FD", 1000000, "2022-03-01", "ACTIVE"],
+          [1007, 5, "SAVINGS", 4200, "2022-05-10", "DORMANT"],
+          [1008, 6, "CURRENT", 760000, "2020-02-28", "ACTIVE"],
+          [1009, 7, "SAVINGS", 95000, "2023-08-14", "ACTIVE"],
+          [1010, 8, "SAVINGS", 12500, "2024-01-09", "ACTIVE"],
+          [1011, 9, "CURRENT", 430000, "2024-06-30", "ACTIVE"],
+          [1012, 11, "SAVINGS", 7800, "2025-09-01", "ACTIVE"],
+          [1013, 6, "FD", 500000, "2024-12-15", "CLOSED"],
+          [1014, 2, "FD", 250000, "2025-11-20", "ACTIVE"]
+        ]
+      },
+      "loans": {
+        "columns": [
+          ["loan_id", "NUMBER"],
+          ["cust_id", "NUMBER"],
+          ["loan_type", "VARCHAR", "HOME, CAR, PERSONAL or BUSINESS"],
+          ["principal", "NUMBER", "in rupees"],
+          ["start_date", "DATE"],
+          ["loan_status", "VARCHAR", "ACTIVE or CLOSED"]
+        ],
+        "rows": [
+          [7001, 1, "HOME", 3500000, "2021-04-01", "ACTIVE"],
+          [7002, 2, "CAR", 800000, "2023-06-15", "ACTIVE"],
+          [7003, 4, "HOME", 6000000, "2019-02-01", "CLOSED"],
+          [7004, 6, "BUSINESS", 2500000, "2022-09-10", "ACTIVE"],
+          [7005, 8, "PERSONAL", 300000, "2024-11-05", "ACTIVE"],
+          [7006, 9, "BUSINESS", 1500000, "2025-01-20", "ACTIVE"],
+          [7007, 10, "PERSONAL", 200000, "2025-05-12", "ACTIVE"],
+          [7008, 3, "CAR", 450000, "2026-02-14", "ACTIVE"],
+          [7009, 1, "PERSONAL", 150000, "2025-08-01", "CLOSED"]
+        ]
+      },
+      "branches": {
+        "columns": [
+          ["branch_id", "NUMBER"],
+          ["branch_name", "VARCHAR"],
+          ["city", "VARCHAR"],
+          ["manager_id", "NUMBER", "emp_id of the branch manager; NULL when the post is empty"]
+        ],
+        "rows": [
+          [1, "Fort", "Mumbai", 101],
+          [2, "Connaught Place", "Delhi", 102],
+          [3, "T Nagar", "Chennai", 103],
+          [4, "Koramangala", "Bengaluru", 104],
+          [5, "Banjara Hills", "Hyderabad", null],
+          [6, "Salt Lake", "Kolkata", null]
+        ]
+      }
+    },
+    "starter": "SELECT c.cust_name, a.acct_id, a.balance\nFROM customers c\nLEFT JOIN accounts a ON a.cust_id = c.cust_id\nORDER BY c.cust_id, a.acct_id",
+    "examples": [
+      {
+        "label": "Accounts per customer (zeros kept)",
+        "sql": "SELECT c.cust_name, COUNT(a.acct_id) AS accounts_held\nFROM customers c\nLEFT JOIN accounts a ON a.cust_id = c.cust_id\nGROUP BY c.cust_id, c.cust_name\nORDER BY accounts_held DESC, c.cust_name"
+      },
+      {
+        "label": "Filter in ON",
+        "sql": "SELECT b.branch_name, COALESCE(SUM(a.balance), 0) AS active_balance\nFROM branches b\nLEFT JOIN customers c ON c.branch_id = b.branch_id\nLEFT JOIN accounts a  ON a.cust_id = c.cust_id\n                     AND a.acct_status = 'ACTIVE'\nGROUP BY b.branch_id, b.branch_name\nORDER BY b.branch_id"
+      },
+      {
+        "label": "FULL JOIN reconcile",
+        "sql": "SELECT b.branch_name, c.cust_name\nFROM branches b\nFULL JOIN customers c ON c.branch_id = b.branch_id\nORDER BY b.branch_id, c.cust_id"
+      }
+    ],
+    "challenges": [
+      {
+        "level": "Easy",
+        "task": "Show cust_name and acct_id for every customer, including customers with no account (their acct_id is NULL).",
+        "hint": "customers LEFT JOIN accounts ON cust_id. Expect 16 rows: 14 accounts plus 2 blank cards.",
+        "answer": "SELECT c.cust_name, a.acct_id FROM customers c LEFT JOIN accounts a ON a.cust_id = c.cust_id ORDER BY c.cust_id, a.acct_id"
+      },
+      {
+        "level": "Easy",
+        "task": "Show cust_name for every customer who has no account at all.",
+        "hint": "LEFT JOIN accounts, then WHERE a.acct_id IS NULL.",
+        "answer": "SELECT c.cust_name FROM customers c LEFT JOIN accounts a ON a.cust_id = c.cust_id WHERE a.acct_id IS NULL ORDER BY c.cust_id"
+      },
+      {
+        "level": "Medium",
+        "task": "For every customer show cust_name and the number of accounts they hold. Customers with no account must show 0.",
+        "hint": "LEFT JOIN, GROUP BY c.cust_id, c.cust_name, and COUNT(a.acct_id), not COUNT(*).",
+        "answer": "SELECT c.cust_name, COUNT(a.acct_id) AS accounts_held FROM customers c LEFT JOIN accounts a ON a.cust_id = c.cust_id GROUP BY c.cust_id, c.cust_name ORDER BY c.cust_id"
+      },
+      {
+        "level": "Medium",
+        "task": "Show branch_name for every branch that has no customers.",
+        "hint": "branches LEFT JOIN customers ON branch_id, then WHERE c.cust_id IS NULL.",
+        "answer": "SELECT b.branch_name FROM branches b LEFT JOIN customers c ON c.branch_id = b.branch_id WHERE c.cust_id IS NULL ORDER BY b.branch_id"
+      },
+      {
+        "level": "Medium",
+        "task": "Show cust_name and loan_type for every loan whose customer has no account.",
+        "hint": "Start FROM loans, JOIN customers, LEFT JOIN accounts, then keep rows WHERE a.acct_id IS NULL.",
+        "answer": "SELECT c.cust_name, l.loan_type FROM loans l JOIN customers c ON c.cust_id = l.cust_id LEFT JOIN accounts a ON a.cust_id = c.cust_id WHERE a.acct_id IS NULL ORDER BY l.loan_id"
+      },
+      {
+        "level": "Hard",
+        "task": "For every branch (all 6), show branch_name and the total balance of its customers' ACTIVE accounts. Branches with no such accounts must show 0.",
+        "hint": "Two LEFT JOINs. Put a.acct_status = 'ACTIVE' in the ON clause of the accounts join, not in WHERE. Wrap the SUM in COALESCE(..., 0).",
+        "answer": "SELECT b.branch_name, COALESCE(SUM(a.balance), 0) AS active_balance FROM branches b LEFT JOIN customers c ON c.branch_id = b.branch_id LEFT JOIN accounts a ON a.cust_id = c.cust_id AND a.acct_status = 'ACTIVE' GROUP BY b.branch_id, b.branch_name ORDER BY b.branch_id"
+      }
+    ]
+  },
+  "quiz": [
+    {
+      "q": "What does LEFT JOIN do with a left row that has no match?",
+      "options": ["Drops it", "Keeps it and fills the right-side columns with NULL", "Keeps it and fills the right-side columns with 0"],
+      "answer": 1,
+      "why": "The unmatched row survives with a blank card: NULL in every right-side column."
+    },
+    {
+      "q": "Which query lists customers with no account?",
+      "options": ["customers JOIN accounts WHERE acct_id IS NULL", "customers LEFT JOIN accounts WHERE a.acct_id IS NULL", "customers LEFT JOIN accounts WHERE a.acct_id IS NOT NULL"],
+      "answer": 1,
+      "why": "That is the anti-join. An inner join never produces NULL keys, and IS NOT NULL gives the opposite list."
+    },
+    {
+      "q": "In a LEFT JOIN, why use COUNT(a.acct_id) rather than COUNT(*)?",
+      "options": ["COUNT(*) is slower", "COUNT(*) counts the NULL blank card as 1, so no customer can show 0", "COUNT(a.acct_id) also counts NULLs"],
+      "answer": 1,
+      "why": "COUNT(column) skips NULLs, so an unmatched customer gets 0. COUNT(*) counts every row, including the blank one."
+    },
+    {
+      "q": "You write LEFT JOIN accounts a ... WHERE a.acct_status = 'ACTIVE'. What happens to customers with no account?",
+      "options": ["They stay with NULL status", "They disappear, because NULL = 'ACTIVE' is not true", "They show status ACTIVE"],
+      "answer": 1,
+      "why": "A WHERE filter on a right-side column drops the blank cards and turns the LEFT JOIN into an INNER JOIN. Move the filter into ON."
+    },
+    {
+      "q": "When is FULL JOIN the right tool?",
+      "options": ["When you want rows from both sides, matched or not, to reconcile two lists", "When you want only matched rows", "When one table is empty"],
+      "answer": 0,
+      "why": "FULL JOIN shows A-only, B-only and both, which is exactly what a reconciliation report needs."
+    },
+    {
+      "q": "You see WHERE a.cust_id(+) = c.cust_id in an old Snowflake query. What is it?",
+      "options": ["A syntax error", "Oracle-style outer join that Snowflake still accepts; read it as a LEFT JOIN", "A string concatenation"],
+      "answer": 1,
+      "why": "The (+) marks the side that may be NULL. Rewrite it with LEFT JOIN ... ON when you edit the query."
+    }
+  ]
+}
+</script>

@@ -1,0 +1,255 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>CoCo Masterclass</span><span>Module 1 · Meet CoCo</span><span>Lesson 1.4</span></div>
+  <h1>Prompting craft</h1>
+  <p class="lede">CoCo is only as good as your instruction. Learn a three-part recipe for prompts, see weak and strong prompts side by side, and learn the safety phrases every bank data scientist should type.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>25 min</span>
+    <span class="badge">Beginner</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Write a prompt with the recipe: object + output + rules</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Turn a weak prompt into a strong one</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Improve an answer step by step instead of starting over</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Use safety phrases such as "write but do not run" on bank data</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+<div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">A prompt is a work order for CoCo. A good prompt names the <b>object</b> (which table or file), the <b>output</b> (what you want back) and the <b>rules</b> (filters, definitions, limits and what CoCo must not do).</p></div>
+  </div>
+  <p>When a prompt leaves something out, CoCo fills the gap with a guess. Sometimes the guess is right. On bank data, "sometimes" is not good enough, so we remove the guessing.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like ordering from a tailor</h2>
+<p>Tell a tailor "make me a shirt" and you get <i>a</i> shirt, probably the wrong size. Tell them "a white cotton shirt, size M, long sleeves, ready by Friday" and you get <i>your</i> shirt. The robot assistant is the same. "Show me churn" gets <i>a</i> query. A full work order gets <i>your</i> query.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Which cloth</b><span>Object: the exact database.schema.table, best attached with @</span></div>
+    <div><small>In the library</small><b>Size and style</b><span>Output: the columns, grouping, sort and format you want back</span></div>
+    <div><small>In the library</small><b>Rules</b><span>Rules: filters, business definitions, limits, and "do not run"</span></div>
+  </div>
+</section>
+
+<section class="sec" id="recipe" data-toc="The recipe">
+  <h2>The recipe: object + output + rules</h2>
+<div class="table-wrap">
+    <table>
+      <thead><tr><th>Part</th><th>Ask yourself</th><th>Example words</th></tr></thead>
+      <tbody>
+        <tr><td><b>Object</b></td><td>Which table, schema, file? Which role and warehouse?</td><td>"In @BANK_DS.RAW.CUSTOMERS ..."</td></tr>
+        <tr><td><b>Output</b></td><td>What columns, grouping, sort, row limit? SQL only, or SQL plus explanation?</td><td>"... return SEGMENT, customer count and churn percent, highest churn first ..."</td></tr>
+        <tr><td><b>Rules</b></td><td>Which filters and definitions? What must not happen?</td><td>"... count distinct CUSTOMER_ID because there are duplicates. Write but do not run."</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Two optional extras make answers even better: say <b>why</b> you need it ("for a churn model, so no future data") and give a tiny <b>example</b> of the output shape.</p>
+</section>
+
+<section class="sec" id="weakstrong" data-toc="Weak vs strong">
+  <h2>Weak prompts vs strong prompts</h2>
+<div class="table-wrap">
+    <table>
+      <thead><tr><th>Weak prompt</th><th>Strong prompt</th><th>What changed</th></tr></thead>
+      <tbody>
+        <tr><td><b>"Show me churn."</b></td><td>"In @BANK_DS.RAW.CUSTOMERS, return SEGMENT, COUNT(DISTINCT CUSTOMER_ID) and churn percent rounded to 1 decimal, highest churn first."</td><td>Object, output columns, rounding and sort</td></tr>
+        <tr><td><b>"Find bad data."</b></td><td>"Profile @BANK_DS.RAW.CUSTOMERS: for every column, the count of NULLs; then list CUSTOMER_IDs that appear more than once. Read-only."</td><td>Says what "bad" means and that it must only read</td></tr>
+        <tr><td><b>"Fix this."</b></td><td>"This fails with: invalid identifier 'SEGMNT'. Fix only the column name. Do not change joins or filters."</td><td>Gives the exact error and a boundary</td></tr>
+        <tr><td><b>"Explain."</b></td><td>"Explain this query line by line for a beginner, then list one way the result could mislead a manager."</td><td>Says the audience and asks for a risk</td></tr>
+        <tr><td><b>"Make it faster."</b></td><td>"Make this cheaper on an XSMALL warehouse. The result must stay identical. Explain each change in one line."</td><td>Constraint: same result</td></tr>
+        <tr><td><b>"Delete the duplicates."</b></td><td>"Write, but do not run, SQL that shows how many duplicate CUSTOMER_ID rows exist, and a CREATE OR REPLACE TABLE in CLEAN that keeps one row per id. Never modify RAW."</td><td>Never touches the source; shows counts first</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="sec" id="iterate" data-toc="Iterate">
+  <h2>Iterate: improve one step at a time</h2>
+<p>The first answer is a draft. Do not throw it away and start over; steer it. Good follow-ups are short and point at one thing:</p>
+<ul>
+    <li>"Good. Now also split by IS_ACTIVE_MEMBER."</li>
+    <li>"Use COUNT(DISTINCT CUSTOMER_ID) instead of COUNT(*)."</li>
+    <li>"Why did you use a LEFT JOIN here? Would an INNER JOIN change the count?"</li>
+    <li>"Show only the changed lines."</li>
+    <li>"SQL only, no explanation." (when you just want to paste)</li>
+  </ul>
+  <p>One task per message. If the chat drifts to a new task, start a new chat: shorter context costs less and confuses the robot less.</p>
+</section>
+
+<section class="sec" id="safety" data-toc="Safety phrases">
+  <h2>Safety phrases for bank data</h2>
+<div class="table-wrap">
+    <table>
+      <thead><tr><th>Phrase</th><th>What it protects</th></tr></thead>
+      <tbody>
+        <tr><td><b>"Write, but do not run."</b></td><td>Nothing executes until you have read the slip.</td></tr>
+        <tr><td><b>"Read-only: SELECT and SHOW only."</b></td><td>No accidental changes while exploring.</td></tr>
+        <tr><td><b>"Show me the COUNT of affected rows first."</b></td><td>You see the size of a change before it happens.</td></tr>
+        <tr><td><b>"Return aggregates only, no customer-level rows."</b></td><td>Personal data is not shown in the chat.</td></tr>
+        <tr><td><b>"Use CUSTOMER_ID, never names, phone numbers or account numbers."</b></td><td>Keeps personal identifiers out of results.</td></tr>
+        <tr><td><b>"Add LIMIT 100 while we test."</b></td><td>Small, cheap, safe test runs.</td></tr>
+        <tr><td><b>"Write into BANK_DS.CLEAN only. Never modify RAW."</b></td><td>The raw source stays untouched.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Never paste customer data into a prompt</div><p>Point CoCo at the table instead. CoCo can read what your role allows, so there is no need to copy rows into the chat. Pasted data ends up in chat history.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+<p>A manager asks: "Are our new customers leaving?" Turn that into a strong prompt:</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre>In @BANK_DS.RAW.CUSTOMERS, group customers into tenure bands:
+0-11, 12-23, 24-59 and 60+ months. For each band return the band,
+COUNT(DISTINCT CUSTOMER_ID) and churn percent rounded to 1 decimal.
+Order the bands from newest to oldest. Aggregates only.
+Write the SQL and explain it in three lines. Do not run it yet.</pre></div>
+  <p>Every part of the recipe is there: the object (with @), the output (bands, counts, percent, order) and the rules (distinct ids, aggregates only, do not run).</p>
+</section>
+
+<section class="sec" id="sim" data-toc="Simulator: weak to strong">
+  <h2>Try it: from a weak prompt to a strong one</h2>
+<div data-simulator="coco-1-4-iterate"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+<p>The <code>txns</code> table is a slice of bank transactions. Each challenge is a strong prompt. Write the SQL CoCo should produce, following every rule in the prompt.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: the same question, two prompts</h2>
+<div class="panel">
+    <div class="panel-head">
+      <h3>Compare a weak and a strong prompt on BANK_DS</h3>
+      <div class="meta"><span>About 15 min</span><span>Your trial + BANK_DS from P1</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>Open the CoCo panel and type the weak prompt. Look at what it guesses.</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre>Show me churn.</pre></div>
+        <p class="expect">Expected: CoCo asks which table, or guesses one. If it guessed, note which table and columns it picked.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Start a new chat and type the strong prompt.</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre>In @BANK_DS.RAW.CUSTOMERS return SEGMENT, COUNT(DISTINCT CUSTOMER_ID) AS CUSTOMERS and churn percent rounded to 1 decimal, highest churn first. Write but do not run.</pre></div>
+        <p class="expect">Expected: one GROUP BY SEGMENT query, not executed. RETAIL should show the highest churn (about 26%) once you run it.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Iterate with one short follow-up.</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre>Good. Also split by IS_ACTIVE_MEMBER. Show only the changed lines.</pre></div>
+        <p class="expect">Expected: a small diff: IS_ACTIVE_MEMBER added to SELECT and GROUP BY. Inactive members churn far more (roughly 34% vs 17%).</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Ask for an explanation and a risk.</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre>Explain this query line by line for a beginner, then tell me one way it could mislead a manager.</pre></div>
+        <p class="expect">Expected: a clear walk-through. A good risk: COUNT(*) would count duplicate rows, and RAW still has 30 duplicate ids.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Write three prompt templates you will reuse into a note: one to explore, one to fix, one for safe changes.</p>
+        <p class="expect">Expected: your own templates, each with object + output + rules.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+<div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember it</div><p>Object + output + rules. Attach the object with @, say exactly what comes back, add the rules and the safety phrase "write, but do not run". Then steer with short follow-ups instead of starting over.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+<dl class="glossary">
+    <dt>Prompt</dt><dd>Your instruction to CoCo.</dd>
+    <dt>Object</dt><dd>The table, view or file the prompt is about.</dd>
+    <dt>Output</dt><dd>The shape of the answer you want back.</dd>
+    <dt>Rules</dt><dd>Filters, definitions, limits and things CoCo must not do.</dd>
+    <dt>Iterate</dt><dd>Improve an answer with short follow-ups.</dd>
+    <dt>Aggregate</dt><dd>A summary value such as a count, sum or average, instead of individual rows.</dd>
+    <dt>PII</dt><dd>Personally identifiable information: names, phone numbers, account numbers.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+<div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#coco/2-1">2.1 Explore a new schema →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+   "tables": {
+    "txns": {
+      "columns": [["txn_id", "NUMBER"], ["customer_id", "NUMBER"], ["txn_date", "DATE"], ["amount", "NUMBER", "in rupees"], ["txn_type", "VARCHAR", "DEPOSIT, WITHDRAWAL, TRANSFER, UPI or CARD"], ["channel", "VARCHAR"]],
+      "rows": [
+        [1, 1, "2026-07-03", 5000, "DEPOSIT", "MOBILE"],
+        [2, 1, "2026-08-14", 1200, "UPI", "MOBILE"],
+        [3, 2, "2026-08-20", 250000, "TRANSFER", "NET_BANKING"],
+        [4, 3, "2026-04-11", 800, "CARD", "ATM"],
+        [5, 4, "2026-09-01", 90000, "DEPOSIT", "BRANCH"],
+        [6, 4, "2026-09-12", 15000, "WITHDRAWAL", "ATM"],
+        [7, 5, "2026-06-30", 3200, "UPI", "MOBILE"],
+        [8, 2, "2026-09-25", 42000, "DEPOSIT", "NET_BANKING"],
+        [9, 6, "2026-03-02", 700, "CARD", "MOBILE"],
+        [10, 5, "2026-09-28", 60000, "TRANSFER", "MOBILE"],
+        [11, 3, "2026-05-19", 2500, "WITHDRAWAL", "ATM"],
+        [12, 6, "2026-08-08", 9900, "DEPOSIT", "BRANCH"]
+      ]
+    }
+   },
+   "starter": "-- You asked CoCo: 'Total amount per txn_type, biggest first.'\nSELECT txn_type, SUM(amount) AS total_amount\nFROM txns\nGROUP BY txn_type\nORDER BY total_amount DESC",
+   "examples": [
+    {"label": "All rows", "sql": "SELECT *\nFROM txns\nORDER BY txn_date"},
+    {"label": "Mobile UPI and card only", "sql": "SELECT txn_id, customer_id, amount\nFROM txns\nWHERE channel = 'MOBILE' AND txn_type IN ('UPI', 'CARD')\nORDER BY txn_id"}
+   ],
+   "challenges": [
+    {"task": "You asked CoCo: 'From txns, return customer_id and the number of transactions since 2026-07-01, excluding TRANSFER. Most active first, then by customer_id.' Write the SQL it should produce.", "hint": "WHERE txn_date >= '2026-07-01' AND txn_type <> 'TRANSFER', GROUP BY customer_id, ORDER BY count DESC, customer_id.", "answer": "SELECT customer_id, COUNT(*) AS txn_count FROM txns WHERE txn_date >= '2026-07-01' AND txn_type <> 'TRANSFER' GROUP BY customer_id ORDER BY txn_count DESC, customer_id"},
+    {"task": "You asked CoCo: 'Total deposits per channel. Aggregates only, rounded to whole rupees, channel A to Z.' Write the SQL it should produce.", "hint": "WHERE txn_type = 'DEPOSIT', ROUND(SUM(amount)), GROUP BY channel, ORDER BY channel.", "answer": "SELECT channel, ROUND(SUM(amount)) AS total_deposits FROM txns WHERE txn_type = 'DEPOSIT' GROUP BY channel ORDER BY channel"},
+    {"task": "You asked CoCo: 'The 3 largest transactions: txn_id, customer_id, amount. Largest first.' Write the SQL it should produce.", "hint": "ORDER BY amount DESC with LIMIT 3.", "answer": "SELECT txn_id, customer_id, amount FROM txns ORDER BY amount DESC LIMIT 3"}
+   ]
+  },
+  "simulators": [
+    {"id": "coco-1-4-iterate", "title": "From 'show me churn' to a query you can trust", "tool": "coco", "intro": "Same question, better prompts. Watch the answer improve.", "steps": [
+      {"prompt": "Show me churn.", "say": "I found several possible tables. I assumed BANK_DS.RAW.CUSTOMERS and counted rows by CHURNED.", "code": {"lang": "sql", "text": "SELECT CHURNED, COUNT(*) FROM BANK_DS.RAW.CUSTOMERS GROUP BY CHURNED;"}, "output": {"columns": ["CHURNED", "COUNT(*)"], "rows": [["FALSE", 3773], ["TRUE", 1257]]}, "check": ["It had to guess the table", "COUNT(*) counts the 30 duplicate rows too", "No percent, no breakdown: not what a manager needs"]},
+      {"prompt": "In @BANK_DS.RAW.CUSTOMERS return SEGMENT, COUNT(DISTINCT CUSTOMER_ID) AS CUSTOMERS and churn percent rounded to 1 decimal, highest churn first. Write but do not run.", "say": "Here is the query. I have not run it. Note that churn percent is computed on rows, so duplicates still count twice in the percent.", "code": {"lang": "sql", "text": "SELECT SEGMENT,\n       COUNT(DISTINCT CUSTOMER_ID) AS CUSTOMERS,\n       ROUND(AVG(IFF(CHURNED, 1, 0)) * 100, 1) AS CHURN_PCT\nFROM BANK_DS.RAW.CUSTOMERS\nGROUP BY SEGMENT\nORDER BY CHURN_PCT DESC;"}, "check": ["Exact table from the @-mention", "DISTINCT ids for the count", "CoCo flagged the duplicates itself; a good sign, but check it every time"]},
+      {"prompt": "Good. Remove duplicates first by keeping one row per CUSTOMER_ID in a CTE, then compute the same output. Run it.", "say": "I added a CTE that keeps one row per CUSTOMER_ID with QUALIFY, then grouped. Results below.", "code": {"lang": "sql", "text": "WITH ONE_ROW AS (\n  SELECT *\n  FROM BANK_DS.RAW.CUSTOMERS\n  QUALIFY ROW_NUMBER() OVER (PARTITION BY CUSTOMER_ID ORDER BY JOINED_ON) = 1\n)\nSELECT SEGMENT,\n       COUNT(*) AS CUSTOMERS,\n       ROUND(AVG(IFF(CHURNED, 1, 0)) * 100, 1) AS CHURN_PCT\nFROM ONE_ROW\nGROUP BY SEGMENT\nORDER BY CHURN_PCT DESC;"}, "output": {"columns": ["SEGMENT", "CUSTOMERS", "CHURN_PCT"], "rows": [["RETAIL", 3510, 26.4], ["PRIORITY", 886, 21.6], ["BUSINESS", 604, 20.4]]}, "check": ["Customers add up to 5,000", "RETAIL churns most: matches what the data was built to show", "Your numbers will be close, not identical"]},
+      {"prompt": "Explain the QUALIFY line to me like I am new to SQL.", "say": "ROW_NUMBER() numbers the rows of each CUSTOMER_ID separately (PARTITION BY), oldest JOINED_ON first. QUALIFY keeps only rows where that number is 1. So each customer keeps exactly one row. QUALIFY is to window functions what WHERE is to normal columns.", "check": ["You can now explain the line yourself in a review", "If you could not, ask again with a tiny example"]}
+    ]}
+  ],
+  "quiz": [
+    {"q": "What are the three parts of the prompt recipe?", "options": ["Object, output, rules", "Model, warehouse, role", "Question, answer, score"], "answer": 0, "why": "Name the object, say what you want back, and add the rules (filters, definitions, limits, do not run)."},
+    {"q": "Which prompt is strongest?", "options": ["'Show me churn.'", "'Churn by segment please.'", "'In @BANK_DS.RAW.CUSTOMERS return SEGMENT and churn percent, highest first. Write but do not run.'"], "answer": 2, "why": "It names the exact object, the output columns and sort, and a safety rule."},
+    {"q": "CoCo's first answer is close but counts duplicate rows. What do you do?", "options": ["Start a new chat and retype everything", "Send a short follow-up: 'Use COUNT(DISTINCT CUSTOMER_ID) instead.'", "Accept it; close enough"], "answer": 1, "why": "Iterate. Short, specific follow-ups steer the draft without losing context."},
+    {"q": "Why say 'write, but do not run'?", "options": ["It makes CoCo faster", "Nothing executes until you have reviewed the code", "It is required syntax"], "answer": 1, "why": "It keeps you in charge: you read the slip before it is handed in."},
+    {"q": "You need CoCo to analyse some customer records. What is the safe way?", "options": ["Paste the rows into the chat", "Point CoCo at the table with @ and ask for aggregates", "Email the rows to yourself first"], "answer": 1, "why": "CoCo can read what your role allows. Pasting data puts it in chat history for no benefit."},
+    {"q": "When should you start a new chat?", "options": ["After every single message", "When you move to a new task", "Never"], "answer": 1, "why": "One task per chat keeps context short, cheaper and less confusing for CoCo."}
+  ]
+}
+</script>

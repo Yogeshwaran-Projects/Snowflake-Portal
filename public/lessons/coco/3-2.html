@@ -1,0 +1,350 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>CoCo Masterclass</span><span>Module 3 · CoCo for data science</span><span>Lesson 3.2</span></div>
+  <h1>Feature engineering</h1>
+  <p class="lede">Turn raw bank tables into the clues a model learns from. Ask CoCo to propose, write and check churn features, and learn to catch the one mistake that ruins models: leakage.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>35 min</span>
+    <span class="badge">Intermediate</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab + project step P4</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain what a feature is and why a model needs one row per customer</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Build count, sum, average and recency features with a time window</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Spot leakage and fix it with a cut-off date</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Build <code>FEATURES.CUSTOMER_FEATURES</code> with CoCo and check it before training</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">A feature is one number or category that describes something you want to predict about. Feature engineering is turning raw tables (many rows per customer) into a feature table (one row per customer, one column per clue) plus the answer column, called the label.</p></div>
+  </div>
+  <p>A model cannot read a transactions table with 100,000 rows and “get the idea”. It needs each customer squashed into one row of clues, such as “made 4 payments in the last 90 days” or “has 2 unresolved complaints”. The label is the thing we already know for past customers: did they leave (<code>CHURNED</code>)?</p>
+  <ul>
+    <li><b>Grain</b>: what one row means. For us: one row = one customer.</li>
+    <li><b>Window</b>: the time period a feature looks at, such as the last 90 days.</li>
+    <li><b>Cut-off date</b>: the “as of” day. Features may only use data from on or before it.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like clues for a guessing game</h2>
+  <p>Imagine the library wants to guess which members will stop visiting. A <b>trained guesser</b> (the model) is good at the game, but only if you give it clues on one small card per member: “came 3 times this summer”, “borrowed 12 books”, “has 2 complaints nobody answered”. Writing those cards is feature engineering. The robot assistant can write the cards fast. But one rule is sacred: <b>no card may contain a clue from the future</b>. If the card says “returned their library badge”, the guesser is not clever, it is cheating.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Clue cards</b><span>In Snowflake: one row per customer in <code>FEATURES.CUSTOMER_FEATURES</code></span></div>
+    <div><small>In the library</small><b>Each clue</b><span>In Snowflake: a column such as <code>TXN_COUNT_90D</code> or <code>UNRESOLVED_TICKETS</code></span></div>
+    <div><small>In the library</small><b>A clue from the future</b><span>In Snowflake: leakage, data the model will not have when it predicts for real</span></div>
+  </div>
+</section>
+
+<section class="sec" id="how" data-toc="Feature types">
+  <h2>The five kinds of feature you will build</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Kind</th><th>Example column</th><th>SQL pattern</th><th>Why it helps predict churn</th></tr></thead>
+      <tbody>
+        <tr><td><b>As-is</b></td><td><code>TENURE_MONTHS</code>, <code>NUM_PRODUCTS</code></td><td>Copy from <code>CLEAN.CUSTOMERS</code></td><td>Long-standing, multi-product customers rarely leave.</td></tr>
+        <tr><td><b>Count in a window</b></td><td><code>TXN_COUNT_90D</code></td><td><code>COUNT_IF(TXN_DATE &gt; cut-off minus 90 days)</code></td><td>A customer who stops using the account often leaves soon.</td></tr>
+        <tr><td><b>Sum and average</b></td><td><code>TOTAL_AMOUNT_90D</code>, <code>AVG_TXN_AMOUNT</code></td><td><code>SUM</code>, <code>AVG</code> with <code>GROUP BY CUSTOMER_ID</code></td><td>Money moving out or shrinking is a warning sign.</td></tr>
+        <tr><td><b>Recency</b></td><td><code>DAYS_SINCE_LAST_TXN</code></td><td><code>DATEDIFF(day, MAX(TXN_DATE), cut-off)</code></td><td>The longer the silence, the higher the risk.</td></tr>
+        <tr><td><b>Pain signals</b></td><td><code>TICKET_COUNT</code>, <code>UNRESOLVED_TICKETS</code></td><td><code>COUNT(*)</code>, <code>COUNT_IF(NOT resolved)</code> on tickets</td><td>Unhappy, unheard customers walk away.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">The two traps CoCo can fall into</div><p><b>1. Lost customers.</b> An inner join to transactions silently drops customers with no transactions, and those are often the churners. Always start from the customers table and LEFT JOIN. <b>2. Fan-out.</b> Joining transactions and tickets in the same step multiplies rows (4 payments x 2 tickets = 8 rows). Aggregate each table first, then join the small results.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="leakage" data-toc="Leakage">
+  <h2>Leakage: the clue from the future</h2>
+  <p>Leakage is any feature that would not be known at the moment you make a real prediction. It makes the model look brilliant in testing and useless in production. Three bank examples:</p>
+  <div class="features">
+    <div class="feature"><b>Closure tickets</b><span>A ticket with category “Account closure” is opened while leaving. Counting it as a pain signal leaks the answer.</span><small>Filter it out</small></div>
+    <div class="feature"><b>Data after the cut-off</b><span>Transactions after the churn decision tell the model what happened next. Use only rows on or before the cut-off date.</span><small>Use a cut-off</small></div>
+    <div class="feature"><b>Columns filled in later</b><span>A <code>CLOSED_REASON</code> or <code>LAST_STATUS</code> column only gets a value when someone leaves.</span><small>Never use it</small></div>
+    <div class="feature"><b>Too good to be true</b><span>If one feature alone separates churners perfectly, assume leakage until you prove otherwise.</span><small>Check by bucket</small></div>
+  </div>
+  <p>A quick test: for each feature, ask “On the day we score a live customer, will this value exist and mean the same thing?” If the answer is no, drop it.</p>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>A retail bank’s retention team wants a list every Monday of customers likely to close their accounts, so relationship managers can call them first. The data science team builds a feature table refreshed weekly. Typical features in real projects: product count, salary credits in the last 3 months, card spend trend, digital logins, complaints, and recency of the last salary credit. A model trained on those clues ranks customers by risk, and the bank calls the top of the list. Every feature goes through a review with the business: “Is this known on Monday morning?”</p>
+</section>
+
+<section class="sec" id="sim" data-toc="Simulator: features with CoCo">
+  <h2>Simulator: build features with CoCo</h2>
+  <p>Step through a real-shaped CoCo session. Read each reply and its checklist before you move on.</p>
+  <div data-simulator="coco-3-2-features"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>The worksheet holds a mini bank: <code>customers</code>, <code>txns</code> and <code>tickets</code>. The cut-off date is <b>2026-09-30</b>, so the 90-day window starts on <b>2026-07-02</b>. Run the starter, which builds a small feature table, then write the SQL CoCo should produce for each challenge.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: brainstorm and test features with CoCo</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Use CoCo as a feature brainstorm partner, then test its ideas</h3>
+      <div class="meta"><span>About 15 min</span><span>Your trial, BANK_DS from P1 to P3</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>Open Snowsight, set your context in a SQL worksheet, then open the CoCo panel.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE WAREHOUSE</span> LEARN_WH;
+<span class="kw">USE SCHEMA</span> BANK_DS.CLEAN;</pre></div>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Ask for ideas, not code:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre>Look at BANK_DS.CLEAN.CUSTOMERS, TRANSACTIONS and SUPPORT_TICKETS. Propose 8 features
+per customer that could predict CHURNED. For each one give the column name, the SQL
+idea, and one risk of leakage. Do not write or run any code yet.</pre></div>
+        <p class="expect">Expected: a list close to the table in this lesson. A good answer flags ticket categories about closing accounts as leakage. If it does not, ask “Which ticket categories exist, and would any of them leak the label?”</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Test one idea by bucket. Ask CoCo to write and run this kind of query, or paste it yourself:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> c.NUM_PRODUCTS,
+       <span class="kw">COUNT</span>(*) <span class="kw">AS</span> customers,
+       <span class="kw">ROUND</span>(<span class="kw">AVG</span>(<span class="kw">IFF</span>(c.CHURNED, 1, 0)), 3) <span class="kw">AS</span> churn_rate
+<span class="kw">FROM</span> BANK_DS.CLEAN.CUSTOMERS c
+<span class="kw">GROUP BY</span> c.NUM_PRODUCTS
+<span class="kw">ORDER BY</span> c.NUM_PRODUCTS;</pre></div>
+        <p class="expect">Expected: one row per product count with a churn rate between 0 and 1. If churn rate changes clearly between rows, the feature carries signal. If one bucket is exactly 0 or 1 with many customers, look for leakage.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Check ticket categories for leakage:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> t.CATEGORY, <span class="kw">COUNT</span>(*) <span class="kw">AS</span> tickets,
+       <span class="kw">ROUND</span>(<span class="kw">AVG</span>(<span class="kw">IFF</span>(c.CHURNED, 1, 0)), 3) <span class="kw">AS</span> churn_rate_of_openers
+<span class="kw">FROM</span> BANK_DS.CLEAN.SUPPORT_TICKETS t
+<span class="kw">JOIN</span> BANK_DS.CLEAN.CUSTOMERS c <span class="kw">ON</span> c.CUSTOMER_ID = t.CUSTOMER_ID
+<span class="kw">GROUP BY</span> t.CATEGORY
+<span class="kw">ORDER BY</span> churn_rate_of_openers <span class="kw">DESC</span>;</pre></div>
+        <p class="expect">Expected: five categories in our project data: FEES, CARD, LOAN, APP and SERVICE. None of them is about closing an account, so nothing leaks here. On real bank data, look for a category tied to leaving (for example "Account closure") with a churn rate near 1.0: that one is a leak. The project step keeps a closure filter as a safety habit.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="project" data-toc="Project step P4">
+  <h2>Project step P4: engineer the churn features</h2>
+  <div class="callout project">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21V4h12l-2 4 2 4H4"/></svg>
+    <div><div class="label">Bank Churn Predictor · P4</div><p>We build <code>BANK_DS.FEATURES.CUSTOMER_FEATURES</code>: one row per customer with demographics, 90-day activity, recency, ticket pain signals and the label <code>CHURNED</code>. It turns the clean tables from P3 into the exact input the model in P5 trains on, and P8 later turns it into a self-refreshing dynamic table.</p></div>
+  </div>
+  <p><b>1. Prompt CoCo</b> (Snowsight panel, role with access to BANK_DS, warehouse LEARN_WH):</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre>Create BANK_DS.FEATURES.CUSTOMER_FEATURES with one row per customer in
+BANK_DS.CLEAN.CUSTOMERS. Use the latest TXN_DATE in CLEAN.TRANSACTIONS as the cut-off
+(AS_OF). Features: AGE, AGE_MISSING, CITY, SEGMENT, TENURE_MONTHS, NUM_PRODUCTS,
+HAS_CREDIT_CARD, IS_ACTIVE_MEMBER, ESTIMATED_SALARY, BALANCE (booleans as 0/1),
+TXN_COUNT_90D, TOTAL_AMOUNT_90D, AVG_TXN_AMOUNT, DAYS_SINCE_LAST_TXN, TICKET_COUNT,
+UNRESOLVED_TICKETS, and the label CHURNED as 0/1. Aggregate each table before joining,
+LEFT JOIN from customers, fill missing counts with 0, exclude account-closure tickets.
+Show me the SQL first. Do not run it until I say so.</pre></div>
+  <p><b>2. The vetted SQL</b>. Compare CoCo’s answer with this; you can paste this one directly.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE WAREHOUSE</span> LEARN_WH;
+<span class="kw">CREATE OR REPLACE TABLE</span> BANK_DS.FEATURES.CUSTOMER_FEATURES <span class="kw">AS</span>
+<span class="kw">WITH</span> ref <span class="kw">AS</span> (                                   <span class="cm">-- the cut-off date</span>
+  <span class="kw">SELECT MAX</span>(TXN_DATE) <span class="kw">AS</span> AS_OF <span class="kw">FROM</span> BANK_DS.CLEAN.TRANSACTIONS
+),
+txn <span class="kw">AS</span> (                                   <span class="cm">-- one row per customer</span>
+  <span class="kw">SELECT</span> t.CUSTOMER_ID,
+         <span class="kw">COUNT_IF</span>(t.TXN_DATE &gt; <span class="kw">DATEADD</span>(day, -90, r.AS_OF))            <span class="kw">AS</span> TXN_COUNT_90D,
+         <span class="kw">SUM</span>(<span class="kw">IFF</span>(t.TXN_DATE &gt; <span class="kw">DATEADD</span>(day, -90, r.AS_OF), t.AMOUNT, 0)) <span class="kw">AS</span> TOTAL_AMOUNT_90D,
+         <span class="kw">AVG</span>(t.AMOUNT)                                              <span class="kw">AS</span> AVG_TXN_AMOUNT,
+         <span class="kw">DATEDIFF</span>(day, <span class="kw">MAX</span>(t.TXN_DATE), r.AS_OF)                   <span class="kw">AS</span> DAYS_SINCE_LAST_TXN
+  <span class="kw">FROM</span> BANK_DS.CLEAN.TRANSACTIONS t <span class="kw">CROSS JOIN</span> ref r
+  <span class="kw">WHERE</span> t.TXN_DATE &lt;= r.AS_OF
+  <span class="kw">GROUP BY</span> t.CUSTOMER_ID, r.AS_OF
+),
+tick <span class="kw">AS</span> (                                  <span class="cm">-- closure tickets removed: they leak the label</span>
+  <span class="kw">SELECT</span> CUSTOMER_ID,
+         <span class="kw">COUNT</span>(*)                                   <span class="kw">AS</span> TICKET_COUNT,
+         <span class="kw">COUNT_IF</span>(<span class="kw">NOT TO_BOOLEAN</span>(RESOLVED))           <span class="kw">AS</span> UNRESOLVED_TICKETS
+  <span class="kw">FROM</span> BANK_DS.CLEAN.SUPPORT_TICKETS
+  <span class="kw">WHERE</span> CATEGORY <span class="kw">NOT ILIKE</span> <span class="kw">'%clos%'</span>
+  <span class="kw">GROUP BY</span> CUSTOMER_ID
+)
+<span class="kw">SELECT</span> c.CUSTOMER_ID, c.AGE, <span class="kw">IFF</span>(c.AGE_MISSING, 1, 0) <span class="kw">AS</span> AGE_MISSING, c.CITY, c.SEGMENT,
+       c.TENURE_MONTHS, c.NUM_PRODUCTS,
+       <span class="kw">IFF</span>(<span class="kw">TO_BOOLEAN</span>(c.HAS_CREDIT_CARD), 1, 0)  <span class="kw">AS</span> HAS_CREDIT_CARD,
+       <span class="kw">IFF</span>(<span class="kw">TO_BOOLEAN</span>(c.IS_ACTIVE_MEMBER), 1, 0) <span class="kw">AS</span> IS_ACTIVE_MEMBER,
+       c.ESTIMATED_SALARY, c.BALANCE,
+       <span class="kw">COALESCE</span>(t.TXN_COUNT_90D, 0)        <span class="kw">AS</span> TXN_COUNT_90D,
+       <span class="kw">COALESCE</span>(t.TOTAL_AMOUNT_90D, 0)     <span class="kw">AS</span> TOTAL_AMOUNT_90D,
+       <span class="kw">COALESCE</span>(t.AVG_TXN_AMOUNT, 0)       <span class="kw">AS</span> AVG_TXN_AMOUNT,
+       <span class="kw">COALESCE</span>(t.DAYS_SINCE_LAST_TXN, 365) <span class="kw">AS</span> DAYS_SINCE_LAST_TXN,  <span class="cm">-- never transacted: treat as a year</span>
+       <span class="kw">COALESCE</span>(k.TICKET_COUNT, 0)         <span class="kw">AS</span> TICKET_COUNT,
+       <span class="kw">COALESCE</span>(k.UNRESOLVED_TICKETS, 0)   <span class="kw">AS</span> UNRESOLVED_TICKETS,
+       <span class="kw">IFF</span>(c.CHURNED, 1, 0)                  <span class="kw">AS</span> CHURNED
+<span class="kw">FROM</span> BANK_DS.CLEAN.CUSTOMERS c
+<span class="kw">LEFT JOIN</span> txn  t <span class="kw">ON</span> t.CUSTOMER_ID = c.CUSTOMER_ID
+<span class="kw">LEFT JOIN</span> tick k <span class="kw">ON</span> k.CUSTOMER_ID = c.CUSTOMER_ID;</pre></div>
+  <p><b>3. Check it</b> before you call it done:</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> <span class="kw">COUNT</span>(*) <span class="kw">AS</span> feature_rows,
+       <span class="kw">COUNT</span>(<span class="kw">DISTINCT</span> CUSTOMER_ID) <span class="kw">AS</span> distinct_customers,
+       (<span class="kw">SELECT COUNT</span>(*) <span class="kw">FROM</span> BANK_DS.CLEAN.CUSTOMERS) <span class="kw">AS</span> clean_rows,
+       <span class="kw">ROUND</span>(<span class="kw">AVG</span>(CHURNED), 3) <span class="kw">AS</span> churn_rate,
+       <span class="kw">COUNT_IF</span>(TXN_COUNT_90D = 0) <span class="kw">AS</span> silent_90d
+<span class="kw">FROM</span> BANK_DS.FEATURES.CUSTOMER_FEATURES;</pre></div>
+  <p class="expect"><b>Expected result:</b> <code>feature_rows</code> = <code>distinct_customers</code> = <code>clean_rows</code> (about 5,000). <code>churn_rate</code> is a share between 0 and 1 (in a typical churn dataset, roughly 0.1 to 0.3). <code>silent_90d</code> is a small group that should have a much higher churn rate than average.</p>
+  <p><b>4. Leakage check</b>: compare churn rate across buckets of <code>DAYS_SINCE_LAST_TXN</code>. A steady rise is signal. A cliff where every row above some value is churned means the transactions of churners simply stop, so the feature is partly the label itself. In a real project you fix that with a fixed cut-off date and a label window after it (for example, features up to 30 June, churn measured July to September). Our dataset has no churn date, so we keep the feature and note the limitation in the model card in P6.</p>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">If CoCo gives you something different</div><p><b>It used an inner JOIN</b>: row count drops below the customer count. Ask for LEFT JOIN from customers. <b>It joined transactions and tickets before aggregating</b>: counts are too big. Ask it to aggregate each table in its own CTE. <b>It used CURRENT_DATE as the cut-off</b>: on a static dataset every customer looks silent. Ask for MAX(TXN_DATE). <b>A boolean cast fails</b> because your P3 table stores 0/1 or ‘Y’/‘N’: <code>TO_BOOLEAN</code> accepts all of these, so keep it. <b>Different ticket category names</b>: use the exact closure category you found in the lab instead of <code>'%clos%'</code>.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>Features are clue cards: one row per customer, one column per clue. Start from customers, aggregate each table first, LEFT JOIN, fill gaps, and never let a clue come from the future.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Feature</dt><dd>One input column the model learns from, such as TXN_COUNT_90D.</dd>
+    <dt>Label</dt><dd>The answer column for past examples. Here: CHURNED (1 = left, 0 = stayed).</dd>
+    <dt>Grain</dt><dd>What one row means. The feature table has customer grain.</dd>
+    <dt>Window</dt><dd>The time period a feature covers, such as the 90 days before the cut-off.</dd>
+    <dt>Cut-off date</dt><dd>The “as of” date. Features may only use data up to it.</dd>
+    <dt>Leakage</dt><dd>A feature that contains information the model would not have at prediction time.</dd>
+    <dt>Fan-out</dt><dd>Rows multiplying because a join matches many rows on both sides.</dd>
+    <dt>Recency</dt><dd>How long ago something last happened, such as days since the last transaction.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#coco/3-3">3.3 Train a model with Snowpark ML →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "customers": {
+        "columns": [["customer_id", "NUMBER"], ["full_name", "VARCHAR"], ["city", "VARCHAR"], ["segment", "VARCHAR", "Retail or Premium"], ["tenure_months", "NUMBER"], ["num_products", "NUMBER"], ["churned", "NUMBER", "1 = left the bank, 0 = stayed"]],
+        "rows": [
+          [1, "Asha Rao", "Mumbai", "Retail", 48, 2, 0],
+          [2, "Vikram Shah", "Delhi", "Premium", 14, 1, 1],
+          [3, "Meera Iyer", "Chennai", "Retail", 60, 3, 0],
+          [4, "Rahul Nair", "Mumbai", "Retail", 7, 1, 1],
+          [5, "Priya Menon", "Bengaluru", "Premium", 85, 3, 0],
+          [6, "Arjun Das", "Delhi", "Retail", 3, 1, 1],
+          [7, "Sneha Pillai", "Chennai", "Premium", 36, 2, 0],
+          [8, "Karthik Reddy", "Bengaluru", "Retail", 22, 2, 0],
+          [9, "Divya Kumar", "Mumbai", "Premium", 11, 1, 1],
+          [10, "Nikhil Joshi", "Delhi", "Retail", 40, 2, 0]
+        ]
+      },
+      "txns": {
+        "columns": [["txn_id", "NUMBER"], ["customer_id", "NUMBER"], ["txn_date", "DATE"], ["amount", "NUMBER", "in rupees"]],
+        "rows": [
+          [1, 1, "2026-07-05", 12000], [2, 1, "2026-08-10", 8500], [3, 1, "2026-09-22", 15000], [4, 2, "2026-05-14", 40000],
+          [5, 2, "2026-06-20", 22000], [6, 3, "2026-07-18", 5000], [7, 3, "2026-08-25", 7200], [8, 3, "2026-09-28", 6400],
+          [9, 4, "2026-06-30", 3000], [10, 4, "2026-07-03", 2500], [11, 5, "2026-07-11", 60000], [12, 5, "2026-08-14", 45000],
+          [13, 5, "2026-09-15", 52000], [14, 5, "2026-09-29", 30000], [15, 7, "2026-08-01", 18000], [16, 7, "2026-09-10", 21000],
+          [17, 8, "2026-04-12", 9000], [18, 8, "2026-09-26", 11000], [19, 9, "2026-06-02", 75000], [20, 9, "2026-07-08", 5000],
+          [21, 10, "2026-07-20", 4000], [22, 10, "2026-08-30", 6500], [23, 10, "2026-09-25", 3500], [24, 1, "2026-06-15", 9900]
+        ]
+      },
+      "tickets": {
+        "columns": [["ticket_id", "NUMBER"], ["customer_id", "NUMBER"], ["opened_on", "DATE"], ["category", "VARCHAR"], ["resolved", "NUMBER", "1 = yes, 0 = no"]],
+        "rows": [
+          [1, 2, "2026-06-01", "Fees", 0], [2, 2, "2026-06-18", "Fees", 0], [3, 4, "2026-07-01", "App login", 1],
+          [4, 4, "2026-07-02", "Fees", 0], [5, 5, "2026-08-20", "Card", 1], [6, 9, "2026-07-01", "Interest rate", 0],
+          [7, 10, "2026-09-02", "App login", 1], [8, 6, "2026-05-10", "Account closure", 1]
+        ]
+      }
+    },
+    "starter": "-- You asked CoCo: 'One row per customer with 90-day activity and the label.'\n-- Cut-off 2026-09-30, window starts 2026-07-02.\nWITH t AS (\n  SELECT customer_id,\n         SUM(CASE WHEN txn_date >= DATE '2026-07-02' THEN 1 ELSE 0 END) AS txn_count_90d,\n         SUM(CASE WHEN txn_date >= DATE '2026-07-02' THEN amount ELSE 0 END) AS total_amount_90d\n  FROM txns\n  GROUP BY customer_id\n)\nSELECT c.customer_id, c.full_name, c.tenure_months,\n       COALESCE(t.txn_count_90d, 0) AS txn_count_90d,\n       COALESCE(t.total_amount_90d, 0) AS total_amount_90d,\n       c.churned\nFROM customers c\nLEFT JOIN t ON t.customer_id = c.customer_id\nORDER BY c.customer_id",
+    "examples": [
+      { "label": "Leakage check: churn by ticket category", "sql": "SELECT k.category, COUNT(*) AS tickets, AVG(c.churned) AS churn_rate_of_openers\nFROM tickets k\nJOIN customers c ON c.customer_id = k.customer_id\nGROUP BY k.category\nORDER BY churn_rate_of_openers DESC, k.category" },
+      { "label": "Fan-out trap (wrong)", "sql": "-- Joining two detail tables before aggregating multiplies rows\nSELECT c.customer_id, COUNT(*) AS rows_after_join\nFROM customers c\nJOIN txns t ON t.customer_id = c.customer_id\nJOIN tickets k ON k.customer_id = c.customer_id\nGROUP BY c.customer_id ORDER BY c.customer_id" },
+      { "label": "Churn rate by product count", "sql": "SELECT num_products, COUNT(*) AS customers, AVG(churned) AS churn_rate\nFROM customers\nGROUP BY num_products\nORDER BY num_products" }
+    ],
+    "challenges": [
+      { "task": "You asked CoCo: 'For each customer with tickets, count all tickets and the unresolved ones.' Write the SQL it should produce (customer_id, ticket_count, unresolved_tickets).", "hint": "GROUP BY customer_id. COUNT(*) for all, SUM(CASE WHEN resolved = 0 THEN 1 ELSE 0 END) for unresolved.", "answer": "SELECT customer_id, COUNT(*) AS ticket_count, SUM(CASE WHEN resolved = 0 THEN 1 ELSE 0 END) AS unresolved_tickets FROM tickets GROUP BY customer_id ORDER BY customer_id" },
+      { "task": "You asked CoCo: 'Transactions count and total amount per customer in the 90-day window from 2026-07-02 to 2026-09-30.' Write the SQL it should produce (customer_id, txn_count_90d, total_amount_90d).", "hint": "Filter WHERE txn_date >= DATE '2026-07-02' AND txn_date <= DATE '2026-09-30', then COUNT(*) and SUM(amount) per customer_id.", "answer": "SELECT customer_id, COUNT(*) AS txn_count_90d, SUM(amount) AS total_amount_90d FROM txns WHERE txn_date >= DATE '2026-07-02' AND txn_date <= DATE '2026-09-30' GROUP BY customer_id ORDER BY customer_id" },
+      { "task": "You asked CoCo: 'Days since the last transaction for EVERY customer, as of 2026-09-30, including customers with no transactions.' Write the SQL it should produce (customer_id, days_since_last_txn).", "hint": "Start FROM customers and LEFT JOIN txns. DATEDIFF('day', MAX(t.txn_date), DATE '2026-09-30'), GROUP BY c.customer_id. Customer 6 gets NULL.", "answer": "SELECT c.customer_id, DATEDIFF('day', MAX(t.txn_date), DATE '2026-09-30') AS days_since_last_txn FROM customers c LEFT JOIN txns t ON t.customer_id = c.customer_id GROUP BY c.customer_id ORDER BY c.customer_id" }
+    ]
+  },
+  "simulators": [
+    {
+      "id": "coco-3-2-features",
+      "title": "Project P4: build CUSTOMER_FEATURES with CoCo",
+      "tool": "coco",
+      "intro": "Snowsight, CoCo panel open, role with access to BANK_DS, warehouse LEARN_WH.",
+      "steps": [
+        {
+          "prompt": "Look at BANK_DS.CLEAN. Propose churn features per customer and flag any leakage risk. No code yet.",
+          "say": "I read CUSTOMERS (5,000 rows), TRANSACTIONS (100,000 rows, 12 months) and SUPPORT_TICKETS. Here is a plan at customer grain, using MAX(TXN_DATE) as the cut-off.",
+          "outputText": "1. Copy as-is: AGE, AGE_MISSING, CITY, SEGMENT, TENURE_MONTHS, NUM_PRODUCTS, HAS_CREDIT_CARD, IS_ACTIVE_MEMBER, ESTIMATED_SALARY, BALANCE\n2. TXN_COUNT_90D, TOTAL_AMOUNT_90D (window: 90 days before cut-off)\n3. AVG_TXN_AMOUNT (all history up to cut-off)\n4. DAYS_SINCE_LAST_TXN (recency)\n5. TICKET_COUNT, UNRESOLVED_TICKETS\nLeakage risks: tickets in an account-closure category; DAYS_SINCE_LAST_TXN may partly reflect the churn itself because there is no churn date.",
+          "check": ["Grain is one row per customer", "A cut-off date is stated and is not CURRENT_DATE", "It named at least one leakage risk"]
+        },
+        {
+          "prompt": "Write the CREATE OR REPLACE TABLE for BANK_DS.FEATURES.CUSTOMER_FEATURES. Aggregate each table in its own CTE, LEFT JOIN from customers, fill missing counts with 0, exclude closure tickets. Show it, do not run.",
+          "say": "Here is the statement. Each source is aggregated before the join, so there is no fan-out.",
+          "code": { "lang": "sql", "text": "CREATE OR REPLACE TABLE BANK_DS.FEATURES.CUSTOMER_FEATURES AS\nWITH ref AS (SELECT MAX(TXN_DATE) AS AS_OF FROM BANK_DS.CLEAN.TRANSACTIONS),\ntxn AS (\n  SELECT t.CUSTOMER_ID,\n         COUNT_IF(t.TXN_DATE > DATEADD(day, -90, r.AS_OF)) AS TXN_COUNT_90D,\n         SUM(IFF(t.TXN_DATE > DATEADD(day, -90, r.AS_OF), t.AMOUNT, 0)) AS TOTAL_AMOUNT_90D,\n         AVG(t.AMOUNT) AS AVG_TXN_AMOUNT,\n         DATEDIFF(day, MAX(t.TXN_DATE), r.AS_OF) AS DAYS_SINCE_LAST_TXN\n  FROM BANK_DS.CLEAN.TRANSACTIONS t CROSS JOIN ref r\n  WHERE t.TXN_DATE <= r.AS_OF\n  GROUP BY t.CUSTOMER_ID, r.AS_OF),\ntick AS (\n  SELECT CUSTOMER_ID, COUNT(*) AS TICKET_COUNT,\n         COUNT_IF(NOT TO_BOOLEAN(RESOLVED)) AS UNRESOLVED_TICKETS\n  FROM BANK_DS.CLEAN.SUPPORT_TICKETS\n  WHERE CATEGORY NOT ILIKE '%clos%'\n  GROUP BY CUSTOMER_ID)\nSELECT c.CUSTOMER_ID, c.AGE, IFF(c.AGE_MISSING, 1, 0) AS AGE_MISSING, c.CITY, c.SEGMENT,\n       c.TENURE_MONTHS, c.NUM_PRODUCTS, ... ,\n       COALESCE(t.TXN_COUNT_90D, 0) AS TXN_COUNT_90D, ... ,\n       IFF(c.CHURNED, 1, 0) AS CHURNED\nFROM BANK_DS.CLEAN.CUSTOMERS c\nLEFT JOIN txn t ON t.CUSTOMER_ID = c.CUSTOMER_ID\nLEFT JOIN tick k ON k.CUSTOMER_ID = c.CUSTOMER_ID;" },
+          "check": ["FROM CUSTOMERS with LEFT JOINs, not inner joins", "Every count wrapped in COALESCE(..., 0)", "Closure tickets filtered out", "Nothing ran yet: you approve first"]
+        },
+        {
+          "prompt": "Run it, then check row counts, duplicates and the churn rate.",
+          "say": "Table created. The checks pass: one row per customer and no customers lost.",
+          "code": { "lang": "sql", "text": "SELECT COUNT(*) AS feature_rows, COUNT(DISTINCT CUSTOMER_ID) AS distinct_customers,\n       (SELECT COUNT(*) FROM BANK_DS.CLEAN.CUSTOMERS) AS clean_rows,\n       ROUND(AVG(CHURNED), 3) AS churn_rate\nFROM BANK_DS.FEATURES.CUSTOMER_FEATURES;" },
+          "output": { "columns": ["FEATURE_ROWS", "DISTINCT_CUSTOMERS", "CLEAN_ROWS", "CHURN_RATE"], "rows": [[5000, 5000, 5000, 0.204]] },
+          "check": ["The three counts are equal", "Churn rate is plausible (not 0, not 1)", "Your own numbers may differ slightly from this example"]
+        },
+        {
+          "prompt": "Is any feature too good to be true? Show churn rate by DAYS_SINCE_LAST_TXN bucket.",
+          "say": "Churn rises steadily with silence. There is no single cliff at 1.0, but the top bucket is strong, so I recommend noting it as a possible partial leak.",
+          "code": { "lang": "sql", "text": "SELECT WIDTH_BUCKET(DAYS_SINCE_LAST_TXN, 0, 180, 6) AS bucket,\n       COUNT(*) AS customers, ROUND(AVG(CHURNED), 3) AS churn_rate\nFROM BANK_DS.FEATURES.CUSTOMER_FEATURES\nGROUP BY bucket ORDER BY bucket;" },
+          "output": { "columns": ["BUCKET", "CUSTOMERS", "CHURN_RATE"], "rows": [[1, 2310, 0.121], [2, 1204, 0.178], [3, 611, 0.262], [4, 380, 0.331], [5, 205, 0.410], [6, 157, 0.497], [7, 133, 0.602]] },
+          "check": ["A steady rise is signal; a jump to 1.0 would be leakage", "Bucket 7 holds values above 180 days, including the 365 fill for never-transacted customers", "Write the limitation down for the model card"]
+        },
+        {
+          "prompt": "Show me the 90-day transaction features as Snowpark Python, so I can reuse them in a notebook.",
+          "say": "Same logic as a DataFrame chain. It is lazy and runs as SQL in the warehouse when you save it.",
+          "code": { "lang": "python", "text": "from snowflake.snowpark.context import get_active_session\nfrom snowflake.snowpark import functions as F\n\nsession = get_active_session()\ntxns = session.table(\"BANK_DS.CLEAN.TRANSACTIONS\")\nas_of = txns.agg(F.max(\"TXN_DATE\").alias(\"AS_OF\")).collect()[0][\"AS_OF\"]\nstart = F.dateadd(\"day\", F.lit(-90), F.lit(as_of))\n\ntxn_90 = (txns.filter(F.col(\"TXN_DATE\") > start)\n             .group_by(\"CUSTOMER_ID\")\n             .agg(F.count(F.lit(1)).alias(\"TXN_COUNT_90D\"),\n                  F.sum(\"AMOUNT\").alias(\"TOTAL_AMOUNT_90D\")))\ntxn_90.show(5)" },
+          "outputText": "Only customers with at least one transaction in the window appear here. Join it to CUSTOMERS with how=\"left\" and fill nulls with 0, just like the SQL version.",
+          "check": ["collect() runs one small query to read the cut-off", "The rest stays lazy until show()", "Remember the LEFT join when you combine it with customers"]
+        }
+      ]
+    }
+  ],
+  "quiz": [
+    { "q": "What is the grain of FEATURES.CUSTOMER_FEATURES?", "options": ["One row per transaction", "One row per customer", "One row per ticket"], "answer": 1, "why": "A churn model predicts per customer, so every customer gets exactly one row of clues." },
+    { "q": "CoCo’s feature query returns 4,620 rows, but CLEAN.CUSTOMERS has 5,000. What is the most likely cause?", "options": ["An inner join to transactions dropped customers with no transactions", "Snowflake lost data", "The warehouse is too small"], "answer": 0, "why": "Inner joins drop customers who have no matching rows. Start from customers and LEFT JOIN, then fill gaps with COALESCE." },
+    { "q": "Why aggregate transactions and tickets in separate CTEs before joining?", "options": ["It is only a style choice", "To avoid fan-out, where rows multiply and counts become too big", "Because Snowflake cannot join three tables"], "answer": 1, "why": "4 transactions joined to 2 tickets give 8 rows. Aggregate first, then join one row per customer from each side." },
+    { "q": "Which feature is leakage?", "options": ["NUM_PRODUCTS", "Count of tickets with category Account closure", "TENURE_MONTHS"], "answer": 1, "why": "A closure ticket is opened while the customer is leaving. It tells the model the answer, which it will not have when predicting for real." },
+    { "q": "Why use MAX(TXN_DATE) and not CURRENT_DATE as the cut-off on this dataset?", "options": ["CURRENT_DATE is not valid SQL", "The data is a fixed snapshot, so CURRENT_DATE would make every customer look silent", "MAX is faster"], "answer": 1, "why": "If today is months after the last transaction, every recency value is huge and every 90-day count is 0. Anchor the cut-off to the data." },
+    { "q": "One feature alone separates churners perfectly in testing. What should you do first?", "options": ["Celebrate and ship the model", "Suspect leakage and check how and when that value is filled", "Delete the label column"], "answer": 1, "why": "Real-world signals are rarely perfect. A perfect feature usually contains the answer, for example a value only set when someone leaves." }
+  ]
+}
+</script>

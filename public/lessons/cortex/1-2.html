@@ -1,0 +1,317 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Cortex Masterclass</span><span>Module 1 · Foundations</span><span>Lesson 1.2</span></div>
+  <h1>LLM basics: tokens, models, cost</h1>
+  <p class="lede">Understand what a large language model is, how it counts text in tokens, how to pick a model and how Snowflake turns tokens into a bill you can predict and track.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>25 min</span>
+    <span class="badge">Beginner</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 simulator + 1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain an LLM, a token and a context window in kid-simple words</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Choose between small, medium and large models for a bank task</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Set temperature and max_tokens and say what each changes</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Estimate the AI Credits of a job before running it, then check the real bill</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+<div class="callout def">
+  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+  <div><div class="label">Key definition</div><p class="big">A large language model (LLM) is a computer program that has read a huge amount of text and learned to predict the next piece of text. Given your words, it keeps predicting the next piece until the answer is complete.</p></div>
+</div>
+<p>That simple trick, “guess the next piece, again and again”, is enough to summarise, translate, classify and answer questions. The model does not look facts up unless you give it the facts in the prompt (or connect it to search, as in Lesson 3.1). That is why it can sound sure and still be wrong.</p>
+<ul>
+  <li><b>Token</b>: the piece of text a model reads and writes. Roughly four characters of English, so 100 words is about 130 tokens. The exact count varies by model.</li>
+  <li><b>Context window</b>: the most tokens a model can hold at once, prompt plus answer.</li>
+  <li><b>Model</b>: one trained LLM, such as <code>llama3.1-8b</code> or <code>claude-sonnet-4-6</code>. Bigger models reason better and cost more.</li>
+</ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a reader paid per word</h2>
+<p>Our smart-reader librarian is paid by the word: every word she reads from your request and every word she writes back. She works at a desk of fixed size. If you pile more pages on the desk than fit, she refuses the job. Some readers are juniors (fast, cheap, fine for sorting letters); some are seniors (slower, pricier, better at tricky reasoning). A small dial on her desk sets how creative she is allowed to be.</p>
+<div class="map">
+  <div><small>In the library</small><b>Words she is paid for</b><span>In Snowflake: tokens, billed in AI Credits per million tokens</span></div>
+  <div><small>In the library</small><b>The size of her desk</b><span>In Snowflake: the context window, from 32,000 to 1,000,000 tokens by model</span></div>
+  <div><small>In the library</small><b>Junior or senior reader</b><span>In Snowflake: small, medium or large models you pass to AI_COMPLETE</span></div>
+</div>
+</section>
+
+<section class="sec" id="tokens" data-toc="Tokens and context">
+  <h2>Tokens and context windows</h2>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Idea</th><th>What it means</th><th>Why you care</th></tr></thead>
+    <tbody>
+      <tr><td><b>Token</b></td><td>A chunk of text, about 4 characters of English on average</td><td>Every bill and every limit is in tokens, not words</td></tr>
+      <tr><td><b>Input tokens</b></td><td>Your prompt plus the row text you send</td><td>Long prompts repeated on a million rows add up fast</td></tr>
+      <tr><td><b>Output tokens</b></td><td>What the model writes back</td><td>For AI_COMPLETE these are often 3 to 5 times the price of input</td></tr>
+      <tr><td><b>Hidden prompt</b></td><td>Task functions such as AI_CLASSIFY, AI_SENTIMENT and AI_TRANSLATE add their own instructions</td><td>The billed count is higher than the text you see</td></tr>
+      <tr><td><b>Context window</b></td><td>Maximum input plus output for one call</td><td>Input that is too long fails with an error; output past the limit is cut off</td></tr>
+    </tbody>
+  </table>
+</div>
+<p>Count before you spend: <code>AI_COUNT_TOKENS</code> returns the input token count for a given function and model. It runs in every region and costs only warehouse time, no AI Credits.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> AI_COUNT_TOKENS('ai_complete', 'llama3.1-8b',
+       'My personal loan EMI was debited twice this month.') <span class="kw">AS</span> tokens;
+
+<span class="kw">SELECT</span> AI_COUNT_TOKENS('ai_classify', 'I was charged an annual fee.',
+       ['Fees and charges', 'Card issues', 'Fraud']) <span class="kw">AS</span> tokens;</pre></div>
+</section>
+
+<section class="sec" id="models" data-toc="Models">
+  <h2>Which models can you use?</h2>
+<p><code>AI_COMPLETE</code> lets you pick the model by name. The other AI Functions (AI_CLASSIFY, AI_SENTIMENT, AI_FILTER, AI_SUMMARIZE_AGG, AI_TRANSLATE) use a Snowflake-managed model, so you do not choose. A few models from the current docs:</p>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Model</th><th>Provider</th><th>Size</th><th>Context window</th><th>Good for</th></tr></thead>
+    <tbody>
+      <tr><td><code>mistral-7b</code></td><td>Mistral AI</td><td>Small</td><td>32,000</td><td>Very simple summaries and structuring, lowest cost</td></tr>
+      <tr><td><code>llama3.1-8b</code></td><td>Meta</td><td>Small</td><td>128,000</td><td>Low to moderate reasoning, fast and cheap</td></tr>
+      <tr><td><code>claude-haiku-4-5</code></td><td>Anthropic</td><td>Small</td><td>200,000</td><td>Fast classification, summaries, Q&amp;A where speed matters</td></tr>
+      <tr><td><code>llama3.3-70b</code></td><td>Meta</td><td>Medium</td><td>128,000</td><td>Chat, content, enterprise tasks at good value</td></tr>
+      <tr><td><code>claude-sonnet-4-6</code></td><td>Anthropic</td><td>Medium</td><td>1,000,000</td><td>Strong reasoning, multimodal, agentic workflows</td></tr>
+      <tr><td><code>claude-opus-5</code></td><td>Anthropic</td><td>Large</td><td>1,000,000</td><td>The most capable reasoning; a baseline to compare others against</td></tr>
+    </tbody>
+  </table>
+</div>
+<p>The catalogue also lists OpenAI (<code>openai-gpt-5</code> family), Google (<code>gemini-3.1-pro</code>, preview), Mistral (<code>mistral-large2</code>, <code>mistral-large3</code>), Qwen and others. Models change often: run <code>SHOW CORTEX BASE MODELS</code> to see what your account can call today, with each model’s lifecycle status.</p>
+<div class="features">
+  <div class="feature"><b>Start big, then shrink</b><span>Docs advice: get a baseline with a capable model, then test smaller ones and keep the cheapest that still passes your checks.</span><small>Choosing a model</small></div>
+  <div class="feature"><b>Legacy and end-of-life</b><span>Old models first become legacy (only accounts that used them may continue) and later end-of-life (nobody can). Plan to migrate.</span><small>Model lifecycle</small></div>
+  <div class="feature"><b>temperature (0 to 1, default 0)</b><span>Low means the same input gives nearly the same answer. Keep 0 for classification and extraction; raise it for creative drafts.</span><small>AI_COMPLETE option</small></div>
+  <div class="feature"><b>max_tokens (default 4096)</b><span>Caps the answer length, and so the output cost. Too small and answers get cut mid-sentence.</span><small>AI_COMPLETE option</small></div>
+</div>
+</section>
+
+<section class="sec" id="cost" data-toc="Cost">
+  <h2>How the bill works</h2>
+<p>Cortex AI Functions bill in <b>AI Credits per million tokens</b>, listed in the Snowflake Service Consumption Table. The query also needs a warehouse, which bills normal credits while it runs. Snowflake advises a warehouse no larger than <b>MEDIUM</b>: bigger ones do not make AI calls faster.</p>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Function or model</th><th>Input</th><th>Output</th><th>Billing note</th></tr></thead>
+    <tbody>
+      <tr><td><b>AI_COMPLETE with <code>mistral-7b</code></b></td><td>0.09</td><td>0.12</td><td>Input and output</td></tr>
+      <tr><td><b>AI_COMPLETE with <code>llama3.1-8b</code></b></td><td>0.132</td><td>0.132</td><td>Input and output</td></tr>
+      <tr><td><b>AI_COMPLETE with <code>claude-haiku-4-5</code></b></td><td>0.60</td><td>3.00</td><td>Input and output</td></tr>
+      <tr><td><b>AI_COMPLETE with <code>claude-sonnet-4-6</code></b></td><td>1.80</td><td>9.00</td><td>Input and output</td></tr>
+      <tr><td><b>AI_SENTIMENT</b></td><td>1.60</td><td></td><td>Snowflake-managed model</td></tr>
+      <tr><td><b>AI_CLASSIFY / AI_FILTER</b></td><td>1.62</td><td></td><td>Labels and descriptions count as input on every row</td></tr>
+      <tr><td><b>AI_EMBED (<code>snowflake-arctic-embed-l-v2.0</code>)</b></td><td>0.05</td><td></td><td>Input tokens only</td></tr>
+      <tr><td><b>AI_PARSE_DOCUMENT</b></td><td></td><td></td><td>Per page: 3.66 (LAYOUT) or 0.68 (OCR) AI Credits per 1,000 pages</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="callout note">
+  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+  <div><div class="label">Read the numbers carefully</div><p>Figures are AI Credits per one million tokens from the Service Consumption Table effective 12 October 2026. On demand, one AI Credit lists at USD 2.00 (Global) or USD 2.20 (Regional). Prices change, so always check the current table before you quote a client.</p></div>
+</div>
+<p><b>Worked example.</b> 40,000 complaints, each about 150 input tokens, and you ask AI_COMPLETE for a 50-token reply. That is 6 million input and 2 million output tokens. With <code>llama3.1-8b</code>: 6 × 0.132 + 2 × 0.132 ≈ <b>1.06 AI Credits</b>. With <code>claude-sonnet-4-6</code>: 6 × 1.80 + 2 × 9.00 = <b>28.8 AI Credits</b>, about 27 times more. Same job, very different bill: choosing the model is a cost decision.</p>
+</section>
+
+<section class="sec" id="regions" data-toc="Regions and tracking">
+  <h2>Cross-region inference and tracking usage</h2>
+<p>Each model is hosted in certain regions. The account parameter <code>CORTEX_ENABLED_CROSS_REGION</code> decides whether a request may be processed elsewhere. Your data stays stored in your home region; only the prompt and answer travel for the duration of the call, and nothing is kept in the processing region. Credits are billed in your account’s region and there is no egress charge.</p>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Value</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>ANY_REGION</code></td><td>Any Snowflake region on any cloud. Widest model choice. Default for new organisations created after 9 March 2026.</td></tr>
+      <tr><td><code>AWS_GLOBAL</code>, <code>AZURE_GLOBAL</code>, <code>GCP_GLOBAL</code></td><td>Stay within one cloud provider</td></tr>
+      <tr><td><code>AWS_US</code>, <code>AWS_EU</code>, <code>AWS_APJ</code>, <code>AZURE_EU</code> …</td><td>Stay within one cloud and one geography</td></tr>
+      <tr><td><code>DISABLED</code></td><td>Home region only. Strictest residency, fewest models.</td></tr>
+    </tbody>
+  </table>
+</div>
+<p>Only <code>ACCOUNTADMIN</code> can change it. On a bank project this is a data-residency decision for the client, never yours.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- Credits and tokens per function and model, last 30 days (view latency: up to 5 minutes)</span>
+<span class="kw">SELECT</span> DATE_TRUNC('day', start_time) <span class="kw">AS</span> usage_day, function_name, model_name,
+       <span class="kw">SUM</span>(credits) <span class="kw">AS</span> credits
+<span class="kw">FROM</span> SNOWFLAKE.ACCOUNT_USAGE.CORTEX_AI_FUNCTIONS_USAGE_HISTORY
+<span class="kw">WHERE</span> start_time &gt;= DATEADD('day', -30, CURRENT_TIMESTAMP())
+<span class="kw">GROUP</span> <span class="kw">BY</span> 1, 2, 3
+<span class="kw">ORDER</span> <span class="kw">BY</span> usage_day <span class="kw">DESC</span>, credits <span class="kw">DESC</span>;
+
+<span class="cm">-- All AI services in one daily number</span>
+<span class="kw">SELECT</span> usage_date, credits_used
+<span class="kw">FROM</span> SNOWFLAKE.ACCOUNT_USAGE.METERING_DAILY_HISTORY
+<span class="kw">WHERE</span> service_type = 'AI_SERVICES';</pre></div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+<p>A card team wants a short reply drafted for every complaint. The data scientist tests three models on 200 sample complaints, scoring each reply with a simple checklist (polite, correct amount, no promises). <code>llama3.1-8b</code> passes 88%, <code>claude-haiku-4-5</code> 95%, <code>claude-sonnet-4-6</code> 97%. Haiku costs a fraction of Sonnet for 2 points less, so the team picks Haiku, sets <code>temperature</code> to 0 and <code>max_tokens</code> to 120, and reviews the monthly bill in the usage view. That is the whole cost discipline in one paragraph.</p>
+</section>
+
+<section class="sec" id="sim" data-toc="Simulator: count, call, check">
+  <h2>Simulator: count tokens, call a model, check the bill</h2>
+<div data-simulator="cortex-1-2-tokens-cost"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+<p>The <code>ai_usage</code> table looks like a small slice of <code>CORTEX_AI_FUNCTIONS_USAGE_HISTORY</code> (credits pre-computed from the rates above), and <code>model_rates</code> holds AI Credits per million tokens for six AI_COMPLETE models. Answer the cost questions a project lead will ask you.</p>
+<div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: tokens and models on your trial</h2>
+<div class="panel">
+  <div class="panel-head">
+    <h3>Measure before you spend</h3>
+    <div class="meta"><span>About 15 min</span><span>Free trial (Enterprise)</span></div>
+  </div>
+  <ol class="steps">
+    <li><div>
+      <p>Count tokens for one complaint with two different functions.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> AI_COUNT_TOKENS('ai_complete', 'llama3.1-8b', 'I paid my bill on the due date but was charged a late fee of Rs 1,200.') <span class="kw">AS</span> complete_tokens,
+       AI_COUNT_TOKENS('ai_sentiment', 'I paid my bill on the due date but was charged a late fee of Rs 1,200.') <span class="kw">AS</span> sentiment_tokens;</pre></div>
+<p class="expect">Expected: two small numbers. They can differ because each function counts its own way.</p>
+      <label><input type="checkbox"> Done</label>
+    </div></li>
+    <li><div>
+      <p>Ask for the details of a call so you see the real token use.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> AI_COMPLETE(
+  model =&gt; 'llama3.1-8b',
+  prompt =&gt; 'In one sentence, what is a home loan EMI?',
+  model_parameters =&gt; {'temperature': 0, 'max_tokens': 60},
+  show_details =&gt; <span class="kw">TRUE</span>) <span class="kw">AS</span> details;</pre></div>
+<p class="expect">Expected: JSON with <code>choices</code>, <code>model</code> and <code>usage</code> holding <code>prompt_tokens</code>, <code>completion_tokens</code> and <code>total_tokens</code>.</p>
+      <label><input type="checkbox"> Done</label>
+    </div></li>
+    <li><div>
+      <p>See which models your account can call today.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SHOW</span> CORTEX BASE MODELS;</pre></div>
+<p class="expect">Expected: a list of models with lifecycle details. If a model you need is missing, check the cross-region setting from Lesson 1.1.</p>
+      <label><input type="checkbox"> Done</label>
+    </div></li>
+    <li><div>
+      <p>Wait about five minutes, then run the usage query from the section above. Find your AI_COMPLETE call and its credits.</p>
+<p class="expect">Expected: a row for <code>AI_COMPLETE</code> with model <code>llama3.1-8b</code> and a very small credit number.</p>
+      <label><input type="checkbox"> Done</label>
+    </div></li>
+  </ol>
+</div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+<div class="callout key">
+  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+  <div><div class="label">Remember</div><p>Everything in Cortex is measured in tokens. Count them first, choose the smallest model that passes your quality checks, keep temperature at 0 for factual work and track the real bill in the usage view.</p></div>
+</div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+<dl class="glossary">
+  <dt>Token</dt><dd>A chunk of text the model reads or writes; about four English characters.</dd>
+  <dt>Context window</dt><dd>The maximum tokens one call can hold, input plus output.</dd>
+  <dt>Temperature</dt><dd>Randomness dial from 0 to 1. Default 0 in AI_COMPLETE.</dd>
+  <dt>max_tokens</dt><dd>The cap on output length for one AI_COMPLETE call. Default 4096.</dd>
+  <dt>AI Credit</dt><dd>The billing unit for AI features, priced per million tokens or per page.</dd>
+  <dt>Cross-region inference</dt><dd>Letting Cortex process a request in another region while data stays stored at home.</dd>
+  <dt>Legacy model</dt><dd>A retiring model that only accounts which already used it may keep calling until end-of-life.</dd>
+  <dt>AI_COUNT_TOKENS</dt><dd>Function that counts input tokens for a function and model without AI cost.</dd>
+</dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#cortex/1-3">1.3 Setup and your first AI query →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "ai_usage": {
+        "columns": [
+          ["usage_day","DATE"],
+          ["function_name","VARCHAR"],
+          ["model_name","VARCHAR","'managed' = Snowflake-managed model"],
+          ["input_tokens","NUMBER"],
+          ["output_tokens","NUMBER"],
+          ["credits","NUMBER","AI Credits"]
+        ],
+        "rows": [
+          ["2026-09-01","AI_SENTIMENT","managed",410000,0,0.656],
+          ["2026-09-01","AI_CLASSIFY","managed",520000,9000,0.857],
+          ["2026-09-01","AI_COMPLETE","llama3.1-8b",300000,90000,0.0515],
+          ["2026-09-02","AI_COMPLETE","claude-sonnet-4-6",300000,90000,1.35],
+          ["2026-09-02","AI_TRANSLATE","managed",60000,61000,0.1972],
+          ["2026-09-02","AI_FILTER","managed",450000,1500,0.7314],
+          ["2026-09-03","AI_COMPLETE","claude-haiku-4-5",300000,90000,0.45],
+          ["2026-09-03","AI_SUMMARIZE_AGG","managed",380000,6000,0.7141],
+          ["2026-09-03","AI_COMPLETE","mistral-7b",300000,90000,0.0378],
+          ["2026-09-04","AI_SENTIMENT","managed",395000,0,0.632],
+          ["2026-09-04","AI_COMPLETE","llama3.3-70b",300000,90000,0.1685],
+          ["2026-09-04","AI_COMPLETE","mistral-large2",300000,90000,0.684]
+        ]
+      },
+      "model_rates": {
+        "columns": [
+          ["model_name","VARCHAR"],
+          ["provider","VARCHAR"],
+          ["input_rate","NUMBER","AI Credits per 1M input tokens"],
+          ["output_rate","NUMBER","AI Credits per 1M output tokens"],
+          ["context_k","NUMBER","context window, thousands of tokens"]
+        ],
+        "rows": [
+          ["mistral-7b","Mistral AI",0.09,0.12,32],
+          ["llama3.1-8b","Meta",0.132,0.132,128],
+          ["claude-haiku-4-5","Anthropic",0.6,3,200],
+          ["llama3.3-70b","Meta",0.432,0.432,128],
+          ["claude-sonnet-4-6","Anthropic",1.8,9,1000],
+          ["mistral-large2","Mistral AI",1.2,3.6,128]
+        ]
+      }
+    },
+    "starter": "SELECT function_name, SUM(credits) AS credits\nFROM ai_usage\nGROUP BY function_name\nORDER BY credits DESC",
+    "examples": [
+      {"label":"All usage","sql":"SELECT *\nFROM ai_usage\nORDER BY usage_day"},
+      {"label":"AI_COMPLETE by model","sql":"SELECT model_name, SUM(credits) AS credits\nFROM ai_usage\nWHERE function_name = 'AI_COMPLETE'\nGROUP BY model_name\nORDER BY credits DESC"},
+      {"label":"Cheapest models","sql":"SELECT model_name, input_rate, output_rate\nFROM model_rates\nORDER BY output_rate"}
+    ],
+    "challenges": [
+      {"task":"How many credits were used on each usage_day? Show the day and the total, earliest day first.","hint":"SUM(credits) with GROUP BY usage_day, then ORDER BY usage_day.","answer":"SELECT usage_day, SUM(credits) FROM ai_usage GROUP BY usage_day ORDER BY usage_day"},
+      {"task":"Which models have a context window of at least 128 thousand tokens AND an output_rate below 1? Show model_name and output_rate.","hint":"WHERE context_k >= 128 AND output_rate < 1.","answer":"SELECT model_name, output_rate FROM model_rates WHERE context_k >= 128 AND output_rate < 1 ORDER BY model_name"},
+      {"task":"Join ai_usage to model_rates and estimate what 1 million input plus 1 million output tokens would cost for each model used with AI_COMPLETE. Show model_name and input_rate + output_rate.","hint":"JOIN model_rates ON ai_usage.model_name = model_rates.model_name, keep AI_COMPLETE rows.","answer":"SELECT u.model_name, r.input_rate + r.output_rate AS per_million_each FROM ai_usage u JOIN model_rates r ON u.model_name = r.model_name WHERE u.function_name = 'AI_COMPLETE' ORDER BY per_million_each"}
+    ]
+  },
+  "quiz": [
+    {"q":"About how many characters of English text make one token?","options":["1","4","40"],"answer":1,"why":"The docs give the industry rule of thumb: about four characters per token, varying by model."},
+    {"q":"What happens if your input is bigger than the model’s context window?","options":["It is billed double","The call fails with an error","The model reads only the first word"],"answer":1,"why":"Inputs above the context window cause an error. Outputs past the limit are truncated."},
+    {"q":"For classifying complaints you want the same answer every run. Which temperature?","options":["0","0.7","1"],"answer":0,"why":"Temperature 0 (the AI_COMPLETE default) gives the most consistent output. Higher values add variety for creative text."},
+    {"q":"Which statement about the warehouse is true when you call AI functions?","options":["It is not needed","It still runs and bills; Snowflake advises MEDIUM or smaller","Bigger warehouses make AI calls faster"],"answer":1,"why":"The query runs on a warehouse that bills normally. AI work runs on Snowflake-managed compute, so a bigger warehouse does not speed it up."},
+    {"q":"With cross-region inference ON, where is your complaint table stored?","options":["In the processing region","Only in your account’s home region","Copied to every region"],"answer":1,"why":"Only the prompt and response travel during the call. Data stays stored in your region and is not persisted where it is processed."},
+    {"q":"Where do you see AI credits per function and model?","options":["SNOWFLAKE.ACCOUNT_USAGE.CORTEX_AI_FUNCTIONS_USAGE_HISTORY","INFORMATION_SCHEMA.TABLES","The CoCo panel"],"answer":0,"why":"This Account Usage view records tokens and credits per function and model, with up to five minutes of latency."}
+  ],
+  "simulators": [
+    {
+      "id": "cortex-1-2-tokens-cost", "title": "Count tokens, call two models, compare the bill", "tool": "cortex",
+      "intro": "Worksheet on your trial, warehouse LEARN_WH (XSMALL).",
+      "steps": [
+        {"prompt":"SELECT AI_COUNT_TOKENS('ai_complete', 'llama3.1-8b', 'My credit card limit was reduced from Rs 1,50,000 to Rs 60,000 without any notice.') AS tokens;","say":"Cortex counted the input tokens the model would read. No AI Credits are used by AI_COUNT_TOKENS, only warehouse time.","output":{"columns":["TOKENS"],"rows":[[27]]},"check":["This is input only; output tokens come on top","Numbers with commas and rupee amounts use extra tokens"]},
+        {"prompt":"SELECT AI_COMPLETE(model => 'llama3.1-8b', prompt => 'Reply in one sentence to: my card limit was cut without notice.', model_parameters => {'temperature': 0, 'max_tokens': 60}, show_details => TRUE):usage AS usage;","say":"show_details => TRUE returns the answer plus a usage object. This is the real token count you are billed on for this call.","output":{"columns":["USAGE"],"rows":[["{\"completion_tokens\":31,\"prompt_tokens\":24,\"total_tokens\":55}"]]},"check":["completion_tokens never exceeds max_tokens","temperature 0 keeps the answer stable across runs"]},
+        {"prompt":"Same prompt with model => 'claude-sonnet-4-6'","say":"Similar token counts, but the price per token is far higher: 1.80 in and 9.00 out per million versus 0.132 for llama3.1-8b.","output":{"columns":["MODEL","INPUT_TOKENS","OUTPUT_TOKENS","AI_CREDITS_PER_1000_CALLS"],"rows":[["llama3.1-8b",24,31,0.0073],["claude-sonnet-4-6",24,33,0.3402]]},"check":["Cost = tokens / 1,000,000 x rate, input and output separately","Pick the bigger model only if a quality test proves you need it"]},
+        {"prompt":"SELECT function_name, model_name, SUM(credits) AS credits FROM SNOWFLAKE.ACCOUNT_USAGE.CORTEX_AI_FUNCTIONS_USAGE_HISTORY WHERE start_time >= DATEADD('hour', -2, CURRENT_TIMESTAMP()) GROUP BY 1, 2;","say":"A few minutes later the usage view shows each function and model you called, with credits.","output":{"columns":["FUNCTION_NAME","MODEL_NAME","CREDITS"],"rows":[["AI_COMPLETE","llama3.1-8b",0.0000073],["AI_COMPLETE","claude-sonnet-4-6",0.0003402]]},"check":["AI_COUNT_TOKENS does not appear as an AI Credit cost","The view can lag by up to five minutes"]}
+      ]
+    }
+  ]
+}
+</script>

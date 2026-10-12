@@ -1,0 +1,371 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>CoCo Masterclass</span><span>Module 2 · CoCo for SQL and data</span><span>Lesson 2.3</span></div>
+  <h1>Data quality and cleaning</h1>
+  <p class="lede">Bad data makes bad models. Learn the five quality checks, how to fix NULLs, duplicates, outliers and wrong types with CoCo, and build the CLEAN layer of the Bank Churn Predictor.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>35 min</span>
+    <span class="badge">Intermediate</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab + project step P3</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Name five dimensions of data quality and a check for each</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Fix NULLs, duplicates, outliers and type problems, and say why each fix is safe</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Know which Snowflake constraints are enforced and which are not</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Build and quality-check the CLEAN tables with CoCo (P3)</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+<div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">Data quality is how far you can trust data for a purpose. Cleaning means building a <b>trusted copy</b> (here, the CLEAN schema) from the raw data, with every fix written down and checked. The raw data itself is never changed.</p></div>
+  </div>
+  <p>Why never change RAW? Because RAW is your evidence. If a fix turns out wrong, you rebuild CLEAN from RAW in seconds. If you had changed RAW, the original would be gone.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like the library repair desk</h2>
+<p>Some books arrive with missing pages, some arrive twice, some have the wrong label on the spine. The library does not throw the originals away. The repair desk makes a <b>repaired copy</b>, notes every repair on a card, and puts the copy on a "ready to read" shelf. The originals go to the archive, untouched.</p>
+  <div class="map">
+    <div><small>In the library</small><b>The archive</b><span>In Snowflake: the RAW schema, never modified</span></div>
+    <div><small>In the library</small><b>The repair card</b><span>In Snowflake: your cleaning SQL and the flags such as AGE_MISSING</span></div>
+    <div><small>In the library</small><b>The "ready to read" shelf</b><span>In Snowflake: the CLEAN schema that models and dashboards read</span></div>
+  </div>
+</section>
+
+<section class="sec" id="dimensions" data-toc="Five quality checks">
+  <h2>The five quality dimensions</h2>
+<div class="table-wrap">
+    <table>
+      <thead><tr><th>Dimension</th><th>Question</th><th>Check in SQL</th></tr></thead>
+      <tbody>
+        <tr><td><b>Completeness</b></td><td>Is anything missing?</td><td>COUNT_IF(col IS NULL)</td></tr>
+        <tr><td><b>Uniqueness</b></td><td>Does each key appear once?</td><td>COUNT(*) vs COUNT(DISTINCT id)</td></tr>
+        <tr><td><b>Validity</b></td><td>Are values allowed?</td><td>SEGMENT NOT IN (...), AMOUNT &lt;= 0, AGE outside 18 to 100</td></tr>
+        <tr><td><b>Consistency</b></td><td>Do tables agree?</td><td>Orphan rows: child ids missing from the parent</td></tr>
+        <tr><td><b>Timeliness</b></td><td>Is it recent enough?</td><td>MAX(date) vs today</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Prompt: "Profile @BANK_DS.RAW.CUSTOMERS against these five dimensions. One query per dimension, read-only. Then list what failed."</p>
+</section>
+
+<section class="sec" id="fixes" data-toc="Fixing problems">
+  <h2>How to fix each problem, safely</h2>
+<div class="table-wrap">
+    <table>
+      <thead><tr><th>Problem</th><th>Common fix</th><th>Keep it honest</th></tr></thead>
+      <tbody>
+        <tr><td><b>NULL values</b></td><td>Fill (impute) with the median, or leave NULL if the model handles it</td><td>Add a flag column such as AGE_MISSING, so the model knows the value was guessed</td></tr>
+        <tr><td><b>Duplicate keys</b></td><td>QUALIFY ROW_NUMBER() OVER (PARTITION BY id ORDER BY rule) = 1</td><td>Write down the rule for which copy wins (earliest, latest, most complete)</td></tr>
+        <tr><td><b>Outliers</b></td><td>Cap at a percentile (for example the 99th), or flag</td><td>Never delete real customers just for being unusual: a millionaire is not an error</td></tr>
+        <tr><td><b>Wrong types</b></td><td>TRY_TO_NUMBER, TRY_TO_DATE on text columns</td><td>Count the values that became NULL; do not hide them</td></tr>
+        <tr><td><b>Messy text</b></td><td>UPPER(TRIM(col))</td><td>Check the distinct values before and after</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Why the median for age, not the mean? The median is not pulled by a few extreme values. Ask CoCo: "Why median rather than mean here?" and check that its answer makes sense to you.</p>
+</section>
+
+<section class="sec" id="constraints" data-toc="Constraints">
+  <h2>Constraints and checks in Snowflake</h2>
+<p>Snowflake lets you declare PRIMARY KEY, UNIQUE and FOREIGN KEY constraints, but on standard tables it <b>does not enforce them</b>: a duplicate key will still load. <b>NOT NULL is enforced.</b> So declare keys to document intent, and prove uniqueness with a query after every build.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Tool</th><th>Enforced?</th><th>Use it for</th></tr></thead>
+      <tbody>
+        <tr><td><b>NOT NULL</b></td><td>Yes</td><td>Columns that must always have a value, such as CUSTOMER_ID</td></tr>
+        <tr><td><b>PRIMARY KEY / UNIQUE / FOREIGN KEY</b></td><td>No (standard tables)</td><td>Documentation and tools that read relationships</td></tr>
+        <tr><td><b>Check queries after a build</b></td><td>Yes, if you run them</td><td>PASS/FAIL rows you can read at a glance</td></tr>
+        <tr><td><b>Data metric functions (Enterprise edition)</b></td><td>Measures, does not block</td><td>SNOWFLAKE.CORE.NULL_COUNT, DUPLICATE_COUNT and more, ad hoc or on a schedule</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">A common wrong belief</div><p>CoCo, colleagues and old blog posts sometimes say "the primary key will stop duplicates". On Snowflake standard tables it will not. Ask CoCo to prove uniqueness with COUNT(*) vs COUNT(DISTINCT), always.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+<p>At a bank, cleaning rules are business decisions, not just code. Before you clean, agree them with the data owner:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Question</th><th>Why it matters</th></tr></thead>
+      <tbody>
+        <tr><td><b>Which duplicate wins?</b></td><td>Two rows for one customer may hold different balances. The wrong pick changes totals.</td></tr>
+        <tr><td><b>May we impute age?</b></td><td>Some regulated models must not use guessed values; a flag or exclusion may be required.</td></tr>
+        <tr><td><b>What is an invalid amount?</b></td><td>A negative amount may be a valid reversal, not an error.</td></tr>
+        <tr><td><b>Who signs off?</b></td><td>Cleaning rules feed models used for decisions about customers. Get them reviewed.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Then write the agreed rules into your prompt (or AGENTS.md), so CoCo follows them every time.</p>
+</section>
+
+<section class="sec" id="sim" data-toc="Simulator: clean with CoCo">
+  <h2>Try it: a profiling and cleaning session</h2>
+<div data-simulator="coco-2-3-clean"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+<p><code>raw_cust</code> has a duplicate, missing ages and an outlier balance. Write the SQL CoCo should produce. Tip: in the worksheet, use standard SQL such as a subquery with ROW_NUMBER().</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: measure quality with built-in functions</h2>
+<div class="panel">
+    <div class="panel-head">
+      <h3>Use data metric functions on RAW and CLEAN</h3>
+      <div class="meta"><span>About 10 min</span><span>Your trial (Enterprise edition) + P3</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>After finishing project step P3 below, ask CoCo:</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre>Using SNOWFLAKE.CORE.NULL_COUNT and SNOWFLAKE.CORE.DUPLICATE_COUNT, measure NULL AGE and duplicate CUSTOMER_ID in both @BANK_DS.RAW.CUSTOMERS and @BANK_DS.CLEAN.CUSTOMERS. Ad hoc, read-only.</pre></div>
+        <p class="expect">Expected: RAW: 101 NULL ages and 30 duplicates. CLEAN: 0 and 0. If the functions are not available, your account may not be Enterprise edition; the plain COUNT queries give the same answers.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Test the "keys are not enforced" claim on a scratch table.</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre>CREATE OR REPLACE TEMPORARY TABLE PK_TEST (ID NUMBER PRIMARY KEY);
+INSERT INTO PK_TEST VALUES (1), (1);
+SELECT COUNT(*) FROM PK_TEST;</pre></div>
+        <p class="expect">Expected: 2. Both rows loaded, despite the PRIMARY KEY.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Now try NOT NULL.</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre>CREATE OR REPLACE TEMPORARY TABLE NN_TEST (ID NUMBER NOT NULL);
+INSERT INTO NN_TEST VALUES (NULL);</pre></div>
+        <p class="expect">Expected: an error such as "NULL result in a non-nullable column". NOT NULL is enforced.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="project" data-toc="Project step P3">
+  <h2>Project step P3: clean and quality-check</h2>
+<div class="callout project">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>
+    <div><div class="label">What we build and why</div><p>P2 found two problems: 30 duplicate CUSTOMER_IDs and 101 NULL ages. P3 builds the <b>CLEAN</b> layer: <code>CLEAN.CUSTOMERS</code> (one row per customer, AGE filled with the median plus an <code>AGE_MISSING</code> flag), <code>CLEAN.TRANSACTIONS</code> and <code>CLEAN.SUPPORT_TICKETS</code>. RAW stays untouched. These CLEAN tables are the inputs for feature engineering in P4.</p></div>
+  </div>
+  <h3>The CoCo prompts</h3>
+  <div class="code"><button class="copy" type="button">Copy</button><pre>1. Write, but do not run, SQL that creates BANK_DS.CLEAN.CUSTOMERS from
+   @BANK_DS.RAW.CUSTOMERS with one row per CUSTOMER_ID (keep the earliest JOINED_ON,
+   then highest BALANCE), AGE NULLs filled with the median age rounded to a whole
+   number, and a BOOLEAN AGE_MISSING flag. Keep all other columns. Never modify RAW.
+2. Write CLEAN.TRANSACTIONS and CLEAN.SUPPORT_TICKETS: only customers that exist in
+   CLEAN.CUSTOMERS, positive amounts, non-NULL dates, UPPER(TRIM()) on text columns,
+   one row per TXN_ID / TICKET_ID.
+3. Write one quality-check query that returns CHECK_NAME, ACTUAL and PASS/FAIL for:
+   5,000 customers, no duplicate ids, no NULL AGE, 100 AGE_MISSING flags,
+   100,000 transactions, and tickets clean = raw.</pre></div>
+  <div data-simulator="coco-2-3-p3"></div>
+  <h3>The vetted SQL</h3>
+  <p>Run this whole script. If CoCo's version differs, keep this one so P4 gets the same inputs.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre>-- Bank Churn Predictor, project step P3: build the CLEAN layer from RAW
+-- RAW is never modified. Safe to re-run.
+USE WAREHOUSE LEARN_WH;
+
+-- 0. Before: what are we fixing?
+SELECT COUNT(*) AS RAW_ROWS, COUNT(DISTINCT CUSTOMER_ID) AS RAW_IDS, COUNT_IF(AGE IS NULL) AS RAW_NULL_AGE
+FROM BANK_DS.RAW.CUSTOMERS;
+
+-- 1. CLEAN.CUSTOMERS: one row per CUSTOMER_ID, NULL AGE filled with the median and flagged
+CREATE OR REPLACE TABLE BANK_DS.CLEAN.CUSTOMERS AS
+WITH DEDUPED AS (
+  SELECT *
+  FROM BANK_DS.RAW.CUSTOMERS
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY CUSTOMER_ID ORDER BY JOINED_ON, BALANCE DESC) = 1
+),
+AGE_STATS AS (
+  SELECT MEDIAN(AGE) AS MEDIAN_AGE FROM DEDUPED
+)
+SELECT D.CUSTOMER_ID,
+       COALESCE(D.AGE, ROUND(S.MEDIAN_AGE))::NUMBER(38,0) AS AGE,
+       (D.AGE IS NULL)                                    AS AGE_MISSING,
+       D.CITY,
+       D.SEGMENT,
+       D.TENURE_MONTHS,
+       D.NUM_PRODUCTS,
+       D.HAS_CREDIT_CARD,
+       D.IS_ACTIVE_MEMBER,
+       D.ESTIMATED_SALARY,
+       D.BALANCE,
+       D.JOINED_ON,
+       D.CHURNED
+FROM DEDUPED D
+CROSS JOIN AGE_STATS S;
+
+ALTER TABLE BANK_DS.CLEAN.CUSTOMERS ALTER COLUMN CUSTOMER_ID SET NOT NULL;
+ALTER TABLE BANK_DS.CLEAN.CUSTOMERS ADD CONSTRAINT PK_CLEAN_CUSTOMERS PRIMARY KEY (CUSTOMER_ID);
+
+-- 2. CLEAN.TRANSACTIONS: known customers, positive amounts, tidy text, one row per TXN_ID
+CREATE OR REPLACE TABLE BANK_DS.CLEAN.TRANSACTIONS AS
+SELECT T.TXN_ID,
+       T.CUSTOMER_ID,
+       T.TXN_DATE,
+       T.AMOUNT,
+       UPPER(TRIM(T.TXN_TYPE)) AS TXN_TYPE,
+       UPPER(TRIM(T.CHANNEL))  AS CHANNEL
+FROM BANK_DS.RAW.TRANSACTIONS T
+WHERE T.AMOUNT &gt; 0
+  AND T.TXN_DATE IS NOT NULL
+  AND T.CUSTOMER_ID IN (SELECT CUSTOMER_ID FROM BANK_DS.CLEAN.CUSTOMERS)
+QUALIFY ROW_NUMBER() OVER (PARTITION BY T.TXN_ID ORDER BY T.TXN_DATE) = 1;
+
+-- 3. CLEAN.SUPPORT_TICKETS: known customers, tidy text, one row per TICKET_ID
+CREATE OR REPLACE TABLE BANK_DS.CLEAN.SUPPORT_TICKETS AS
+SELECT S.TICKET_ID,
+       S.CUSTOMER_ID,
+       S.OPENED_ON,
+       UPPER(TRIM(S.CATEGORY)) AS CATEGORY,
+       S.RESOLVED
+FROM BANK_DS.RAW.SUPPORT_TICKETS S
+WHERE S.OPENED_ON IS NOT NULL
+  AND S.CUSTOMER_ID IN (SELECT CUSTOMER_ID FROM BANK_DS.CLEAN.CUSTOMERS)
+QUALIFY ROW_NUMBER() OVER (PARTITION BY S.TICKET_ID ORDER BY S.OPENED_ON) = 1;
+
+-- 4. Quality checks: every row must say PASS
+SELECT 'customers = 5,000' AS CHECK_NAME, COUNT(*) AS ACTUAL,
+       IFF(COUNT(*) = 5000, 'PASS', 'FAIL') AS RESULT
+FROM BANK_DS.CLEAN.CUSTOMERS
+UNION ALL
+SELECT 'no duplicate CUSTOMER_ID', COUNT(*) - COUNT(DISTINCT CUSTOMER_ID),
+       IFF(COUNT(*) = COUNT(DISTINCT CUSTOMER_ID), 'PASS', 'FAIL')
+FROM BANK_DS.CLEAN.CUSTOMERS
+UNION ALL
+SELECT 'no NULL AGE', COUNT_IF(AGE IS NULL), IFF(COUNT_IF(AGE IS NULL) = 0, 'PASS', 'FAIL')
+FROM BANK_DS.CLEAN.CUSTOMERS
+UNION ALL
+SELECT 'AGE_MISSING flags = 100', COUNT_IF(AGE_MISSING), IFF(COUNT_IF(AGE_MISSING) = 100, 'PASS', 'FAIL')
+FROM BANK_DS.CLEAN.CUSTOMERS
+UNION ALL
+SELECT 'transactions = 100,000', COUNT(*), IFF(COUNT(*) = 100000, 'PASS', 'FAIL')
+FROM BANK_DS.CLEAN.TRANSACTIONS
+UNION ALL
+SELECT 'tickets: clean = raw', COUNT(*),
+       IFF(COUNT(*) = (SELECT COUNT(*) FROM BANK_DS.RAW.SUPPORT_TICKETS), 'PASS', 'FAIL')
+FROM BANK_DS.CLEAN.SUPPORT_TICKETS;
+
+-- 5. Optional: Snowflake's built-in data metric functions (Enterprise edition)
+SELECT SNOWFLAKE.CORE.NULL_COUNT(SELECT AGE FROM BANK_DS.CLEAN.CUSTOMERS) AS NULL_AGE_CLEAN;
+SELECT SNOWFLAKE.CORE.DUPLICATE_COUNT(SELECT CUSTOMER_ID FROM BANK_DS.CLEAN.CUSTOMERS) AS DUP_IDS_CLEAN;</pre></div>
+  <h3>Expected results</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Table or check</th><th>Expected</th></tr></thead>
+      <tbody>
+        <tr><td><b>Before (RAW)</b></td><td>5,030 rows · 5,000 ids · 101 NULL ages</td></tr>
+        <tr><td><b>CLEAN.CUSTOMERS</b></td><td>5,000 rows, 13 columns (RAW columns plus AGE_MISSING), 0 NULL ages, 100 AGE_MISSING = TRUE</td></tr>
+        <tr><td><b>Median age used</b></td><td>About 46 or 47 (ages run 18 to 75)</td></tr>
+        <tr><td><b>CLEAN.TRANSACTIONS</b></td><td>100,000 rows (nothing to remove in this data)</td></tr>
+        <tr><td><b>CLEAN.SUPPORT_TICKETS</b></td><td>Same count as RAW, about 8,100</td></tr>
+        <tr><td><b>Quality checks</b></td><td>Six rows, all PASS</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">If CoCo gives you something different</div><p>Look for four things. It must read RAW and write CLEAN, never UPDATE or DELETE RAW. The dedupe rule must be explicit (an ORDER BY inside ROW_NUMBER), not "any row". The median must be computed after deduplication. And there must be a flag for imputed ages. If its row counts differ from the table above, find out why before you move on: P4 depends on these numbers.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+<div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember it</div><p>Never change RAW; build a trusted CLEAN copy. Check completeness, uniqueness, validity, consistency and timeliness. Fix with a written rule and a flag, then prove the result with PASS/FAIL checks. Snowflake enforces NOT NULL, but not primary keys, so test uniqueness yourself.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+<dl class="glossary">
+    <dt>Data quality</dt><dd>How far data can be trusted for a purpose.</dd>
+    <dt>Impute</dt><dd>Fill a missing value with an estimate, such as the median.</dd>
+    <dt>Flag column</dt><dd>A column that marks rows that were changed or guessed, such as AGE_MISSING.</dd>
+    <dt>Deduplicate</dt><dd>Keep one row per key.</dd>
+    <dt>Outlier</dt><dd>A value far from the rest. Not always an error.</dd>
+    <dt>Constraint</dt><dd>A declared rule on a column. Snowflake enforces NOT NULL only, on standard tables.</dd>
+    <dt>Data metric function</dt><dd>A Snowflake function that measures quality, such as SNOWFLAKE.CORE.NULL_COUNT.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+<div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#coco/2-4">2.4 Optimise queries and cost →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+   "tables": {
+    "raw_cust": {
+      "columns": [["customer_id", "NUMBER"], ["age", "NUMBER", "NULL when missing"], ["segment", "VARCHAR"], ["balance", "NUMBER"], ["joined_on", "DATE"]],
+      "rows": [
+        [1, 34, "RETAIL", 12000, "2025-06-01"],
+        [2, 51, "PRIORITY", 850000, "2021-09-01"],
+        [3, null, "RETAIL", 0, "2025-03-01"],
+        [4, 45, "BUSINESS", 1200000, "2018-09-01"],
+        [5, 29, "retail ", 45000, "2024-03-01"],
+        [6, 23, "RETAIL", 3000, "2026-02-01"],
+        [7, null, "RETAIL", 98000, "2020-09-01"],
+        [8, 38, "PRIORITY", 95000000, "2025-10-01"],
+        [2, 51, "PRIORITY", 860000, "2021-10-15"],
+        [9, 62, "BUSINESS", 640000, "2023-05-01"]
+      ]
+    }
+   },
+   "starter": "-- You asked CoCo: 'Profile raw_cust: rows, distinct ids, NULL ages.'\nSELECT COUNT(*) AS row_count,\n       COUNT(DISTINCT customer_id) AS distinct_ids,\n       SUM(CASE WHEN age IS NULL THEN 1 ELSE 0 END) AS null_age\nFROM raw_cust",
+   "examples": [
+    {"label": "Messy segment values", "sql": "SELECT segment, COUNT(*) AS customers\nFROM raw_cust\nGROUP BY segment\nORDER BY segment"},
+    {"label": "Build a clean copy, then check it", "sql": "CREATE OR REPLACE TABLE clean_cust AS\nSELECT customer_id, age, UPPER(TRIM(segment)) AS segment, balance, joined_on\nFROM (\n  SELECT *, ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY joined_on) AS rn\n  FROM raw_cust\n) x\nWHERE rn = 1;\n\nSELECT COUNT(*) AS row_count, COUNT(DISTINCT customer_id) AS distinct_ids\nFROM clean_cust"}
+   ],
+   "challenges": [
+    {"task": "You asked CoCo: 'Keep one row per customer_id, the LATEST joined_on wins. Return customer_id, balance, joined_on, ordered by customer_id.' Write the SQL it should produce.", "hint": "ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY joined_on DESC) in a subquery, keep rn = 1.", "answer": "SELECT customer_id, balance, joined_on FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY joined_on DESC) AS rn FROM raw_cust) x WHERE rn = 1 ORDER BY customer_id"},
+    {"task": "You asked CoCo: 'Fill missing age with the median age and add age_missing (1 or 0). Return customer_id, age, age_missing, ordered by customer_id.' Write the SQL it should produce (do not deduplicate).", "hint": "COALESCE(age, (SELECT MEDIAN(age) FROM raw_cust)) and CASE WHEN age IS NULL THEN 1 ELSE 0 END.", "answer": "SELECT customer_id, COALESCE(age, (SELECT MEDIAN(age) FROM raw_cust)) AS age, CASE WHEN age IS NULL THEN 1 ELSE 0 END AS age_missing FROM raw_cust ORDER BY customer_id, age_missing"},
+    {"task": "You asked CoCo: 'Flag outlier balances: more than 10 times the median balance. Return customer_id and balance of flagged rows only.' Write the SQL it should produce.", "hint": "WHERE balance > 10 * (SELECT MEDIAN(balance) FROM raw_cust). Order by customer_id.", "answer": "SELECT customer_id, balance FROM raw_cust WHERE balance > 10 * (SELECT MEDIAN(balance) FROM raw_cust) ORDER BY customer_id"}
+   ]
+  },
+  "simulators": [
+    {"id": "coco-2-3-clean", "title": "Profile first, then clean", "tool": "coco", "intro": "A colleague's loan table, LOANS_RAW, before a risk model.", "steps": [
+      {"prompt": "Read-only. Profile @RISK_DB.RAW.LOANS_RAW for completeness, uniqueness and validity. One summary row.", "code": {"lang": "sql", "text": "SELECT COUNT(*) AS ROW_COUNT,\n       COUNT(DISTINCT LOAN_ID) AS DISTINCT_LOANS,\n       COUNT_IF(INTEREST_RATE IS NULL) AS NULL_RATE,\n       COUNT_IF(PRINCIPAL <= 0) AS BAD_PRINCIPAL,\n       COUNT_IF(TRY_TO_DATE(START_DATE_TXT) IS NULL) AS BAD_DATES\nFROM RISK_DB.RAW.LOANS_RAW;"}, "output": {"columns": ["ROW_COUNT", "DISTINCT_LOANS", "NULL_RATE", "BAD_PRINCIPAL", "BAD_DATES"], "rows": [[20412, 20398, 57, 3, 12]]}, "check": ["14 duplicate loan ids, 57 missing rates, 3 bad principals, 12 dates stored as unreadable text", "Read-only; nothing changed"]},
+      {"prompt": "Show me the 3 rows with PRINCIPAL <= 0 before deciding anything.", "output": {"columns": ["LOAN_ID", "PRINCIPAL", "STATUS"], "rows": [[88120, -25000, "REVERSAL"], [90433, 0, "CANCELLED"], [91007, -1200, "REVERSAL"]]}, "check": ["Negative principal is a reversal, not garbage: a business rule, not a typo", "Ask the data owner before excluding them"]},
+      {"prompt": "Write, but do not run, a CLEAN table that keeps STATUS reversals out, converts START_DATE_TXT with TRY_TO_DATE and flags rows where conversion failed.", "code": {"lang": "sql", "text": "CREATE OR REPLACE TABLE RISK_DB.CLEAN.LOANS AS\nSELECT LOAN_ID, PRINCIPAL, INTEREST_RATE,\n       TRY_TO_DATE(START_DATE_TXT) AS START_DATE,\n       (TRY_TO_DATE(START_DATE_TXT) IS NULL) AS START_DATE_INVALID\nFROM RISK_DB.RAW.LOANS_RAW\nWHERE STATUS <> 'REVERSAL'\nQUALIFY ROW_NUMBER() OVER (PARTITION BY LOAN_ID ORDER BY START_DATE_TXT DESC) = 1;"}, "check": ["Writes CLEAN, reads RAW", "Bad dates are flagged, not hidden", "Question: does STATUS <> 'REVERSAL' also drop rows where STATUS is NULL? Yes. Ask CoCo to handle NULL status explicitly"]}
+    ]},
+    {"id": "coco-2-3-p3", "title": "P3: build and check the CLEAN layer", "tool": "coco", "intro": "You pasted prompt 1 from the project step.", "steps": [
+      {"prompt": "(Prompt 1: CLEAN.CUSTOMERS with dedupe, median age and AGE_MISSING. Write, do not run.)", "say": "Here is the script. The median is computed after removing duplicates, so duplicated customers do not count twice.", "code": {"lang": "sql", "text": "CREATE OR REPLACE TABLE BANK_DS.CLEAN.CUSTOMERS AS\nWITH DEDUPED AS (\n  SELECT * FROM BANK_DS.RAW.CUSTOMERS\n  QUALIFY ROW_NUMBER() OVER (PARTITION BY CUSTOMER_ID ORDER BY JOINED_ON, BALANCE DESC) = 1\n),\nAGE_STATS AS (SELECT MEDIAN(AGE) AS MEDIAN_AGE FROM DEDUPED)\nSELECT D.CUSTOMER_ID,\n       COALESCE(D.AGE, ROUND(S.MEDIAN_AGE))::NUMBER(38,0) AS AGE,\n       (D.AGE IS NULL) AS AGE_MISSING,\n       D.CITY, D.SEGMENT, D.TENURE_MONTHS, D.NUM_PRODUCTS, D.HAS_CREDIT_CARD,\n       D.IS_ACTIVE_MEMBER, D.ESTIMATED_SALARY, D.BALANCE, D.JOINED_ON, D.CHURNED\nFROM DEDUPED D CROSS JOIN AGE_STATS S;"}, "check": ["Reads RAW, writes CLEAN: RAW untouched", "The dedupe rule is explicit", "AGE_MISSING is set from the ORIGINAL age, before COALESCE"]},
+      {"prompt": "Looks right. Run it, then build the two other CLEAN tables from prompt 2.", "outputText": "Table CUSTOMERS successfully created.\nTable TRANSACTIONS successfully created.\nTable SUPPORT_TICKETS successfully created.", "check": ["Three CREATE OR REPLACE statements, all in CLEAN"]},
+      {"prompt": "(Prompt 3: run the quality checks.)", "output": {"columns": ["CHECK_NAME", "ACTUAL", "RESULT"], "rows": [["customers = 5,000", 5000, "PASS"], ["no duplicate CUSTOMER_ID", 0, "PASS"], ["no NULL AGE", 0, "PASS"], ["AGE_MISSING flags = 100", 100, "PASS"], ["transactions = 100,000", 100000, "PASS"], ["tickets: clean = raw", 8128, "PASS"]]}, "check": ["All six PASS", "Customer 7 had a NULL age and a duplicate: flagged once, not twice"]},
+      {"prompt": "Add a primary key on CLEAN.CUSTOMERS so duplicates can never get in again.", "say": "I can add it, but note: Snowflake does not enforce PRIMARY KEY on standard tables. It documents the key. To block NULL ids I also set NOT NULL, which is enforced. Keep the duplicate check in your quality query.", "code": {"lang": "sql", "text": "ALTER TABLE BANK_DS.CLEAN.CUSTOMERS ALTER COLUMN CUSTOMER_ID SET NOT NULL;\nALTER TABLE BANK_DS.CLEAN.CUSTOMERS ADD CONSTRAINT PK_CLEAN_CUSTOMERS PRIMARY KEY (CUSTOMER_ID);"}, "check": ["CoCo corrected a wrong belief in the prompt: good", "The duplicate check stays as the real guard"]}
+    ]}
+  ],
+  "quiz": [
+    {"q": "Why build CLEAN tables instead of fixing RAW in place?", "options": ["CLEAN tables are cheaper", "RAW is the evidence: if a fix is wrong you can rebuild CLEAN from it", "Snowflake does not allow UPDATE"], "answer": 1, "why": "Keeping RAW untouched means every cleaning step can be repeated, checked and undone."},
+    {"q": "Why add AGE_MISSING when you fill NULL ages with the median?", "options": ["To make the table bigger", "So the model and reviewers know which ages were guessed", "Snowflake requires it"], "answer": 1, "why": "A flag keeps the fix honest. Missingness itself can also be a useful signal."},
+    {"q": "You declare PRIMARY KEY (CUSTOMER_ID) on a standard Snowflake table and load a duplicate. What happens?", "options": ["The insert fails", "The duplicate loads; the key is not enforced", "Snowflake removes the older row"], "answer": 1, "why": "Snowflake enforces NOT NULL but not PRIMARY KEY, UNIQUE or FOREIGN KEY on standard tables."},
+    {"q": "A loan has a negative principal. What should you do first?", "options": ["Delete it", "Look at the rows and ask the data owner; it may be a valid reversal", "Set it to 0"], "answer": 1, "why": "Some odd values are real business events. Cleaning rules are business decisions."},
+    {"q": "Which SQL keeps one row per CUSTOMER_ID in Snowflake?", "options": ["QUALIFY ROW_NUMBER() OVER (PARTITION BY CUSTOMER_ID ORDER BY JOINED_ON) = 1", "GROUP BY *", "WHERE CUSTOMER_ID IS UNIQUE"], "answer": 0, "why": "ROW_NUMBER numbers each customer's rows by your rule; QUALIFY keeps number 1."},
+    {"q": "After P3, how many rows does CLEAN.CUSTOMERS have?", "options": ["5,030", "5,000", "4,899"], "answer": 1, "why": "30 duplicates are removed and no customer is dropped: 5,000 rows, with 100 ages imputed and flagged."}
+  ]
+}
+</script>

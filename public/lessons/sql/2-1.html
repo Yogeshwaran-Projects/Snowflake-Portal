@@ -1,0 +1,368 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>SQL: Beginner to Advanced</span><span>Module 2 · Intermediate</span><span>Lesson 2.1</span></div>
+  <h1>Inner joins</h1>
+  <p class="lede">Real questions need two tables at once: the customer and her accounts, the account and its transactions. A join puts matching rows side by side.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 min</span>
+    <span class="badge">Intermediate</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice: 6 questions</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain what a join does, using index cards</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Write an INNER JOIN with ON and table aliases</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Chain three tables in one query and add WHERE and GROUP BY</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Spot a join that multiplies rows before it ruins a total</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">An inner join pairs each row of one table with the rows of another table that share the same value, and keeps only the pairs that match.</p></div>
+  </div>
+  <p>Banks never keep everything in one table. Customers live in one table, accounts in another, transactions in a third. Each table carries an <b>id column</b> that points to the other. A join follows that pointer.</p>
+  <ul>
+    <li><b>Join key</b>: the column both tables share, such as <code>cust_id</code>.</li>
+    <li><b>ON</b>: where you tell SQL which columns must be equal.</li>
+    <li><b>Inner</b>: rows with no partner on the other side are dropped. Lesson 2.2 shows how to keep them.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like two shelves of index cards</h2>
+  <p>Picture two shelves. The left shelf holds one card per customer. The right shelf holds one card per account. Every account card has a small sticker with the customer number. To answer “which accounts does Bhavna hold?”, you pick up her customer card, read her number, and pull every account card with that same number. Then you lay the cards side by side. That is a join.</p>
+  <div class="map">
+    <div><small>On the shelves</small><b>Two shelves of cards</b><span>In SQL: two tables, such as customers and accounts</span></div>
+    <div><small>On the shelves</small><b>The number sticker</b><span>In SQL: the join key, cust_id, written in the ON clause</span></div>
+    <div><small>On the shelves</small><b>Cards laid side by side</b><span>In SQL: one wide result row with columns from both tables</span></div>
+  </div>
+  <p>An <b>inner</b> join is strict. A customer card with no account card is put back on the shelf and does not appear. An account card with a sticker that matches no customer is also dropped.</p>
+</section>
+
+<section class="sec" id="syntax" data-toc="Syntax">
+  <h2>Syntax step by step</h2>
+  <p>Step 1: name both tables and give each a short alias. Step 2: say how they connect in <code>ON</code>. Step 3: pick columns with the alias in front, so SQL knows which table each one comes from.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> c.cust_name, a.acct_type, a.balance
+<span class="kw">FROM</span> customers c
+<span class="kw">INNER JOIN</span> accounts a
+  <span class="kw">ON</span> a.cust_id = c.cust_id;</pre></div>
+  <p><code>INNER JOIN</code> and plain <code>JOIN</code> mean the same thing. Most people write <code>JOIN</code>. Here is which rows survive, using three customers and three accounts:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>customers (left)</th><th>accounts (right)</th><th>In the result?</th></tr></thead>
+      <tbody>
+        <tr><td>1 Anil Kapoor</td><td>1001 SAVINGS, cust_id 1</td><td>Yes, keys match</td></tr>
+        <tr><td>1 Anil Kapoor</td><td>1002 CURRENT, cust_id 1</td><td>Yes, Anil appears twice (two accounts)</td></tr>
+        <tr><td>2 Bhavna Desai</td><td>1003 SAVINGS, cust_id 2</td><td>Yes</td></tr>
+        <tr><td>12 Kavya Iyer</td><td>(no account)</td><td>No, inner join drops her</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Notice the row count. Ten customers hold fourteen accounts, so the join returns fourteen rows, not ten. A join returns one row per <b>matching pair</b>.</p>
+  <h3>Chaining three tables</h3>
+  <p>Transactions point to accounts, and accounts point to customers. Join them in a chain, one <code>JOIN … ON</code> after another.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> t.txn_id, c.cust_name, t.amount
+<span class="kw">FROM</span> transactions t
+<span class="kw">JOIN</span> accounts a  <span class="kw">ON</span> a.acct_id = t.acct_id
+<span class="kw">JOIN</span> customers c <span class="kw">ON</span> c.cust_id = a.cust_id
+<span class="kw">WHERE</span> t.amount &gt; 100000;</pre></div>
+  <p>The order of clauses stays the same as before: <code>FROM</code> and the joins first, then <code>WHERE</code>, <code>GROUP BY</code>, <code>ORDER BY</code>.</p>
+</section>
+
+<section class="sec" id="examples" data-toc="Worked examples">
+  <h2>Worked examples</h2>
+  <p><b>Example 1: a customer and her branch.</b> Customers carry <code>branch_id</code>. Branches carry the name.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> c.cust_name, b.branch_name, b.city
+<span class="kw">FROM</span> customers c
+<span class="kw">JOIN</span> branches b <span class="kw">ON</span> b.branch_id = c.branch_id
+<span class="kw">WHERE</span> c.segment = 'PREMIUM';</pre></div>
+  <p>Result: 3 rows. Bhavna Desai at Fort, Deepa Nair at Connaught Place, Gita Rao at Koramangala.</p>
+  <p><b>Example 2: total balance per customer.</b> Join, then group. Group by the id as well as the name, because two different customers are both called Anil Kapoor.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> c.cust_id, c.cust_name, <span class="kw">SUM</span>(a.balance) <span class="kw">AS</span> total_balance
+<span class="kw">FROM</span> customers c
+<span class="kw">JOIN</span> accounts a <span class="kw">ON</span> a.cust_id = c.cust_id
+<span class="kw">GROUP BY</span> c.cust_id, c.cust_name
+<span class="kw">ORDER BY</span> total_balance <span class="kw">DESC</span>;</pre></div>
+  <p>Result: 10 rows. Deepa Nair leads with 13,10,000. Anil Kapoor (id 1) shows 3,25,000 and Anil Kapoor (id 11) shows 7,800, on separate rows.</p>
+  <p><b>Example 3: ATM withdrawals per branch.</b> Four tables in a chain, then a count.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> b.branch_name, <span class="kw">COUNT</span>(*) <span class="kw">AS</span> atm_txns
+<span class="kw">FROM</span> transactions t
+<span class="kw">JOIN</span> accounts a  <span class="kw">ON</span> a.acct_id = t.acct_id
+<span class="kw">JOIN</span> customers c <span class="kw">ON</span> c.cust_id = a.cust_id
+<span class="kw">JOIN</span> branches b  <span class="kw">ON</span> b.branch_id = c.branch_id
+<span class="kw">WHERE</span> t.channel = 'ATM'
+<span class="kw">GROUP BY</span> b.branch_name;</pre></div>
+  <p>Result: Fort 2, Connaught Place 2, Koramangala 1. Branches with no ATM withdrawals do not appear, because the join is inner.</p>
+  <p><b>Example 4: the USING shortcut.</b> When the key has the same name in both tables, <code>USING (cust_id)</code> replaces the ON clause. It works in DuckDB and Snowflake. ON is clearer when you are learning, so this course keeps ON.</p>
+</section>
+
+<section class="sec" id="mistakes" data-toc="Common mistakes">
+  <h2>Common mistakes</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Row explosion</div><p>If a customer has 2 accounts and 3 loans, joining customers to accounts and to loans gives 2 × 3 = 6 rows for that one customer. A <code>SUM(balance)</code> on that result counts each balance three times. Rule: before you join two “many” tables to the same parent, total each one separately first (Lesson 2.5 shows how with CTEs). Always compare <code>COUNT(*)</code> before and after a join.</p></div>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Ambiguous column</div><p>Both tables have <code>cust_id</code>. Writing <code>SELECT cust_id</code> without an alias gives the error “ambiguous column”. Always prefix: <code>c.cust_id</code>.</p></div>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Silent drops</div><p>An inner join hides rows with no match. Kavya Iyer has no account, so a report of “all customers and their balances” built with an inner join forgets her. If the question says “all”, you need a LEFT JOIN (next lesson).</p></div>
+  </div>
+</section>
+
+<section class="sec" id="snowflake" data-toc="On Snowflake">
+  <h2>On Snowflake</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Same syntax, two cautions</div><p>Everything above runs unchanged on Snowflake. Two things to know. First, <code>NATURAL JOIN</code> joins on every column with the same name, so a shared column like <code>city</code> silently becomes part of the key. Avoid it and write ON. Second, on huge bank tables Snowflake picks the join order for you, so write joins for clarity, not for speed. Keys of the same type join fastest; joining a NUMBER to a VARCHAR forces a cast on every row.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice">
+  <h2>Practice</h2>
+  <p>The worksheet holds four tables of a small fictional bank: <code>customers</code>, <code>accounts</code>, <code>transactions</code> and <code>branches</code>. Open the <b>Schema</b> tab to see the keys. Try the examples, then solve the six questions. Grading compares values, so column names and row order do not matter.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>JOIN … ON pairs rows that share a key and returns one row per matching pair. No match, no row. Alias every table and check the row count after every join.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Join</dt><dd>Combining rows from two tables that share a value.</dd>
+    <dt>Inner join</dt><dd>A join that keeps only rows with a match on both sides.</dd>
+    <dt>Join key</dt><dd>The column (or columns) the two tables share, such as cust_id.</dd>
+    <dt>ON clause</dt><dd>The condition that says which rows pair up.</dd>
+    <dt>Alias</dt><dd>A short nickname for a table, such as <code>customers c</code>.</dd>
+    <dt>Primary key</dt><dd>The column that identifies one row, such as acct_id in accounts.</dd>
+    <dt>Foreign key</dt><dd>A column that points to another table’s primary key, such as cust_id in accounts.</dd>
+    <dt>Row explosion</dt><dd>A join that returns more rows than expected because one key matches many rows on both sides.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#sql/2-2">2.2 Outer joins and anti-joins →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "customers": {
+        "columns": [
+          ["cust_id", "NUMBER"],
+          ["cust_name", "VARCHAR"],
+          ["city", "VARCHAR"],
+          ["segment", "VARCHAR", "RETAIL, PREMIUM or SME"],
+          ["joined_on", "DATE"],
+          ["branch_id", "NUMBER", "NULL for online-only customers"]
+        ],
+        "rows": [
+          [1, "Anil Kapoor", "Mumbai", "RETAIL", "2019-03-15", 1],
+          [2, "Bhavna Desai", "Mumbai", "PREMIUM", "2020-07-01", 1],
+          [3, "Chetan Patel", "Delhi", "RETAIL", "2021-01-20", 2],
+          [4, "Deepa Nair", "Delhi", "PREMIUM", "2018-11-05", 2],
+          [5, "Esha Singh", "Chennai", "RETAIL", "2022-05-10", 3],
+          [6, "Farhan Ali", "Chennai", "SME", "2020-02-28", 3],
+          [7, "Gita Rao", "Bengaluru", "PREMIUM", "2023-08-14", 4],
+          [8, "Harish Kumar", "Bengaluru", "RETAIL", "2024-01-09", 4],
+          [9, "Isha Verma", "Hyderabad", "SME", "2024-06-30", 5],
+          [10, "Jay Mehta", "Pune", "RETAIL", "2025-02-11", null],
+          [11, "Anil Kapoor", "Delhi", "RETAIL", "2025-09-01", 2],
+          [12, "Kavya Iyer", "Chennai", "RETAIL", "2026-03-03", 3]
+        ]
+      },
+      "accounts": {
+        "columns": [
+          ["acct_id", "NUMBER"],
+          ["cust_id", "NUMBER"],
+          ["acct_type", "VARCHAR", "SAVINGS, CURRENT or FD"],
+          ["balance", "NUMBER", "in rupees"],
+          ["opened_on", "DATE"],
+          ["acct_status", "VARCHAR", "ACTIVE, DORMANT or CLOSED"]
+        ],
+        "rows": [
+          [1001, 1, "SAVINGS", 85000, "2019-03-15", "ACTIVE"],
+          [1002, 1, "CURRENT", 240000, "2020-01-10", "ACTIVE"],
+          [1003, 2, "SAVINGS", 520000, "2020-07-01", "ACTIVE"],
+          [1004, 3, "SAVINGS", 15000, "2021-01-20", "ACTIVE"],
+          [1005, 4, "SAVINGS", 310000, "2018-11-05", "ACTIVE"],
+          [1006, 4, "FD", 1000000, "2022-03-01", "ACTIVE"],
+          [1007, 5, "SAVINGS", 4200, "2022-05-10", "DORMANT"],
+          [1008, 6, "CURRENT", 760000, "2020-02-28", "ACTIVE"],
+          [1009, 7, "SAVINGS", 95000, "2023-08-14", "ACTIVE"],
+          [1010, 8, "SAVINGS", 12500, "2024-01-09", "ACTIVE"],
+          [1011, 9, "CURRENT", 430000, "2024-06-30", "ACTIVE"],
+          [1012, 11, "SAVINGS", 7800, "2025-09-01", "ACTIVE"],
+          [1013, 6, "FD", 500000, "2024-12-15", "CLOSED"],
+          [1014, 2, "FD", 250000, "2025-11-20", "ACTIVE"]
+        ]
+      },
+      "transactions": {
+        "columns": [
+          ["txn_id", "NUMBER"],
+          ["acct_id", "NUMBER"],
+          ["txn_date", "DATE"],
+          ["txn_type", "VARCHAR", "DEPOSIT or WITHDRAWAL"],
+          ["amount", "NUMBER", "in rupees"],
+          ["channel", "VARCHAR", "BRANCH, ATM, UPI or NETBANKING"]
+        ],
+        "rows": [
+          [5001, 1001, "2026-07-02", "DEPOSIT", 25000, "BRANCH"],
+          [5002, 1001, "2026-07-15", "WITHDRAWAL", 8000, "ATM"],
+          [5003, 1002, "2026-07-20", "DEPOSIT", 120000, "NETBANKING"],
+          [5004, 1003, "2026-07-28", "WITHDRAWAL", 40000, "NETBANKING"],
+          [5005, 1004, "2026-08-01", "DEPOSIT", 5000, "UPI"],
+          [5006, 1005, "2026-08-03", "DEPOSIT", 60000, "BRANCH"],
+          [5007, 1005, "2026-08-03", "WITHDRAWAL", 15000, "ATM"],
+          [5008, 1008, "2026-08-10", "DEPOSIT", 300000, "NETBANKING"],
+          [5009, 1008, "2026-08-12", "WITHDRAWAL", 125000, "NETBANKING"],
+          [5010, 1009, "2026-08-18", "DEPOSIT", 22000, "UPI"],
+          [5011, 1010, "2026-08-20", "WITHDRAWAL", 2500, "UPI"],
+          [5012, 1011, "2026-08-25", "DEPOSIT", 180000, "NETBANKING"],
+          [5013, 1003, "2026-08-30", "DEPOSIT", 75000, "BRANCH"],
+          [5014, 1001, "2026-09-01", "DEPOSIT", 25000, "BRANCH"],
+          [5015, 1012, "2026-09-05", "DEPOSIT", 3000, "UPI"],
+          [5016, 1004, "2026-09-09", "WITHDRAWAL", 1200, "ATM"],
+          [5017, 1006, "2026-09-10", "DEPOSIT", 200000, "NETBANKING"],
+          [5018, 1009, "2026-09-14", "WITHDRAWAL", 9000, "ATM"],
+          [5019, 1011, "2026-09-18", "WITHDRAWAL", 50000, "NETBANKING"],
+          [5020, 1002, "2026-09-22", "WITHDRAWAL", 35000, "NETBANKING"],
+          [5021, 1010, "2026-09-25", "DEPOSIT", 4000, "UPI"],
+          [5022, 1008, "2026-09-28", "DEPOSIT", 90000, "BRANCH"],
+          [5023, 1003, "2026-09-30", "WITHDRAWAL", 20000, "ATM"],
+          [5024, 1001, "2026-09-30", "DEPOSIT", 25000, "BRANCH"]
+        ]
+      },
+      "branches": {
+        "columns": [
+          ["branch_id", "NUMBER"],
+          ["branch_name", "VARCHAR"],
+          ["city", "VARCHAR"],
+          ["manager_id", "NUMBER", "emp_id of the branch manager; NULL when the post is empty"]
+        ],
+        "rows": [
+          [1, "Fort", "Mumbai", 101],
+          [2, "Connaught Place", "Delhi", 102],
+          [3, "T Nagar", "Chennai", 103],
+          [4, "Koramangala", "Bengaluru", 104],
+          [5, "Banjara Hills", "Hyderabad", null],
+          [6, "Salt Lake", "Kolkata", null]
+        ]
+      }
+    },
+    "starter": "SELECT c.cust_name, a.acct_type, a.balance\nFROM customers c\nJOIN accounts a ON a.cust_id = c.cust_id\nORDER BY c.cust_name",
+    "examples": [
+      {
+        "label": "Customer and branch",
+        "sql": "SELECT c.cust_name, b.branch_name, b.city\nFROM customers c\nJOIN branches b ON b.branch_id = c.branch_id\nWHERE c.segment = 'PREMIUM'"
+      },
+      {
+        "label": "Balance per customer",
+        "sql": "SELECT c.cust_id, c.cust_name, SUM(a.balance) AS total_balance\nFROM customers c\nJOIN accounts a ON a.cust_id = c.cust_id\nGROUP BY c.cust_id, c.cust_name\nORDER BY total_balance DESC"
+      },
+      {
+        "label": "ATM withdrawals per branch",
+        "sql": "SELECT b.branch_name, COUNT(*) AS atm_txns\nFROM transactions t\nJOIN accounts a  ON a.acct_id = t.acct_id\nJOIN customers c ON c.cust_id = a.cust_id\nJOIN branches b  ON b.branch_id = c.branch_id\nWHERE t.channel = 'ATM'\nGROUP BY b.branch_name\nORDER BY b.branch_name"
+      }
+    ],
+    "challenges": [
+      {
+        "level": "Easy",
+        "task": "Show cust_name and acct_type for every account, one row per account.",
+        "hint": "FROM customers c JOIN accounts a ON a.cust_id = c.cust_id. Expect 14 rows.",
+        "answer": "SELECT c.cust_name, a.acct_type FROM customers c JOIN accounts a ON a.cust_id = c.cust_id"
+      },
+      {
+        "level": "Easy",
+        "task": "Show cust_name and branch_name for every customer who belongs to a branch.",
+        "hint": "Join customers to branches on branch_id. Jay Mehta has no branch, so he will not appear.",
+        "answer": "SELECT c.cust_name, b.branch_name FROM customers c JOIN branches b ON b.branch_id = c.branch_id"
+      },
+      {
+        "level": "Medium",
+        "task": "For every customer who holds at least one account, show cust_id, cust_name and the total balance across their accounts.",
+        "hint": "Join, then GROUP BY c.cust_id, c.cust_name and SUM(a.balance). Keep cust_id in the group: two customers share the name Anil Kapoor.",
+        "answer": "SELECT c.cust_id, c.cust_name, SUM(a.balance) AS total_balance FROM customers c JOIN accounts a ON a.cust_id = c.cust_id GROUP BY c.cust_id, c.cust_name ORDER BY c.cust_id"
+      },
+      {
+        "level": "Medium",
+        "task": "Show txn_id, cust_name and amount for every transaction above 1,00,000 rupees.",
+        "hint": "Chain three tables: transactions to accounts on acct_id, then accounts to customers on cust_id. Filter with WHERE t.amount > 100000.",
+        "answer": "SELECT t.txn_id, c.cust_name, t.amount FROM transactions t JOIN accounts a ON a.acct_id = t.acct_id JOIN customers c ON c.cust_id = a.cust_id WHERE t.amount > 100000"
+      },
+      {
+        "level": "Medium",
+        "task": "For each branch that has ATM transactions, show branch_name and the number of ATM transactions.",
+        "hint": "Four tables in a chain: transactions, accounts, customers, branches. WHERE t.channel = 'ATM', then GROUP BY b.branch_name with COUNT(*).",
+        "answer": "SELECT b.branch_name, COUNT(*) AS atm_txns FROM transactions t JOIN accounts a ON a.acct_id = t.acct_id JOIN customers c ON c.cust_id = a.cust_id JOIN branches b ON b.branch_id = c.branch_id WHERE t.channel = 'ATM' GROUP BY b.branch_name ORDER BY b.branch_name"
+      },
+      {
+        "level": "Hard",
+        "task": "For each branch, show branch_name and the total balance of ACTIVE accounts held by its customers. Only include branches that have at least one such account.",
+        "hint": "branches to customers on branch_id, customers to accounts on cust_id. WHERE a.acct_status = 'ACTIVE', then GROUP BY b.branch_name and SUM(a.balance). Expect 5 rows; Salt Lake has no customers.",
+        "answer": "SELECT b.branch_name, SUM(a.balance) AS active_balance FROM branches b JOIN customers c ON c.branch_id = b.branch_id JOIN accounts a ON a.cust_id = c.cust_id WHERE a.acct_status = 'ACTIVE' GROUP BY b.branch_name ORDER BY b.branch_name"
+      }
+    ]
+  },
+  "quiz": [
+    {
+      "q": "What does an inner join return?",
+      "options": ["Every row from both tables", "One row for every pair of rows that share the key", "Only rows with no match"],
+      "answer": 1,
+      "why": "An inner join keeps matching pairs only. Rows with no partner on the other side are dropped."
+    },
+    {
+      "q": "In the index-card picture, what is the ON clause?",
+      "options": ["The number sticker that says which cards belong together", "The shelf the cards sit on", "The colour of the cards"],
+      "answer": 0,
+      "why": "ON names the shared key, such as a.cust_id = c.cust_id. It is the sticker that links a card on one shelf to a card on the other."
+    },
+    {
+      "q": "Ten customers hold fourteen accounts. How many rows does customers JOIN accounts return?",
+      "options": ["10", "14", "24"],
+      "answer": 1,
+      "why": "One row per matching pair. Each of the 14 accounts matches exactly one customer, so 14 rows."
+    },
+    {
+      "q": "Kavya Iyer has no account. A report built with customers JOIN accounts shows her balance as what?",
+      "options": ["0", "NULL", "She is not in the report at all"],
+      "answer": 2,
+      "why": "Inner joins drop rows with no match. To keep her you need a LEFT JOIN, which Lesson 2.2 covers."
+    },
+    {
+      "q": "You join customers to accounts and to loans, then SUM(balance). The totals look too big. Why?",
+      "options": ["SUM ignores NULLs", "A customer with 2 accounts and 3 loans becomes 6 rows, so each balance is counted 3 times", "JOIN sorts the rows"],
+      "answer": 1,
+      "why": "That is row explosion. Total each child table separately before joining them to the parent."
+    },
+    {
+      "q": "Why avoid NATURAL JOIN on Snowflake?",
+      "options": ["It is not supported", "It joins on every column with the same name, so an extra shared column like city silently becomes part of the key", "It is slower than ON"],
+      "answer": 1,
+      "why": "NATURAL JOIN guesses the key from column names. Write ON so the key is explicit and visible."
+    }
+  ]
+}
+</script>

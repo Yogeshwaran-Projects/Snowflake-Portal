@@ -1,0 +1,377 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Cortex Masterclass</span><span>Module 1 · Foundations</span><span>Lesson 1.3</span></div>
+  <h1>Setup and your first AI query</h1>
+  <p class="lede">Get the access, region setting and warehouse right, load the 60 complaints that power the whole course project, and run your first Cortex AI query on them.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 min</span>
+    <span class="badge">Beginner</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 simulator + lab + project step P1</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Name the privilege and database roles a role needs to call AI Functions</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Check and, on your own trial only, set cross-region inference</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Create the project warehouse, database, schema and RAW_COMPLAINTS table</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Run AI_SENTIMENT and AI_COMPLETE on real rows and read the results</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+<div class="callout def">
+  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+  <div><div class="label">Key definition</div><p class="big">To call Cortex AI Functions, your current role needs two things: the USE AI FUNCTIONS account privilege (or a per-function USE AI FUNCTION privilege) and one of the SNOWFLAKE.CORTEX_USER or SNOWFLAKE.AI_FUNCTIONS_USER database roles. The query also needs a running warehouse, and the model must be available in your region or through cross-region inference.</p></div>
+</div>
+<p>In a fresh account most of this is already true: both <code>USE AI FUNCTIONS</code> and <code>CORTEX_USER</code> are granted to the <code>PUBLIC</code> role by default, so every user can call the functions. Banks usually tighten that: an admin revokes them from <code>PUBLIC</code> and grants them only to project roles. If your first AI query fails on a client account, the cause is almost always one of the four items below.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like getting into the reading room</h2>
+<p>To use the smart-reader librarians you need three things. Your ID badge must carry a <b>reading-room stamp</b> (the privilege and database role). The librarians you want must be <b>on shift in your building</b>, or you must allow them to work from a sister library (the region setting). And someone must <b>open a desk</b> for you (the warehouse), because every request is still handled at a desk.</p>
+<div class="map">
+  <div><small>In the library</small><b>Reading-room stamp</b><span>In Snowflake: USE AI FUNCTIONS plus SNOWFLAKE.CORTEX_USER or AI_FUNCTIONS_USER</span></div>
+  <div><small>In the library</small><b>Librarians on shift</b><span>In Snowflake: models available in your region, or CORTEX_ENABLED_CROSS_REGION</span></div>
+  <div><small>In the library</small><b>An open desk</b><span>In Snowflake: a running warehouse such as LEARN_WH (XSMALL is plenty)</span></div>
+</div>
+</section>
+
+<section class="sec" id="access" data-toc="Access checklist">
+  <h2>The access checklist</h2>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Item</th><th>What it gives</th><th>Default</th><th>Who manages it</th></tr></thead>
+    <tbody>
+      <tr><td><code>USE AI FUNCTIONS</code> (account privilege)</td><td>Permission to call the AI Functions</td><td>Granted to PUBLIC</td><td>ACCOUNTADMIN</td></tr>
+      <tr><td><code>USE AI FUNCTION AI_COMPLETE</code> …</td><td>Per-function permission, for tighter control (OR with the blanket privilege)</td><td>Not granted</td><td>ACCOUNTADMIN</td></tr>
+      <tr><td><code>SNOWFLAKE.CORTEX_USER</code></td><td>All Cortex features: AI Functions, Search, Analyst, Agents, fine-tuning</td><td>Granted to PUBLIC</td><td>ACCOUNTADMIN</td></tr>
+      <tr><td><code>SNOWFLAKE.AI_FUNCTIONS_USER</code></td><td>Scalar AI Functions only (not AI_AGG or AI_SUMMARIZE_AGG, and no Search, Analyst or Agents)</td><td>Not granted</td><td>ACCOUNTADMIN</td></tr>
+      <tr><td><code>SNOWFLAKE.CORTEX_EMBED_USER</code></td><td>Only embedding functions such as AI_EMBED</td><td>Not granted</td><td>ACCOUNTADMIN</td></tr>
+      <tr><td><code>CORTEX_ENABLED_CROSS_REGION</code></td><td>Which regions may process your requests</td><td>ANY_REGION for new organisations since 9 March 2026</td><td>ACCOUNTADMIN</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="callout note">
+  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+  <div><div class="label">Database roles go to roles, not users</div><p>SNOWFLAKE.CORTEX_USER and its siblings cannot be granted straight to a user. Grant them to an account role, then grant that role to the user. One more detail: a user with USE AI FUNCTIONS but without CORTEX_USER can still run AI_AGG and AI_SUMMARIZE_AGG.</p></div>
+</div>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- What an admin runs on a locked-down bank account (do NOT run on a client account yourself)</span>
+<span class="kw">USE</span> <span class="kw">ROLE</span> ACCOUNTADMIN;
+<span class="kw">CREATE</span> <span class="kw">ROLE</span> <span class="kw">IF</span> <span class="kw">NOT</span> <span class="kw">EXISTS</span> COMPLAINTS_ANALYST;
+<span class="kw">GRANT</span> <span class="kw">USE</span> AI FUNCTIONS <span class="kw">ON</span> <span class="kw">ACCOUNT</span> <span class="kw">TO</span> <span class="kw">ROLE</span> COMPLAINTS_ANALYST;
+<span class="kw">GRANT</span> <span class="kw">DATABASE</span> <span class="kw">ROLE</span> SNOWFLAKE.CORTEX_USER <span class="kw">TO</span> <span class="kw">ROLE</span> COMPLAINTS_ANALYST;
+<span class="kw">GRANT</span> <span class="kw">ROLE</span> COMPLAINTS_ANALYST <span class="kw">TO</span> USER some_user;
+
+<span class="cm">-- What anyone can run to check</span>
+<span class="kw">SHOW</span> <span class="kw">GRANTS</span> <span class="kw">TO</span> <span class="kw">ROLE</span> PUBLIC;          <span class="cm">-- look for SNOWFLAKE.CORTEX_USER and USE AI FUNCTIONS</span>
+<span class="kw">SHOW</span> <span class="kw">PARAMETERS</span> <span class="kw">LIKE</span> 'CORTEX_ENABLED_CROSS_REGION' <span class="kw">IN</span> <span class="kw">ACCOUNT</span>;</pre></div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+<p>On a bank project you will rarely be <code>ACCOUNTADMIN</code>. A typical first week looks like this: the platform team creates a project role, grants it <code>USE AI FUNCTIONS</code> and <code>CORTEX_USER</code> (or the narrower <code>AI_FUNCTIONS_USER</code> if agents and search are out of scope), gives it a small warehouse, and decides the cross-region setting with the data-protection officer. Your job is to check those four items with <code>SHOW GRANTS</code> and <code>SHOW PARAMETERS</code>, and to raise a ticket with exact wording if one is missing, for example: “Role COMPLAINTS_ANALYST needs SNOWFLAKE.CORTEX_USER for AI_CLASSIFY on BANK_AI.COMPLAINTS.”</p>
+</section>
+
+<section class="sec" id="sim" data-toc="Simulator: setup checks">
+  <h2>Simulator: check access, then ask your first question</h2>
+<div data-simulator="cortex-1-3-setup"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+<p>The <code>raw_complaints</code> table holds the same 60 complaints you load in P1. The worksheet cannot call AI, so <code>ai_mood</code> is pre-computed by <code>AI_SENTIMENT</code> (overall label) and the time is kept as <code>submitted_date</code>. Explore the data the way you will on Snowflake.</p>
+<div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: prove your account is ready</h2>
+<div class="panel">
+  <div class="panel-head">
+    <h3>Four checks, one first call</h3>
+    <div class="meta"><span>About 10 min</span><span>Free trial (Enterprise)</span></div>
+  </div>
+  <ol class="steps">
+    <li><div>
+      <p>Check the default grants. In the output, look for <code>USE AI FUNCTIONS</code> and the database role <code>SNOWFLAKE.CORTEX_USER</code>.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE</span> <span class="kw">ROLE</span> ACCOUNTADMIN;
+<span class="kw">SHOW</span> <span class="kw">GRANTS</span> <span class="kw">TO</span> <span class="kw">ROLE</span> PUBLIC;
+<span class="kw">SHOW</span> <span class="kw">GRANTS</span> <span class="kw">ON</span> <span class="kw">ACCOUNT</span>;</pre></div>
+<p class="expect">Expected: a row with privilege <code>USAGE</code> on DATABASE_ROLE <code>SNOWFLAKE.CORTEX_USER</code>, and <code>USE AI FUNCTIONS</code> granted to PUBLIC on the account.</p>
+      <label><input type="checkbox"> Done</label>
+    </div></li>
+    <li><div>
+      <p>Check the region setting. Only on <b>your own trial</b>, and only if the value is <code>DISABLED</code> and your first call later fails with a model-not-available error, set it wider.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SHOW</span> <span class="kw">PARAMETERS</span> <span class="kw">LIKE</span> 'CORTEX_ENABLED_CROSS_REGION' <span class="kw">IN</span> <span class="kw">ACCOUNT</span>;
+<span class="cm">-- Trial only, if needed:</span>
+<span class="cm">-- ALTER ACCOUNT SET CORTEX_ENABLED_CROSS_REGION = 'ANY_REGION';</span></pre></div>
+<p class="expect">Expected: a value such as <code>ANY_REGION</code> or <code>AWS_US</code>.</p>
+      <label><input type="checkbox"> Done</label>
+    </div></li>
+    <li><div>
+      <p>Run your first AI Function with plain text. No table needed.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> AI_SENTIMENT('Thank you for processing my home loan top-up so quickly.'):categories[0]:sentiment::<span class="kw">STRING</span> <span class="kw">AS</span> mood,
+       AI_COMPLETE('llama3.1-8b', 'In five words, what is a credit card?') <span class="kw">AS</span> answer;</pre></div>
+<p class="expect">Expected: <code>positive</code> and a short phrase. An error saying the role is not authorised means a grant is missing; an error about the model means the region setting.</p>
+      <label><input type="checkbox"> Done</label>
+    </div></li>
+  </ol>
+</div>
+</section>
+
+<section class="sec" id="project" data-toc="Project step P1">
+  <h2>Project step P1: Load the complaints</h2>
+<div class="callout project">
+  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21V4h12l-2 4 2 4H4"/></svg>
+  <div><div class="label">Complaint Intelligence · P1</div><p>We create the project home and load 60 realistic complaints. Every later step (P2 to P8) reads these exact names: warehouse <code>LEARN_WH</code>, database <code>BANK_AI</code>, schema <code>COMPLAINTS</code>, table <code>RAW_COMPLAINTS</code>.</p></div>
+</div>
+<p><b>1. Create the warehouse, database, schema and table, then insert the 60 rows.</b> Paste the whole script into one worksheet and select <b>Run All</b>. It is safe to run twice: the table is replaced each time.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE</span> <span class="kw">ROLE</span> ACCOUNTADMIN;   <span class="cm">-- your own trial only; on a client account use the project role</span>
+
+<span class="kw">CREATE</span> <span class="kw">WAREHOUSE</span> <span class="kw">IF</span> <span class="kw">NOT</span> <span class="kw">EXISTS</span> LEARN_WH
+  <span class="kw">WAREHOUSE_SIZE</span> = 'XSMALL' <span class="kw">AUTO_SUSPEND</span> = 60 <span class="kw">AUTO_RESUME</span> = <span class="kw">TRUE</span> <span class="kw">INITIALLY_SUSPENDED</span> = <span class="kw">TRUE</span>;
+<span class="kw">USE</span> <span class="kw">WAREHOUSE</span> LEARN_WH;
+
+<span class="kw">CREATE</span> <span class="kw">DATABASE</span> <span class="kw">IF</span> <span class="kw">NOT</span> <span class="kw">EXISTS</span> BANK_AI;
+<span class="kw">CREATE</span> <span class="kw">SCHEMA</span> <span class="kw">IF</span> <span class="kw">NOT</span> <span class="kw">EXISTS</span> BANK_AI.COMPLAINTS;
+<span class="kw">USE</span> <span class="kw">SCHEMA</span> BANK_AI.COMPLAINTS;
+
+<span class="kw">CREATE</span> <span class="kw">OR</span> <span class="kw">REPLACE</span> <span class="kw">TABLE</span> BANK_AI.COMPLAINTS.RAW_COMPLAINTS (
+  COMPLAINT_ID   <span class="kw">NUMBER</span>,
+  CUSTOMER_ID    <span class="kw">NUMBER</span>,
+  PRODUCT        <span class="kw">VARCHAR</span>,   <span class="cm">-- CREDIT_CARD, SAVINGS, HOME_LOAN, PERSONAL_LOAN, MOBILE_APP, UPI</span>
+  CHANNEL        <span class="kw">VARCHAR</span>,   <span class="cm">-- APP, EMAIL, BRANCH, CALL_CENTER</span>
+  SUBMITTED_AT   <span class="kw">TIMESTAMP_NTZ</span>,
+  COMPLAINT_TEXT <span class="kw">VARCHAR</span>
+);
+
+<span class="kw">INSERT</span> <span class="kw">INTO</span> BANK_AI.COMPLAINTS.RAW_COMPLAINTS <span class="kw">VALUES</span>
+  (1, 10231, 'CREDIT_CARD', 'APP', '2026-09-01 09:14:00', 'I was charged an annual fee of Rs 2,999 on my credit card even though the sales agent promised it would be lifetime free. Please reverse this fee.'),
+  (2, 10457, 'UPI', 'APP', '2026-09-01 11:02:00', 'My UPI payment of Rs 4,500 to a merchant failed but the money was debited from my savings account. It has been 5 days and there is no refund yet.'),
+  (3, 10872, 'HOME_LOAN', 'EMAIL', '2026-09-02 10:30:00', 'I requested a certificate of interest paid on my home loan for income tax filing three weeks ago. Still waiting. Very slow service.'),
+  (4, 11003, 'MOBILE_APP', 'APP', '2026-09-02 18:45:00', 'The new app update is excellent. Login with fingerprint is quick and the spending charts are really useful. Thank you!'),
+  (5, 11290, 'CREDIT_CARD', 'CALL_CENTER', '2026-09-03 08:05:00', 'I got an SMS for a transaction of Rs 18,750 at an online electronics store that I never made. My card is with me. Please block the card immediately.'),
+  (6, 11342, 'SAVINGS', 'BRANCH', '2026-09-03 12:20:00', 'The branch staff in Andheri were very patient and helped my elderly father update his KYC in ten minutes. Great experience.'),
+  (7, 11560, 'PERSONAL_LOAN', 'EMAIL', '2026-09-04 14:10:00', 'My personal loan EMI was debited twice this month, Rs 12,400 each time. Please refund the extra EMI.'),
+  (8, 11688, 'SAVINGS', 'APP', '2026-09-04 21:33:00', 'Why is there a charge of Rs 590 for not maintaining minimum balance? I was never informed that the minimum balance went up to Rs 10,000.'),
+  (9, 11745, 'UPI', 'APP', '2026-09-05 07:50:00', 'UPI is not working since morning. Every payment shows bank server down. I could not even pay my milk vendor.'),
+  (10, 11802, 'CREDIT_CARD', 'APP', '2026-09-05 16:12:00', 'My credit card limit was reduced from Rs 1,50,000 to Rs 60,000 without any notice. It is embarrassing when my card gets declined at shops.'),
+  (11, 11934, 'HOME_LOAN', 'BRANCH', '2026-09-06 11:00:00', 'Thank you for processing my home loan top-up so quickly. The relationship manager explained every charge clearly.'),
+  (12, 12011, 'MOBILE_APP', 'APP', '2026-09-06 23:15:00', 'The app keeps logging me out every two minutes. I tried reinstalling but the problem continues. Very frustrating.'),
+  (13, 12087, 'SAVINGS', 'CALL_CENTER', '2026-09-07 10:40:00', 'Someone called pretending to be from the bank and I shared an OTP. Rs 35,000 has been transferred out of my savings account. Please help urgently.'),
+  (14, 12150, 'CREDIT_CARD', 'EMAIL', '2026-09-07 15:25:00', 'I paid my credit card bill of Rs 22,310 on the due date but you have charged a late payment fee of Rs 1,200 plus interest. Please check your records.'),
+  (15, 12233, 'PERSONAL_LOAN', 'APP', '2026-09-08 09:05:00', 'Personal loan approved within 10 minutes in the app. Smooth process, and the interest rate was exactly as quoted.'),
+  (16, 12319, 'UPI', 'APP', '2026-09-08 13:47:00', 'I sent Rs 2,000 by UPI to a wrong UPI ID by mistake. How do I get the money back? The other person is not responding.'),
+  (17, 12400, 'CREDIT_CARD', 'BRANCH', '2026-09-09 11:30:00', 'My new credit card was delivered but the PIN never arrived. I have visited the branch twice already.'),
+  (18, 12477, 'SAVINGS', 'EMAIL', '2026-09-09 17:20:00', 'Please update my registered mobile number. I submitted the form at the branch on 2 September and nothing has happened.'),
+  (19, 12530, 'HOME_LOAN', 'CALL_CENTER', '2026-09-10 10:10:00', 'My home loan interest rate was not reduced even though the repo rate came down in August. Other banks have passed on the cut.'),
+  (20, 12611, 'MOBILE_APP', 'APP', '2026-09-10 19:55:00', 'मेरे खाते से 1,500 रुपये कट गए लेकिन मोबाइल रिचार्ज नहीं हुआ। कृपया पैसे वापस करें।'),
+  (21, 12688, 'CREDIT_CARD', 'APP', '2026-09-11 08:40:00', 'Reward points on my credit card expired without any reminder. I lost almost 8,000 points.'),
+  (22, 12745, 'SAVINGS', 'BRANCH', '2026-09-11 14:15:00', 'Waited 50 minutes at the branch just to deposit a cheque. Only one counter was open.'),
+  (23, 12801, 'PERSONAL_LOAN', 'CALL_CENTER', '2026-09-12 09:30:00', 'Recovery agents are calling me at 10 PM about an EMI that I already paid. This is harassment.'),
+  (24, 12866, 'UPI', 'APP', '2026-09-12 20:05:00', 'UPI payments are fast and I have never had a failure in two years. Keep it up.'),
+  (25, 12940, 'CREDIT_CARD', 'EMAIL', '2026-09-13 11:45:00', 'There are three international transactions in US dollars on my card statement from last night. I have never travelled abroad. Block my card now.'),
+  (26, 13012, 'HOME_LOAN', 'EMAIL', '2026-09-13 16:00:00', 'I want to prepay Rs 5,00,000 of my home loan. Please confirm whether there is any prepayment charge.'),
+  (27, 13077, 'SAVINGS', 'APP', '2026-09-14 10:25:00', 'A debit card annual maintenance charge of Rs 799 was deducted. Nobody told me about this charge when I opened the account.'),
+  (28, 13145, 'MOBILE_APP', 'APP', '2026-09-14 22:10:00', 'I cannot log in after the update. It says device not registered and the OTP never comes.'),
+  (29, 13210, 'CREDIT_CARD', 'CALL_CENTER', '2026-09-15 09:50:00', 'The call centre agent was rude and disconnected the call when I asked about my card replacement.'),
+  (30, 13288, 'PERSONAL_LOAN', 'EMAIL', '2026-09-15 13:35:00', 'I closed my personal loan in July but the no objection certificate has not been issued. My credit report still shows the loan as active.'),
+  (31, 13355, 'SAVINGS', 'BRANCH', '2026-09-16 12:00:00', 'My fixed deposit renewal was done smoothly and the branch manager explained the new rates. Happy with the service.'),
+  (32, 13420, 'UPI', 'APP', '2026-09-16 18:30:00', 'Bhai UPI se 750 rupaye bheje, paise kat gaye par dukaandaar ko mile hi nahi. Refund kab aayega?'),
+  (33, 13497, 'CREDIT_CARD', 'APP', '2026-09-17 10:05:00', 'My card was blocked after three wrong PIN attempts while I was travelling in Goa. I could not pay my hotel bill.'),
+  (34, 13560, 'HOME_LOAN', 'BRANCH', '2026-09-17 15:40:00', 'The property documents for my closed home loan are still not returned after 45 days. I need them to sell the flat.'),
+  (35, 13622, 'MOBILE_APP', 'APP', '2026-09-18 08:20:00', 'Please add a dark mode to the app. Otherwise the app works well.'),
+  (36, 13689, 'SAVINGS', 'CALL_CENTER', '2026-09-18 11:55:00', 'My account has been frozen without any reason and I cannot withdraw money for my rent. The branch says it is a KYC issue but I updated KYC last month.'),
+  (37, 13750, 'CREDIT_CARD', 'EMAIL', '2026-09-19 14:30:00', 'GST of Rs 216 was charged on a fee that you already reversed. Please reverse the GST also.'),
+  (38, 13811, 'PERSONAL_LOAN', 'APP', '2026-09-19 19:10:00', 'A processing fee of 2.5 percent was deducted from my loan amount but the app showed 1 percent when I applied.'),
+  (39, 13890, 'UPI', 'APP', '2026-09-20 09:45:00', 'I received a UPI collect request for Rs 9,999 saying I had won a prize. I almost approved it. Please warn customers about this scam.'),
+  (40, 13955, 'SAVINGS', 'APP', '2026-09-20 17:00:00', 'The interest credited on my savings account looks lower than the 3.5 percent advertised. Can someone explain the calculation?'),
+  (41, 14012, 'CREDIT_CARD', 'BRANCH', '2026-09-21 10:30:00', 'I applied for a new credit card three weeks ago and there is no update. Nobody at the branch knows the status.'),
+  (42, 14088, 'HOME_LOAN', 'CALL_CENTER', '2026-09-21 13:15:00', 'The EMI for my home loan went up by Rs 3,200 without any letter or SMS. I want an explanation.'),
+  (43, 14150, 'MOBILE_APP', 'APP', '2026-09-22 07:35:00', 'A fund transfer of Rs 25,000 to my mother is stuck on processing in the app. It is neither successful nor refunded.'),
+  (44, 14223, 'SAVINGS', 'EMAIL', '2026-09-22 12:50:00', 'I am very happy with the zero balance salary account. The doorstep banking service for my mother is a big help.'),
+  (45, 14290, 'CREDIT_CARD', 'APP', '2026-09-23 15:05:00', 'EMI conversion on my credit card purchase of Rs 45,000 was not done even though I requested it before the statement date.'),
+  (46, 14355, 'PERSONAL_LOAN', 'CALL_CENTER', '2026-09-23 18:20:00', 'I never applied for a personal loan but my credit report shows a loan of Rs 2,00,000 from your bank. Someone has used my PAN.'),
+  (47, 14420, 'UPI', 'APP', '2026-09-24 10:00:00', 'My UPI Lite balance of Rs 1,200 disappeared after I changed my phone.'),
+  (48, 14487, 'SAVINGS', 'BRANCH', '2026-09-24 14:40:00', 'The cheque book I requested 20 days ago has not arrived. The branch says it was dispatched but the courier has no record.'),
+  (49, 14550, 'HOME_LOAN', 'APP', '2026-09-25 09:15:00', 'The home loan section of the app shows the wrong outstanding balance, about Rs 40,000 more than my statement.'),
+  (50, 14612, 'CREDIT_CARD', 'CALL_CENTER', '2026-09-25 16:45:00', 'Thank you to the fraud team who called me within a minute of a suspicious transaction and blocked it. Excellent service.'),
+  (51, 14688, 'MOBILE_APP', 'APP', '2026-09-26 11:20:00', 'ऐप में हिंदी भाषा का विकल्प अच्छा है, लेकिन स्टेटमेंट डाउनलोड करते समय ऐप बंद हो जाता है।'),
+  (52, 14750, 'SAVINGS', 'CALL_CENTER', '2026-09-26 19:00:00', 'I have called customer care five times about a wrong ATM withdrawal charge of Rs 23. Each agent gives a different answer.'),
+  (53, 14815, 'PERSONAL_LOAN', 'EMAIL', '2026-09-27 10:45:00', 'Foreclosure charges of 4 percent are too high. The agreement says 2 percent. Please correct the foreclosure statement.'),
+  (54, 14880, 'CREDIT_CARD', 'APP', '2026-09-27 21:10:00', 'Contactless payment on my credit card is not working at any shop since last week. Chip and PIN works.'),
+  (55, 14944, 'UPI', 'APP', '2026-09-28 08:55:00', 'I am unable to set my UPI PIN because the app says my debit card details are invalid, but the card works at ATMs.'),
+  (56, 15010, 'HOME_LOAN', 'EMAIL', '2026-09-28 13:30:00', 'Good support from the loan team during the balance transfer. The paperwork was simple.'),
+  (57, 15077, 'SAVINGS', 'APP', '2026-09-29 10:10:00', 'An SMS alert charge of Rs 15 per quarter is unfair when most alerts are about offers.'),
+  (58, 15140, 'CREDIT_CARD', 'EMAIL', '2026-09-29 17:35:00', 'My credit card was used at an ATM in Kolkata while I was in Pune. Rs 40,000 was withdrawn. Please refund and block the card.'),
+  (59, 15206, 'MOBILE_APP', 'CALL_CENTER', '2026-09-30 09:25:00', 'Aapka app bahut slow hai, balance check karne mein bhi ek minute lagta hai.'),
+  (60, 15270, 'PERSONAL_LOAN', 'BRANCH', '2026-09-30 15:50:00', 'Branch staff helped me restructure my personal loan after I lost my job. The lower EMI has given my family breathing space. Grateful.');</pre></div>
+<p><b>2. Check the load.</b></p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> PRODUCT, <span class="kw">COUNT</span>(*) <span class="kw">AS</span> COMPLAINTS
+<span class="kw">FROM</span> BANK_AI.COMPLAINTS.RAW_COMPLAINTS
+<span class="kw">GROUP</span> <span class="kw">BY</span> PRODUCT
+<span class="kw">ORDER</span> <span class="kw">BY</span> COMPLAINTS <span class="kw">DESC</span>;</pre></div>
+<p class="expect">Expected: 6 rows adding to 60: CREDIT_CARD 15, SAVINGS 13, then HOME_LOAN, MOBILE_APP, PERSONAL_LOAN and UPI with 8 each. Four complaints (ids 20, 32, 51 and 59) are in Hindi or Hinglish on purpose; we translate them in P3.</p>
+<p><b>3. Your first AI query on project data.</b> Mood for the first ten complaints, plus a one-line summary of the longest one.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> COMPLAINT_ID, PRODUCT,
+       AI_SENTIMENT(COMPLAINT_TEXT):categories[0]:sentiment::<span class="kw">STRING</span> <span class="kw">AS</span> MOOD
+<span class="kw">FROM</span> BANK_AI.COMPLAINTS.RAW_COMPLAINTS
+<span class="kw">WHERE</span> COMPLAINT_ID &lt;= 10
+<span class="kw">ORDER</span> <span class="kw">BY</span> COMPLAINT_ID;
+
+<span class="kw">SELECT</span> COMPLAINT_ID,
+       AI_COMPLETE('llama3.1-8b',
+         'Summarise this bank complaint in at most 12 words: ' || COMPLAINT_TEXT) <span class="kw">AS</span> ONE_LINER
+<span class="kw">FROM</span> BANK_AI.COMPLAINTS.RAW_COMPLAINTS
+<span class="kw">ORDER</span> <span class="kw">BY</span> LENGTH(COMPLAINT_TEXT) <span class="kw">DESC</span>
+<span class="kw">LIMIT</span> 1;</pre></div>
+<p class="expect">Expected: ten rows, mostly <code>negative</code>, with ids 4 and 6 <code>positive</code>; then one short summary. Write down anything that looks wrong: in P2 we turn these one-off calls into a governed table.</p>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+<div class="callout key">
+  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+  <div><div class="label">Remember</div><p>Before any AI query works you need four things: the USE AI FUNCTIONS privilege, a Cortex database role on your current role, a model available in your region (or cross-region inference) and a running warehouse. Check them; never change them on a client account yourself.</p></div>
+</div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+<dl class="glossary">
+  <dt>USE AI FUNCTIONS</dt><dd>Account-level privilege that allows calling Cortex AI Functions. Granted to PUBLIC by default.</dd>
+  <dt>CORTEX_USER</dt><dd>Database role in the SNOWFLAKE database for all Cortex features. Granted to PUBLIC by default.</dd>
+  <dt>AI_FUNCTIONS_USER</dt><dd>Narrower database role: scalar AI Functions only, no Search, Analyst or Agents.</dd>
+  <dt>Database role</dt><dd>A role that lives inside a database. Granted to account roles, never directly to users.</dd>
+  <dt>PUBLIC</dt><dd>The role every user and role automatically has.</dd>
+  <dt>LEARN_WH</dt><dd>The course warehouse: XSMALL, suspends after 60 seconds idle, resumes on demand.</dd>
+  <dt>RAW_COMPLAINTS</dt><dd>Project table with the 60 original complaints, the input to every later step.</dd>
+</dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#cortex/2-1">2.1 AI_COMPLETE and prompt engineering →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "raw_complaints": {
+        "columns": [
+          ["complaint_id","NUMBER"],
+          ["customer_id","NUMBER"],
+          ["product","VARCHAR"],
+          ["channel","VARCHAR"],
+          ["submitted_date","DATE"],
+          ["complaint_text","VARCHAR"],
+          ["ai_mood","VARCHAR","pre-computed by AI_SENTIMENT"]
+        ],
+        "rows": [
+          [1,10231,"CREDIT_CARD","APP","2026-09-01","I was charged an annual fee of Rs 2,999 on my credit card even though the sales agent promised it would be lifetime free. Please reverse this fee.","negative"],
+          [2,10457,"UPI","APP","2026-09-01","My UPI payment of Rs 4,500 to a merchant failed but the money was debited from my savings account. It has been 5 days and there is no refund yet.","negative"],
+          [3,10872,"HOME_LOAN","EMAIL","2026-09-02","I requested a certificate of interest paid on my home loan for income tax filing three weeks ago. Still waiting. Very slow service.","negative"],
+          [4,11003,"MOBILE_APP","APP","2026-09-02","The new app update is excellent. Login with fingerprint is quick and the spending charts are really useful. Thank you!","positive"],
+          [5,11290,"CREDIT_CARD","CALL_CENTER","2026-09-03","I got an SMS for a transaction of Rs 18,750 at an online electronics store that I never made. My card is with me. Please block the card immediately.","negative"],
+          [6,11342,"SAVINGS","BRANCH","2026-09-03","The branch staff in Andheri were very patient and helped my elderly father update his KYC in ten minutes. Great experience.","positive"],
+          [7,11560,"PERSONAL_LOAN","EMAIL","2026-09-04","My personal loan EMI was debited twice this month, Rs 12,400 each time. Please refund the extra EMI.","negative"],
+          [8,11688,"SAVINGS","APP","2026-09-04","Why is there a charge of Rs 590 for not maintaining minimum balance? I was never informed that the minimum balance went up to Rs 10,000.","negative"],
+          [9,11745,"UPI","APP","2026-09-05","UPI is not working since morning. Every payment shows bank server down. I could not even pay my milk vendor.","negative"],
+          [10,11802,"CREDIT_CARD","APP","2026-09-05","My credit card limit was reduced from Rs 1,50,000 to Rs 60,000 without any notice. It is embarrassing when my card gets declined at shops.","negative"],
+          [11,11934,"HOME_LOAN","BRANCH","2026-09-06","Thank you for processing my home loan top-up so quickly. The relationship manager explained every charge clearly.","positive"],
+          [12,12011,"MOBILE_APP","APP","2026-09-06","The app keeps logging me out every two minutes. I tried reinstalling but the problem continues. Very frustrating.","negative"],
+          [13,12087,"SAVINGS","CALL_CENTER","2026-09-07","Someone called pretending to be from the bank and I shared an OTP. Rs 35,000 has been transferred out of my savings account. Please help urgently.","negative"],
+          [14,12150,"CREDIT_CARD","EMAIL","2026-09-07","I paid my credit card bill of Rs 22,310 on the due date but you have charged a late payment fee of Rs 1,200 plus interest. Please check your records.","negative"],
+          [15,12233,"PERSONAL_LOAN","APP","2026-09-08","Personal loan approved within 10 minutes in the app. Smooth process, and the interest rate was exactly as quoted.","positive"],
+          [16,12319,"UPI","APP","2026-09-08","I sent Rs 2,000 by UPI to a wrong UPI ID by mistake. How do I get the money back? The other person is not responding.","negative"],
+          [17,12400,"CREDIT_CARD","BRANCH","2026-09-09","My new credit card was delivered but the PIN never arrived. I have visited the branch twice already.","negative"],
+          [18,12477,"SAVINGS","EMAIL","2026-09-09","Please update my registered mobile number. I submitted the form at the branch on 2 September and nothing has happened.","neutral"],
+          [19,12530,"HOME_LOAN","CALL_CENTER","2026-09-10","My home loan interest rate was not reduced even though the repo rate came down in August. Other banks have passed on the cut.","negative"],
+          [20,12611,"MOBILE_APP","APP","2026-09-10","मेरे खाते से 1,500 रुपये कट गए लेकिन मोबाइल रिचार्ज नहीं हुआ। कृपया पैसे वापस करें।","negative"],
+          [21,12688,"CREDIT_CARD","APP","2026-09-11","Reward points on my credit card expired without any reminder. I lost almost 8,000 points.","negative"],
+          [22,12745,"SAVINGS","BRANCH","2026-09-11","Waited 50 minutes at the branch just to deposit a cheque. Only one counter was open.","negative"],
+          [23,12801,"PERSONAL_LOAN","CALL_CENTER","2026-09-12","Recovery agents are calling me at 10 PM about an EMI that I already paid. This is harassment.","negative"],
+          [24,12866,"UPI","APP","2026-09-12","UPI payments are fast and I have never had a failure in two years. Keep it up.","positive"],
+          [25,12940,"CREDIT_CARD","EMAIL","2026-09-13","There are three international transactions in US dollars on my card statement from last night. I have never travelled abroad. Block my card now.","negative"],
+          [26,13012,"HOME_LOAN","EMAIL","2026-09-13","I want to prepay Rs 5,00,000 of my home loan. Please confirm whether there is any prepayment charge.","neutral"],
+          [27,13077,"SAVINGS","APP","2026-09-14","A debit card annual maintenance charge of Rs 799 was deducted. Nobody told me about this charge when I opened the account.","negative"],
+          [28,13145,"MOBILE_APP","APP","2026-09-14","I cannot log in after the update. It says device not registered and the OTP never comes.","negative"],
+          [29,13210,"CREDIT_CARD","CALL_CENTER","2026-09-15","The call centre agent was rude and disconnected the call when I asked about my card replacement.","negative"],
+          [30,13288,"PERSONAL_LOAN","EMAIL","2026-09-15","I closed my personal loan in July but the no objection certificate has not been issued. My credit report still shows the loan as active.","negative"],
+          [31,13355,"SAVINGS","BRANCH","2026-09-16","My fixed deposit renewal was done smoothly and the branch manager explained the new rates. Happy with the service.","positive"],
+          [32,13420,"UPI","APP","2026-09-16","Bhai UPI se 750 rupaye bheje, paise kat gaye par dukaandaar ko mile hi nahi. Refund kab aayega?","negative"],
+          [33,13497,"CREDIT_CARD","APP","2026-09-17","My card was blocked after three wrong PIN attempts while I was travelling in Goa. I could not pay my hotel bill.","negative"],
+          [34,13560,"HOME_LOAN","BRANCH","2026-09-17","The property documents for my closed home loan are still not returned after 45 days. I need them to sell the flat.","negative"],
+          [35,13622,"MOBILE_APP","APP","2026-09-18","Please add a dark mode to the app. Otherwise the app works well.","neutral"],
+          [36,13689,"SAVINGS","CALL_CENTER","2026-09-18","My account has been frozen without any reason and I cannot withdraw money for my rent. The branch says it is a KYC issue but I updated KYC last month.","negative"],
+          [37,13750,"CREDIT_CARD","EMAIL","2026-09-19","GST of Rs 216 was charged on a fee that you already reversed. Please reverse the GST also.","negative"],
+          [38,13811,"PERSONAL_LOAN","APP","2026-09-19","A processing fee of 2.5 percent was deducted from my loan amount but the app showed 1 percent when I applied.","negative"],
+          [39,13890,"UPI","APP","2026-09-20","I received a UPI collect request for Rs 9,999 saying I had won a prize. I almost approved it. Please warn customers about this scam.","negative"],
+          [40,13955,"SAVINGS","APP","2026-09-20","The interest credited on my savings account looks lower than the 3.5 percent advertised. Can someone explain the calculation?","neutral"],
+          [41,14012,"CREDIT_CARD","BRANCH","2026-09-21","I applied for a new credit card three weeks ago and there is no update. Nobody at the branch knows the status.","negative"],
+          [42,14088,"HOME_LOAN","CALL_CENTER","2026-09-21","The EMI for my home loan went up by Rs 3,200 without any letter or SMS. I want an explanation.","negative"],
+          [43,14150,"MOBILE_APP","APP","2026-09-22","A fund transfer of Rs 25,000 to my mother is stuck on processing in the app. It is neither successful nor refunded.","negative"],
+          [44,14223,"SAVINGS","EMAIL","2026-09-22","I am very happy with the zero balance salary account. The doorstep banking service for my mother is a big help.","positive"],
+          [45,14290,"CREDIT_CARD","APP","2026-09-23","EMI conversion on my credit card purchase of Rs 45,000 was not done even though I requested it before the statement date.","negative"],
+          [46,14355,"PERSONAL_LOAN","CALL_CENTER","2026-09-23","I never applied for a personal loan but my credit report shows a loan of Rs 2,00,000 from your bank. Someone has used my PAN.","negative"],
+          [47,14420,"UPI","APP","2026-09-24","My UPI Lite balance of Rs 1,200 disappeared after I changed my phone.","negative"],
+          [48,14487,"SAVINGS","BRANCH","2026-09-24","The cheque book I requested 20 days ago has not arrived. The branch says it was dispatched but the courier has no record.","negative"],
+          [49,14550,"HOME_LOAN","APP","2026-09-25","The home loan section of the app shows the wrong outstanding balance, about Rs 40,000 more than my statement.","negative"],
+          [50,14612,"CREDIT_CARD","CALL_CENTER","2026-09-25","Thank you to the fraud team who called me within a minute of a suspicious transaction and blocked it. Excellent service.","positive"],
+          [51,14688,"MOBILE_APP","APP","2026-09-26","ऐप में हिंदी भाषा का विकल्प अच्छा है, लेकिन स्टेटमेंट डाउनलोड करते समय ऐप बंद हो जाता है।","mixed"],
+          [52,14750,"SAVINGS","CALL_CENTER","2026-09-26","I have called customer care five times about a wrong ATM withdrawal charge of Rs 23. Each agent gives a different answer.","negative"],
+          [53,14815,"PERSONAL_LOAN","EMAIL","2026-09-27","Foreclosure charges of 4 percent are too high. The agreement says 2 percent. Please correct the foreclosure statement.","negative"],
+          [54,14880,"CREDIT_CARD","APP","2026-09-27","Contactless payment on my credit card is not working at any shop since last week. Chip and PIN works.","negative"],
+          [55,14944,"UPI","APP","2026-09-28","I am unable to set my UPI PIN because the app says my debit card details are invalid, but the card works at ATMs.","negative"],
+          [56,15010,"HOME_LOAN","EMAIL","2026-09-28","Good support from the loan team during the balance transfer. The paperwork was simple.","positive"],
+          [57,15077,"SAVINGS","APP","2026-09-29","An SMS alert charge of Rs 15 per quarter is unfair when most alerts are about offers.","negative"],
+          [58,15140,"CREDIT_CARD","EMAIL","2026-09-29","My credit card was used at an ATM in Kolkata while I was in Pune. Rs 40,000 was withdrawn. Please refund and block the card.","negative"],
+          [59,15206,"MOBILE_APP","CALL_CENTER","2026-09-30","Aapka app bahut slow hai, balance check karne mein bhi ek minute lagta hai.","negative"],
+          [60,15270,"PERSONAL_LOAN","BRANCH","2026-09-30","Branch staff helped me restructure my personal loan after I lost my job. The lower EMI has given my family breathing space. Grateful.","positive"]
+        ]
+      }
+    },
+    "starter": "SELECT product, COUNT(*) AS complaints\nFROM raw_complaints\nGROUP BY product\nORDER BY complaints DESC, product",
+    "examples": [
+      {"label":"First 10 complaints","sql":"SELECT complaint_id, product, channel, complaint_text\nFROM raw_complaints\nORDER BY complaint_id\nLIMIT 10"},
+      {"label":"Mood counts","sql":"SELECT ai_mood, COUNT(*) AS complaints\nFROM raw_complaints\nGROUP BY ai_mood\nORDER BY complaints DESC"},
+      {"label":"Praise only","sql":"SELECT complaint_id, product, complaint_text\nFROM raw_complaints\nWHERE ai_mood = 'positive'\nORDER BY complaint_id"}
+    ],
+    "challenges": [
+      {"task":"How many complaints came through each channel? Show channel and count, biggest first.","hint":"COUNT(*) with GROUP BY channel and ORDER BY the count DESC.","answer":"SELECT channel, COUNT(*) AS complaints FROM raw_complaints GROUP BY channel ORDER BY complaints DESC"},
+      {"task":"For each product, how many complaints did the AI mark negative? Show product and count, sorted by product.","hint":"WHERE ai_mood = 'negative', then GROUP BY product ORDER BY product.","answer":"SELECT product, COUNT(*) FROM raw_complaints WHERE ai_mood = 'negative' GROUP BY product ORDER BY product"},
+      {"task":"List complaint_id, product and submitted_date for negative complaints submitted on or after 2026-09-25, in id order.","hint":"Two conditions: ai_mood = 'negative' AND submitted_date >= '2026-09-25'.","answer":"SELECT complaint_id, product, submitted_date FROM raw_complaints WHERE ai_mood = 'negative' AND submitted_date >= '2026-09-25' ORDER BY complaint_id"}
+    ]
+  },
+  "quiz": [
+    {"q":"Which two things must a role have to call AI_CLASSIFY?","options":["USE AI FUNCTIONS plus CORTEX_USER or AI_FUNCTIONS_USER","OWNERSHIP of the SNOWFLAKE database","A CoCo licence"],"answer":0,"why":"Users need the USE AI FUNCTIONS privilege (or a per-function one) and one of the CORTEX_USER or AI_FUNCTIONS_USER database roles."},
+    {"q":"Can you run GRANT DATABASE ROLE SNOWFLAKE.CORTEX_USER TO USER asha?","options":["Yes","No, grant it to an account role, then the role to the user","Only on weekends"],"answer":1,"why":"These database roles cannot be granted directly to users; they go to roles that users can assume."},
+    {"q":"A role has AI_FUNCTIONS_USER only. What fails?","options":["AI_SENTIMENT","AI_CLASSIFY","Creating a Cortex Search service"],"answer":2,"why":"AI_FUNCTIONS_USER covers scalar AI Functions only. Cortex Search, Analyst, Agents and fine-tuning need CORTEX_USER."},
+    {"q":"Your first AI_COMPLETE call fails because the model is not available. What is the likely cause?","options":["The warehouse is too small","The model is not hosted in your region and cross-region inference is off","The table has too many rows"],"answer":1,"why":"Each model lives in certain regions. With CORTEX_ENABLED_CROSS_REGION = DISABLED you can use only models in your home region."},
+    {"q":"Why is LEARN_WH created as XSMALL?","options":["AI calls run on Snowflake-managed compute, so a bigger warehouse adds cost but no speed","XSMALL is the only size allowed for AI","Larger warehouses block Cortex"],"answer":0,"why":"Snowflake advises MEDIUM or smaller for AI Functions. XSMALL with AUTO_SUSPEND = 60 keeps learning costs tiny."},
+    {"q":"In a new account, who can call Cortex AI Functions by default?","options":["Only ACCOUNTADMIN","Every user, because PUBLIC has USE AI FUNCTIONS and CORTEX_USER","Nobody until support enables it"],"answer":1,"why":"Both the privilege and CORTEX_USER are granted to PUBLIC by default. Banks often revoke them and grant to project roles instead."}
+  ],
+  "simulators": [
+    {
+      "id": "cortex-1-3-setup", "title": "Access checks and a first AI query", "tool": "cortex",
+      "intro": "Your own trial, role ACCOUNTADMIN, warehouse LEARN_WH.",
+      "steps": [
+        {"prompt":"SHOW GRANTS TO ROLE PUBLIC;","say":"PUBLIC already holds the Cortex database role, so every user in this account inherits it.","output":{"columns":["privilege","granted_on","name","granted_to","grantee_name"],"rows":[["USAGE","DATABASE_ROLE","SNOWFLAKE.CORTEX_USER","ROLE","PUBLIC"],["USAGE","DATABASE_ROLE","SNOWFLAKE.PUBLIC","ROLE","PUBLIC"]]},"check":["CORTEX_USER is present","On a bank account it is often missing from PUBLIC; then look at your project role instead"]},
+        {"prompt":"SHOW PARAMETERS LIKE 'CORTEX_ENABLED_CROSS_REGION' IN ACCOUNT;","say":"The account may route requests to any region. Data stays stored at home; only prompt and answer travel.","output":{"columns":["key","value","default","level"],"rows":[["CORTEX_ENABLED_CROSS_REGION","ANY_REGION","ANY_REGION",""]]},"check":["Note the value in your project notes","Only ACCOUNTADMIN may change it"]},
+        {"prompt":"SELECT COMPLAINT_ID, AI_SENTIMENT(COMPLAINT_TEXT):categories[0]:sentiment::STRING AS MOOD FROM BANK_AI.COMPLAINTS.RAW_COMPLAINTS WHERE COMPLAINT_ID <= 6 ORDER BY COMPLAINT_ID;","say":"Cortex scored each row with its managed sentiment model and returned one label per row.","output":{"columns":["COMPLAINT_ID","MOOD"],"rows":[[1,"negative"],[2,"negative"],[3,"negative"],[4,"positive"],[5,"negative"],[6,"positive"]]},"check":["One output row per input row","Spot-check two rows by reading the text yourself"]},
+        {"prompt":"SELECT AI_COMPLETE('llama3.1-8b', 'Summarise in at most 12 words: ' || COMPLAINT_TEXT) FROM BANK_AI.COMPLAINTS.RAW_COMPLAINTS WHERE COMPLAINT_ID = 13;","say":"AI_COMPLETE followed your instruction for one row. || joins the instruction and the complaint into one prompt.","outputText":"OTP shared with fake caller; Rs 35,000 stolen from savings account.","check":["The amount matches the source text exactly","No invented details such as dates or names"]}
+      ]
+    }
+  ]
+}
+</script>

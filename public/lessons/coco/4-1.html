@@ -1,0 +1,298 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>CoCo Masterclass</span><span>Module 4 · Masterclass</span><span>Lesson 4.1</span></div>
+  <h1>Pipelines: dynamic tables, tasks, dbt</h1>
+  <p class="lede">A model that is scored once goes stale in a week. Make the project run itself: a dynamic table keeps features fresh, a task re-scores every morning, and dbt organises bigger pipelines. CoCo writes the plumbing; you review the schedule, the cost and the off switch.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>35 min</span>
+    <span class="badge">Advanced</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab + project step P8</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Choose between a dynamic table, a task and a dbt project</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Set a TARGET_LAG and read the refresh history</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Schedule a task with CRON, chain tasks with AFTER, and resume or suspend them</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Ship the project’s daily refresh and estimate what it costs</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">A pipeline is a set of steps that keeps data up to date without anyone pressing Run. In Snowflake: a dynamic table is a table defined by a query that Snowflake refreshes to stay within a target lag; a task runs SQL or a procedure on a schedule; a dbt project is a folder of SQL models that dbt builds in the right order.</p></div>
+  </div>
+  <ul>
+    <li><b>TARGET_LAG</b>: how stale a dynamic table may get, such as <code>'1 day'</code> (minimum 60 seconds), or <code>DOWNSTREAM</code> to refresh only when a dependent dynamic table needs it.</li>
+    <li><b>SCHEDULE</b>: when a task runs, such as <code>'USING CRON 0 6 * * * UTC'</code> (06:00 UTC daily) or <code>'60 MINUTES'</code>.</li>
+    <li><b>Task graph</b>: tasks chained with <code>AFTER</code>, so step B starts when step A finishes.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a conveyor belt and an alarm clock</h2>
+  <p>The library hires two machines. A <b>conveyor belt</b> keeps the “new arrivals” shelf filled: you say “never let it be more than a day out of date” and it decides when to run. An <b>alarm clock</b> rings at 6 every morning and tells a librarian to do a job, like re-reading every member’s clue card and updating the risk list. For a big kitchen of many dishes, there is a <b>recipe book</b> (dbt) that lists each dish and which dish needs which, so they are cooked in the right order. The robot assistant can set up all three, but you check the alarm time, the wages and where the off switch is.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Conveyor belt</b><span>In Snowflake: a dynamic table with a TARGET_LAG</span></div>
+    <div><small>In the library</small><b>Alarm clock</b><span>In Snowflake: a task with a CRON schedule</span></div>
+    <div><small>In the library</small><b>Recipe book</b><span>In Snowflake: a dbt project, run with <code>EXECUTE DBT PROJECT</code></span></div>
+  </div>
+</section>
+
+<section class="sec" id="how" data-toc="Which tool when">
+  <h2>Which tool, when</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>Dynamic table</th><th>Task</th><th>dbt Projects on Snowflake</th></tr></thead>
+      <tbody>
+        <tr><td><b>You write</b></td><td>One SELECT</td><td>Any SQL statement or <code>CALL</code> of a procedure</td><td>A folder of SQL models, tests and YAML</td></tr>
+        <tr><td><b>Snowflake decides</b></td><td>When to refresh, and whether incrementally</td><td>Nothing; it runs on your schedule</td><td>Build order from model dependencies</td></tr>
+        <tr><td><b>Best for</b></td><td>Keeping a derived table fresh (features)</td><td>Actions: scoring, emails, procedures</td><td>Many models with tests and docs, team workflows</td></tr>
+        <tr><td><b>Key commands</b></td><td><code>ALTER DYNAMIC TABLE … SUSPEND | RESUME | REFRESH</code></td><td><code>ALTER TASK … RESUME | SUSPEND</code>, <code>EXECUTE TASK</code></td><td><code>CREATE DBT PROJECT</code>, <code>EXECUTE DBT PROJECT … ARGS='run'</code></td></tr>
+        <tr><td><b>Watch out</b></td><td><code>CURRENT_DATE</code> is allowed only in WHERE, HAVING or QUALIFY</td><td>Tasks are created suspended: nothing runs until RESUME</td><td>Schedule with a task in the same schema; not on serverless tasks</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">dbt in one paragraph</div><p>dbt Projects on Snowflake has been generally available since November 2025. You build the project in <b>Workspaces</b> (or from a Git repository), deploy it as a DBT PROJECT object, and run it with <code>EXECUTE DBT PROJECT BANK_DS.ML.MY_PROJECT ARGS='run --target prod';</code>. CoCo knows dbt: in Snowsight it works inside dbt projects in Workspaces, and the CLI ships a bundled dbt skill. For our small project, a dynamic table and one task are enough; dbt pays off when you have dozens of models and a team.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>A bank’s nightly batch might land core banking extracts at 02:00. Dynamic tables clean and aggregate them with a target lag of a few hours; a task graph at 05:00 refreshes features, re-scores churn and fraud models, and writes the scores; a final task checks row counts and alerts if anything is missing. Every object has an owner, a documented schedule, a cost estimate and a runbook entry saying how to pause it. Change requests are reviewed like code, because a wrong schedule can burn credits all weekend.</p>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>Running a pipeline means reading its history. <code>task_runs</code> is a simplified copy of what <code>TASK_HISTORY</code> shows for a week of our two jobs. Answer the on-call questions.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: a first dynamic table and task</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>See the conveyor belt and alarm clock work, then switch them off</h3>
+      <div class="meta"><span>About 10 min</span><span>Your trial</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>Create a tiny dynamic table with the shortest lag:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE OR REPLACE DYNAMIC TABLE</span> BANK_DS.CLEAN.DT_CITY_COUNTS
+  TARGET_LAG = <span class="kw">'1 minute'</span>  WAREHOUSE = LEARN_WH
+<span class="kw">AS SELECT</span> CITY, <span class="kw">COUNT</span>(*) <span class="kw">AS</span> CUSTOMERS <span class="kw">FROM</span> BANK_DS.CLEAN.CUSTOMERS <span class="kw">GROUP BY</span> CITY;</pre></div>
+        <p class="expect">Expected: “Dynamic table DT_CITY_COUNTS successfully created.” It is filled at creation.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Ask CoCo: “Show the refresh history of BANK_DS.CLEAN.DT_CITY_COUNTS and explain REFRESH_ACTION.” Or run:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> NAME, STATE, REFRESH_ACTION, REFRESH_START_TIME
+<span class="kw">FROM TABLE</span>(BANK_DS.INFORMATION_SCHEMA.DYNAMIC_TABLE_REFRESH_HISTORY(NAME_PREFIX =&gt; <span class="kw">'BANK_DS.CLEAN.'</span>))
+<span class="kw">ORDER BY</span> REFRESH_START_TIME <span class="kw">DESC</span>;</pre></div>
+        <p class="expect">Expected: rows with STATE SUCCEEDED and actions such as NO_DATA (nothing changed, cheap) or FULL / INCREMENTAL.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Switch it off and drop it, so it does not wake the warehouse every minute:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">ALTER DYNAMIC TABLE</span> BANK_DS.CLEAN.DT_CITY_COUNTS <span class="kw">SUSPEND</span>;
+<span class="kw">DROP DYNAMIC TABLE</span> BANK_DS.CLEAN.DT_CITY_COUNTS;</pre></div>
+        <p class="expect">Expected: two success messages. Lesson: a 1-minute lag is for demos only.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="project" data-toc="Project step P8">
+  <h2>Project step P8: schedule the pipeline and review it</h2>
+  <div class="callout project">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21V4h12l-2 4 2 4H4"/></svg>
+    <div><div class="label">Bank Churn Predictor · P8</div><p>We turn <code>FEATURES.CUSTOMER_FEATURES</code> into a dynamic table with <code>TARGET_LAG = '1 day'</code>, wrap P6’s scoring in a procedure <code>ML.SCORE_CUSTOMERS</code>, and schedule it with the task <code>ML.RESCORE_DAILY</code> at 06:00 UTC. The dashboard from P7 then shows fresh scores every morning. Last, we check the cost and learn the off switch.</p></div>
+  </div>
+  <p><b>1. Prompt CoCo</b> (use Plan Mode in the CLI, or ask for a plan first in Snowsight):</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre>Plan, do not run yet: (1) replace BANK_DS.FEATURES.CUSTOMER_FEATURES with a dynamic table
+using the same SELECT, TARGET_LAG '1 day', warehouse LEARN_WH; (2) a Python stored procedure
+BANK_DS.ML.SCORE_CUSTOMERS that refreshes that dynamic table, scores it with the default
+version of BANK_DS.ML.CHURN_MODEL using predict_proba, and overwrites ML.CHURN_SCORES
+(CUSTOMER_ID, CHURN_PROBABILITY, SCORED_AT); (3) a task BANK_DS.ML.RESCORE_DAILY on LEARN_WH
+at 06:00 UTC daily that calls it. List every object created and its daily credit cost.</pre></div>
+  <p><b>2a. The features as a dynamic table.</b> A regular table and a dynamic table cannot share a name, so we drop the P4 table first (it is fully rebuilt by the query). Paste your P4 SELECT after <code>AS</code>, starting at <code>WITH ref AS (</code>:</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE WAREHOUSE</span> LEARN_WH;
+<span class="kw">DROP TABLE IF EXISTS</span> BANK_DS.FEATURES.CUSTOMER_FEATURES;
+<span class="kw">CREATE OR REPLACE DYNAMIC TABLE</span> BANK_DS.FEATURES.CUSTOMER_FEATURES
+  TARGET_LAG = <span class="kw">'1 day'</span>
+  WAREHOUSE = LEARN_WH
+<span class="kw">AS</span>
+<span class="kw">WITH</span> ref <span class="kw">AS</span> ( ... <span class="cm">-- the full SELECT from project step P4, unchanged</span>
+;</pre></div>
+  <p><b>2b. The scoring procedure.</b></p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE OR REPLACE PROCEDURE</span> BANK_DS.ML.SCORE_CUSTOMERS()
+  <span class="kw">RETURNS</span> STRING
+  <span class="kw">LANGUAGE</span> PYTHON
+  RUNTIME_VERSION = <span class="kw">'3.11'</span>
+  PACKAGES = (<span class="kw">'snowflake-snowpark-python'</span>, <span class="kw">'snowflake-ml-python'</span>)
+  HANDLER = <span class="kw">'run'</span>
+<span class="kw">AS</span>
+$$
+<span class="kw">from</span> snowflake.snowpark <span class="kw">import</span> functions <span class="kw">as</span> F
+<span class="kw">from</span> snowflake.ml.registry <span class="kw">import</span> Registry
+
+FEATURES = [<span class="kw">"AGE"</span>, <span class="kw">"AGE_MISSING"</span>, <span class="kw">"TENURE_MONTHS"</span>, <span class="kw">"NUM_PRODUCTS"</span>, <span class="kw">"HAS_CREDIT_CARD"</span>,
+            <span class="kw">"IS_ACTIVE_MEMBER"</span>, <span class="kw">"ESTIMATED_SALARY"</span>, <span class="kw">"BALANCE"</span>, <span class="kw">"TXN_COUNT_90D"</span>,
+            <span class="kw">"TOTAL_AMOUNT_90D"</span>, <span class="kw">"AVG_TXN_AMOUNT"</span>, <span class="kw">"DAYS_SINCE_LAST_TXN"</span>,
+            <span class="kw">"TICKET_COUNT"</span>, <span class="kw">"UNRESOLVED_TICKETS"</span>]
+
+<span class="kw">def</span> run(session):
+    session.sql(<span class="kw">"ALTER DYNAMIC TABLE BANK_DS.FEATURES.CUSTOMER_FEATURES REFRESH"</span>).collect()
+    mv = Registry(session=session, database_name=<span class="kw">"BANK_DS"</span>, schema_name=<span class="kw">"ML"</span>).get_model(<span class="kw">"CHURN_MODEL"</span>).default
+    df = session.table(<span class="kw">"BANK_DS.FEATURES.CUSTOMER_FEATURES"</span>).select([<span class="kw">"CUSTOMER_ID"</span>] + FEATURES)
+    scored = mv.run(df, function_name=<span class="kw">"predict_proba"</span>)
+    p1 = [c <span class="kw">for</span> c <span class="kw">in</span> scored.columns <span class="kw">if</span> <span class="kw">"PROBA"</span> <span class="kw">in</span> c.upper() <span class="kw">and</span> c.strip(<span class="kw">'"'</span>).endswith(<span class="kw">"1"</span>)][0]
+    (scored.select(F.col(<span class="kw">"CUSTOMER_ID"</span>), F.col(p1).alias(<span class="kw">"CHURN_PROBABILITY"</span>),
+                   F.current_timestamp().alias(<span class="kw">"SCORED_AT"</span>))
+           .write.save_as_table(<span class="kw">"BANK_DS.ML.CHURN_SCORES"</span>, mode=<span class="kw">"overwrite"</span>))
+    n = session.table(<span class="kw">"BANK_DS.ML.CHURN_SCORES"</span>).count()
+    <span class="kw">return</span> f<span class="kw">"scored {n} customers with {mv.version_name}"</span>
+$$;
+
+<span class="kw">CALL</span> BANK_DS.ML.SCORE_CUSTOMERS();   <span class="cm">-- test it once by hand</span></pre></div>
+  <p class="expect">Expected: <code>scored 5000 customers with V1</code> (your count may differ slightly).</p>
+  <p><b>2c. The daily task.</b></p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE OR REPLACE TASK</span> BANK_DS.ML.RESCORE_DAILY
+  WAREHOUSE = LEARN_WH
+  SCHEDULE = <span class="kw">'USING CRON 0 6 * * * UTC'</span>
+  COMMENT = <span class="kw">'Bank Churn Predictor: refresh features and re-score daily'</span>
+<span class="kw">AS</span>
+  <span class="kw">CALL</span> BANK_DS.ML.SCORE_CUSTOMERS();
+
+<span class="kw">ALTER TASK</span> BANK_DS.ML.RESCORE_DAILY <span class="kw">RESUME</span>;   <span class="cm">-- tasks are created suspended</span>
+<span class="kw">EXECUTE TASK</span> BANK_DS.ML.RESCORE_DAILY;         <span class="cm">-- optional: one run now</span></pre></div>
+  <p><b>3. Review and cost check.</b></p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> NAME, STATE, SCHEDULED_TIME, COMPLETED_TIME, ERROR_MESSAGE
+<span class="kw">FROM TABLE</span>(BANK_DS.INFORMATION_SCHEMA.TASK_HISTORY(TASK_NAME =&gt; <span class="kw">'RESCORE_DAILY'</span>, RESULT_LIMIT =&gt; 10))
+<span class="kw">ORDER BY</span> SCHEDULED_TIME <span class="kw">DESC</span>;</pre></div>
+  <p class="expect"><b>Expected result:</b> a SUCCEEDED run after EXECUTE TASK, and the next one SCHEDULED for 06:00 UTC. <b>Cost</b>: an XSMALL warehouse uses 1 credit per hour, billed per second with a 60-second minimum each time it starts. If the daily refresh plus scoring take about 2 minutes, that is roughly 0.03 to 0.05 credits a day, about 1 to 1.5 credits a month. Check the real figure after a few days in <code>SNOWFLAKE.ACCOUNT_USAGE.WAREHOUSE_METERING_HISTORY</code> (it can lag by a few hours).</p>
+  <p><b>4. The off switch.</b> When the trial or project ends, or before a long break:</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">ALTER TASK</span> BANK_DS.ML.RESCORE_DAILY <span class="kw">SUSPEND</span>;
+<span class="kw">ALTER DYNAMIC TABLE</span> BANK_DS.FEATURES.CUSTOMER_FEATURES <span class="kw">SUSPEND</span>;
+<span class="kw">SHOW TASKS IN SCHEMA</span> BANK_DS.ML;   <span class="cm">-- state should read suspended</span></pre></div>
+  <div data-simulator="coco-4-1-pipeline"></div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">If CoCo gives you something different</div><p><b>It tries CREATE OR REPLACE DYNAMIC TABLE without dropping the table</b>: it fails because a regular table already uses the name. <b>It uses CURRENT_DATE in the SELECT list</b>: dynamic tables allow it only in WHERE, HAVING or QUALIFY, and our MAX(TXN_DATE) cut-off avoids it anyway. <b>It makes the task serverless</b> (no WAREHOUSE): valid, billed differently; keep LEARN_WH so cost stays in one place for the course. <b>It sets TARGET_LAG to minutes</b>: our data changes daily, so that only burns credits. <b>It forgets RESUME</b>: the task never runs. <b>It hard-codes version V1 in the procedure</b>: works, but using the default version lets you promote V2 later without editing code. <b>The procedure fails with a missing module</b>: add that package to PACKAGES, for example <code>'xgboost'</code>, and recreate it.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>Dynamic tables are conveyor belts (say how fresh), tasks are alarm clocks (say when), dbt is the recipe book (say what depends on what). Every pipeline you ship needs a schedule you can defend, a cost estimate and a known off switch.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Dynamic table</dt><dd>A table defined by a query that Snowflake keeps refreshed within a target lag.</dd>
+    <dt>TARGET_LAG</dt><dd>The maximum staleness allowed for a dynamic table, or DOWNSTREAM.</dd>
+    <dt>Task</dt><dd>A scheduled or triggered job that runs SQL or calls a procedure.</dd>
+    <dt>CRON</dt><dd>A schedule format: minute hour day month weekday, then a time zone.</dd>
+    <dt>Task graph</dt><dd>Tasks linked with AFTER so they run in order from a root task.</dd>
+    <dt>Stored procedure</dt><dd>A named program you CALL, here Python that scores customers.</dd>
+    <dt>dbt project</dt><dd>A folder of SQL models, tests and config that dbt builds in dependency order.</dd>
+    <dt>Suspend</dt><dd>Pause a task or dynamic table so it stops running and costing credits.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#coco/4-2">4.2 CLI power workflows →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "task_runs": {
+        "columns": [["run_id", "NUMBER"], ["task_name", "VARCHAR"], ["run_date", "DATE"], ["run_state", "VARCHAR", "SUCCEEDED or FAILED"], ["duration_seconds", "NUMBER"], ["error_text", "VARCHAR"]],
+        "rows": [
+          [1, "RESCORE_DAILY", "2026-10-05", "SUCCEEDED", 104, null], [2, "RESCORE_DAILY", "2026-10-06", "SUCCEEDED", 98, null],
+          [3, "RESCORE_DAILY", "2026-10-07", "FAILED", 12, "Object CUSTOMER_FEATURES does not exist or not authorized"],
+          [4, "RESCORE_DAILY", "2026-10-08", "SUCCEEDED", 110, null], [5, "RESCORE_DAILY", "2026-10-09", "SUCCEEDED", 101, null],
+          [6, "REFRESH_FEATURES", "2026-10-05", "SUCCEEDED", 46, null], [7, "REFRESH_FEATURES", "2026-10-06", "SUCCEEDED", 51, null],
+          [8, "REFRESH_FEATURES", "2026-10-07", "SUCCEEDED", 44, null], [9, "REFRESH_FEATURES", "2026-10-08", "FAILED", 3, "Warehouse LEARN_WH was suspended by a resource monitor"],
+          [10, "REFRESH_FEATURES", "2026-10-09", "SUCCEEDED", 49, null]
+        ]
+      }
+    },
+    "starter": "-- You asked CoCo: 'Show the last runs, newest first.'\nSELECT run_date, task_name, run_state, duration_seconds\nFROM task_runs\nORDER BY run_date DESC, task_name",
+    "examples": [
+      { "label": "Success rate per task", "sql": "SELECT task_name,\n       SUM(CASE WHEN run_state = 'SUCCEEDED' THEN 1 ELSE 0 END) AS ok_runs,\n       COUNT(*) AS all_runs\nFROM task_runs\nGROUP BY task_name\nORDER BY task_name" },
+      { "label": "Estimated credits (XSMALL, 60s minimum)", "sql": "-- 1 credit per hour = 1/3600 per second, minimum 60 seconds per start\nSELECT task_name,\n       ROUND(SUM(CASE WHEN duration_seconds < 60 THEN 60 ELSE duration_seconds END) / 3600.0, 4) AS est_credits\nFROM task_runs\nGROUP BY task_name\nORDER BY task_name" }
+    ],
+    "challenges": [
+      { "task": "You asked CoCo: 'Which runs failed, and why?' Write the SQL it should produce (run_date, task_name, error_text).", "hint": "WHERE run_state = 'FAILED'.", "answer": "SELECT run_date, task_name, error_text FROM task_runs WHERE run_state = 'FAILED' ORDER BY run_date" },
+      { "task": "You asked CoCo: 'Average duration of successful runs per task.' Write the SQL it should produce (task_name, avg_seconds).", "hint": "Filter SUCCEEDED, then AVG(duration_seconds) GROUP BY task_name.", "answer": "SELECT task_name, AVG(duration_seconds) AS avg_seconds FROM task_runs WHERE run_state = 'SUCCEEDED' GROUP BY task_name ORDER BY task_name" },
+      { "task": "You asked CoCo: 'What was the most recent successful RESCORE_DAILY run date?' Write the SQL it should produce.", "hint": "MAX(run_date) with WHERE task_name = 'RESCORE_DAILY' AND run_state = 'SUCCEEDED'.", "answer": "SELECT MAX(run_date) AS last_ok FROM task_runs WHERE task_name = 'RESCORE_DAILY' AND run_state = 'SUCCEEDED'" }
+    ]
+  },
+  "simulators": [
+    {
+      "id": "coco-4-1-pipeline",
+      "title": "Project P8: build and review the pipeline with CoCo",
+      "tool": "coco",
+      "intro": "Snowsight with the CoCo panel. Model CHURN_MODEL V1 and CHURN_SCORES exist from P6.",
+      "steps": [
+        {
+          "prompt": "Plan only: make CUSTOMER_FEATURES a dynamic table with a 1 day lag, wrap scoring in a procedure, schedule it daily at 06:00 UTC. List objects and cost.",
+          "say": "Plan (nothing executed): 1) DROP TABLE + CREATE DYNAMIC TABLE FEATURES.CUSTOMER_FEATURES, TARGET_LAG '1 day', LEARN_WH. 2) PROCEDURE ML.SCORE_CUSTOMERS(): refresh DT, score with default version, overwrite ML.CHURN_SCORES. 3) TASK ML.RESCORE_DAILY, CRON 0 6 * * * UTC, then RESUME.",
+          "outputText": "Objects: 1 dynamic table, 1 procedure, 1 task.\nCost: both jobs use XSMALL LEARN_WH (1 credit/hour). Expected about 1-2 minutes a day, so roughly 1-1.5 credits a month, plus small cloud services.\nRisk: step 1 drops the existing table. It is fully derived from CLEAN tables, so it can be rebuilt.",
+          "check": ["A plan with no execution yet", "It names the destructive step (DROP) and why it is safe", "Cost estimate is in credits, per day and per month"]
+        },
+        {
+          "prompt": "Go ahead with step 2 and test the procedure once.",
+          "say": "Procedure created. Test run result below.",
+          "code": { "lang": "sql", "text": "CALL BANK_DS.ML.SCORE_CUSTOMERS();" },
+          "output": { "columns": ["SCORE_CUSTOMERS"], "rows": [["scored 5000 customers with V1"]] },
+          "check": ["Count equals the number of customers", "It used the default version, V1", "Look at MAX(SCORED_AT) in CHURN_SCORES: it should be just now"]
+        },
+        {
+          "prompt": "Create the task and resume it. Then show its next scheduled run.",
+          "say": "Created and resumed. Tasks start suspended, so RESUME is required.",
+          "code": { "lang": "sql", "text": "CREATE OR REPLACE TASK BANK_DS.ML.RESCORE_DAILY\n  WAREHOUSE = LEARN_WH\n  SCHEDULE = 'USING CRON 0 6 * * * UTC'\nAS CALL BANK_DS.ML.SCORE_CUSTOMERS();\nALTER TASK BANK_DS.ML.RESCORE_DAILY RESUME;\nSELECT NAME, STATE, SCHEDULED_TIME\nFROM TABLE(BANK_DS.INFORMATION_SCHEMA.TASK_HISTORY(TASK_NAME => 'RESCORE_DAILY'))\nORDER BY SCHEDULED_TIME DESC LIMIT 1;" },
+          "output": { "columns": ["NAME", "STATE", "SCHEDULED_TIME"], "rows": [["RESCORE_DAILY", "SCHEDULED", "2026-10-13 06:00:00.000 +0000"]] },
+          "check": ["06:00 UTC is 11:30 in India: confirm the business wants that time", "State is SCHEDULED, not empty", "Write down the off switch"]
+        },
+        {
+          "prompt": "Two days later the task failed: 'Object CUSTOMER_FEATURES does not exist or not authorized'. Why?",
+          "say": "The task runs as its owner role. Someone recreated the dynamic table with a different role, so the task owner lost access. Check ownership and grants before changing code.",
+          "code": { "lang": "sql", "text": "SHOW GRANTS ON DYNAMIC TABLE BANK_DS.FEATURES.CUSTOMER_FEATURES;\nSHOW TASKS LIKE 'RESCORE_DAILY' IN SCHEMA BANK_DS.ML;" },
+          "check": ["Compare the table owner with the task owner", "‘Not authorized’ often means a grant, not a missing object", "Fix grants, rerun with EXECUTE TASK, confirm SUCCEEDED"]
+        }
+      ]
+    }
+  ],
+  "quiz": [
+    { "q": "What does TARGET_LAG = '1 day' promise?", "options": ["The table refreshes exactly at midnight", "The table’s data will be no more than about 1 day behind its sources", "The table is deleted after a day"], "answer": 1, "why": "Target lag is a freshness goal. Snowflake schedules refreshes to stay within it." },
+    { "q": "You created a task and nothing ever runs. Most likely cause?", "options": ["Tasks are created suspended and need ALTER TASK ... RESUME", "The warehouse is too small", "CRON is not supported"], "answer": 0, "why": "New tasks start suspended. Resume them after review." },
+    { "q": "What does SCHEDULE = 'USING CRON 0 6 * * * UTC' mean?", "options": ["Every 6 minutes", "06:00 UTC every day", "6 times a day"], "answer": 1, "why": "CRON fields are minute, hour, day of month, month, day of week. 0 6 * * * is 06:00 daily." },
+    { "q": "Where can CURRENT_DATE appear in a dynamic table’s query?", "options": ["Anywhere", "Only in WHERE, HAVING or QUALIFY", "Never"], "answer": 1, "why": "Snowflake supports current date and time functions in dynamic tables only as part of WHERE, HAVING or QUALIFY." },
+    { "q": "How do you chain task B to run after task A?", "options": ["CREATE TASK B ... AFTER A", "CREATE TASK B ... WHEN A", "Give both the same schedule"], "answer": 0, "why": "AFTER links tasks into a task graph. Only the root task has a schedule." },
+    { "q": "The project ends. What is the safe first step to stop costs?", "options": ["Drop the database immediately", "ALTER TASK ... SUSPEND and ALTER DYNAMIC TABLE ... SUSPEND", "Delete the warehouse"], "answer": 1, "why": "Suspending stops new runs without destroying anything. Drop objects later, after checking nobody needs them." }
+  ]
+}
+</script>

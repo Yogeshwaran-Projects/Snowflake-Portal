@@ -7,7 +7,8 @@ import { Progress } from '../lib/progress';
 import type { QuizQuestion } from '../types';
 
 interface Props {
-  lessonId: string;
+  /** progressKey() of the lesson: bare '1-1' for Fundamentals, 'sql/1-1' elsewhere. */
+  scoreKey: string;
   questions: QuizQuestion[];
 }
 
@@ -17,11 +18,11 @@ function countCorrect(questions: QuizQuestion[], picks: Picks) {
   return questions.reduce((n, q, i) => n + (picks[i] === q.answer ? 1 : 0), 0);
 }
 
-export default function Quiz({ lessonId, questions }: Props) {
+export default function Quiz({ scoreKey, questions }: Props) {
   const [picks, setPicks] = useState<Picks>(() => questions.map(() => null));
   // Read once per attempt, like the old remount-on-retry: the header shows
   // the best BEFORE this attempt, then refreshes when the learner retries.
-  const [best, setBest] = useState(() => Progress.bestScore(lessonId));
+  const [best, setBest] = useState(() => Progress.bestScore(scoreKey));
   const total = questions.length;
   const score = countCorrect(questions, picks);
   const finished = picks.every(p => p !== null);
@@ -33,12 +34,12 @@ export default function Quiz({ lessonId, questions }: Props) {
     setPicks(next);
     // Saved from the handler, not an effect: saveScore only keeps a higher
     // score, so StrictMode's double render cannot corrupt it either way.
-    if (next.every(p => p !== null)) Progress.saveScore(lessonId, countCorrect(questions, next), total);
+    if (next.every(p => p !== null)) Progress.saveScore(scoreKey, countCorrect(questions, next), total);
   };
 
   const retry = () => {
     setPicks(questions.map(() => null));
-    setBest(Progress.bestScore(lessonId));
+    setBest(Progress.bestScore(scoreKey));
   };
 
   return (

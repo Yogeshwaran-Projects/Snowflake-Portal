@@ -1,0 +1,247 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>SQL: Beginner to Advanced</span><span>Module 1 · Beginner</span><span>Lesson 1.1</span></div>
+  <h1>SELECT and FROM</h1>
+  <p class="lede">Your first SQL question: pick a table, pick the columns you want, and read the answer. Every query you ever write starts here.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>20 min</span>
+    <span class="badge">Beginner</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice: 6 questions</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Read a table as rows and columns</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Write <code>SELECT ... FROM ...</code> to pull chosen columns</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Rename a column with <code>AS</code> and do simple maths in a query</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Use <code>DISTINCT</code> to list each different value once</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">SELECT says which columns you want. FROM says which table to read them from. Together they are the smallest complete SQL question.</p></div>
+  </div>
+  <p>Data lives in <b>tables</b>. A table is a grid: each <b>row</b> is one thing (one customer, one account) and each <b>column</b> is one fact about it (name, city, balance). A query reads that grid and gives you back a smaller grid called the <b>result</b>.</p>
+  <p>You never change the table by reading it. <code>SELECT</code> only copies. That is why it is safe to try anything in this lesson.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a library in the sky</h2>
+  <p>Picture a huge library floating above the clouds. Every bookshelf has a name, such as <b>customers</b>. On that shelf, each book has one index card. Every card has the same fields: name, city, segment, joined on, age. You cannot walk in. Instead you fill out a request slip and hand it to the librarian. <code>FROM customers</code> tells her which shelf. <code>SELECT cust_name, city</code> tells her which fields to copy from every card. She comes back with a neat list.</p>
+  <div class="map">
+    <div><small>In the library</small><b>A bookshelf</b><span>In SQL: a table, such as <code>customers</code></span></div>
+    <div><small>In the library</small><b>One index card</b><span>In SQL: one row, such as customer 1, Asha Rao</span></div>
+    <div><small>In the library</small><b>One field on every card</b><span>In SQL: one column, such as <code>city</code></span></div>
+  </div>
+  <p>The request slip is your query. Write it clearly and the librarian never asks a question back.</p>
+</section>
+
+<section class="sec" id="syntax" data-toc="How to write it">
+  <h2>How to write it, step by step</h2>
+  <p>Step 1: name the shelf. Step 2: name the fields. Step 3: end with a semicolon (optional in the worksheet, polite everywhere).</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> cust_name, city
+<span class="kw">FROM</span> customers;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Keyword</th><th>What it means</th><th>Telling the librarian</th></tr></thead>
+      <tbody>
+        <tr><td><code>SELECT</code></td><td>The columns to copy, separated by commas</td><td>“Copy the name and the city…”</td></tr>
+        <tr><td><code>FROM</code></td><td>The table to read</td><td>“…from every card on the customers shelf.”</td></tr>
+        <tr><td><code>*</code></td><td>Every column</td><td>“Copy the whole card.”</td></tr>
+        <tr><td><code>AS</code></td><td>A new name for a column in the result</td><td>“…and call that column ‘town’ on your list.”</td></tr>
+        <tr><td><code>DISTINCT</code></td><td>Each different value once</td><td>“Just list the different cities, no repeats.”</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Order matters: <code>SELECT</code> always comes before <code>FROM</code>. Spaces and new lines do not matter. Capital letters for keywords are a habit, not a rule.</p>
+</section>
+
+<section class="sec" id="examples" data-toc="Worked examples">
+  <h2>Worked examples</h2>
+  <p><b>Example 1: two columns.</b> Name and city of every customer. The result has 16 rows; the first four are shown.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> cust_name, city
+<span class="kw">FROM</span> customers;</pre></div>
+  <div class="table-wrap"><table><thead><tr><th>cust_name</th><th>city</th></tr></thead><tbody>
+    <tr><td>Asha Rao</td><td>Mumbai</td></tr><tr><td>Vikram Shah</td><td>Delhi</td></tr><tr><td>Meera Iyer</td><td>Chennai</td></tr><tr><td>Rahul Nair</td><td>Mumbai</td></tr>
+  </tbody></table></div>
+
+  <p><b>Example 2: the whole card.</b> <code>*</code> means every column. Good for a first look at a new table.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> *
+<span class="kw">FROM</span> accounts;</pre></div>
+  <div class="table-wrap"><table><thead><tr><th>acct_id</th><th>cust_id</th><th>acct_type</th><th>balance</th><th>opened_on</th><th>acct_status</th></tr></thead><tbody>
+    <tr><td>101</td><td>1</td><td>SAVINGS</td><td>250000</td><td>2019-03-12</td><td>ACTIVE</td></tr><tr><td>102</td><td>1</td><td>FD</td><td>1000000</td><td>2021-06-01</td><td>ACTIVE</td></tr><tr><td>103</td><td>2</td><td>SAVINGS</td><td>48000</td><td>2020-07-01</td><td>ACTIVE</td></tr>
+  </tbody></table></div>
+
+  <p><b>Example 3: maths and a new name.</b> Bankers talk in lakhs. Divide by 100000 and call the new column <code>balance_lakh</code>. The table itself does not change.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> acct_id, balance, balance / 100000 <span class="kw">AS</span> balance_lakh
+<span class="kw">FROM</span> accounts;</pre></div>
+  <div class="table-wrap"><table><thead><tr><th>acct_id</th><th>balance</th><th>balance_lakh</th></tr></thead><tbody>
+    <tr><td>101</td><td>250000</td><td>2.5</td></tr><tr><td>102</td><td>1000000</td><td>10</td></tr><tr><td>103</td><td>48000</td><td>0.48</td></tr>
+  </tbody></table></div>
+
+  <p><b>Example 4: each value once.</b> Twenty accounts, but only three kinds. <code>DISTINCT</code> removes the repeats.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT DISTINCT</span> acct_type
+<span class="kw">FROM</span> accounts;</pre></div>
+  <div class="table-wrap"><table><thead><tr><th>acct_type</th></tr></thead><tbody>
+    <tr><td>SAVINGS</td></tr><tr><td>FD</td></tr><tr><td>CURRENT</td></tr>
+  </tbody></table></div>
+</section>
+
+<section class="sec" id="mistakes" data-toc="Common mistakes">
+  <h2>Common mistakes</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Watch out</div>
+      <p>1. A missing comma: <code>SELECT cust_name city</code> does not fail. It returns the name under the heading <b>city</b>, because SQL reads it as <code>cust_name AS city</code>. Always check your commas.</p>
+      <p>2. A comma before FROM: <code>SELECT cust_name, FROM customers</code> is an error. The last column has no comma after it.</p>
+      <p>3. Wrong table or column name: the librarian cannot find a shelf called <code>customer</code> (singular). Open the Schema tab and copy names exactly.</p>
+      <p>4. Using <code>*</code> in real reports: it works, but on a table with 200 columns it is slow and nobody can read it. Name the columns you need.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="snowflake" data-toc="On Snowflake">
+  <h2>On Snowflake</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">What is different on your project</div>
+      <p><b>Names are stored in upper case.</b> You can type <code>customers</code> or <code>CUSTOMERS</code>; Snowflake treats both the same and shows them as <code>CUSTOMERS</code>. The only trap is a name created inside double quotes, such as <code>"Customers"</code>. That one must always be typed in quotes, exactly as created.</p>
+      <p><b>Full names have three parts.</b> On a real project the shelf lives in a room (schema) in a building (database): <code>FROM bank_db.retail.customers</code>. In this worksheet the short name is enough.</p>
+      <p><b>Try before you trust.</b> Snowflake lets you preview a table with <code>SELECT * FROM customers LIMIT 10</code>. You learn <code>LIMIT</code> in lesson 1.3.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="Practice">
+  <h2>Practice</h2>
+  <p>This worksheet holds two tables from a small fictional bank: <code>customers</code> (16 rows) and <code>accounts</code> (20 rows). You will meet the same tables in every lesson of this module. Open the <b>Schema</b> tab, run the examples, then answer the six questions. The checker compares values only, so column names and row order do not matter.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>FROM picks the shelf. SELECT picks the fields to copy. AS renames, maths is allowed, and DISTINCT removes repeats. Reading never changes the table.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Table</dt><dd>Data in rows and columns. One bookshelf in the library.</dd>
+    <dt>Row</dt><dd>One record, such as one customer. One index card.</dd>
+    <dt>Column</dt><dd>One fact stored for every row, such as city. One field on every card.</dd>
+    <dt>Query</dt><dd>One SQL question. The request slip you hand to the librarian.</dd>
+    <dt>Result</dt><dd>The grid that comes back from a query.</dd>
+    <dt>Alias</dt><dd>A new name for a column in the result, given with AS.</dd>
+    <dt>DISTINCT</dt><dd>A SELECT option that returns each different value only once.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#sql/1-2">1.2 Filtering with WHERE →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "customers": {
+        "columns": [
+          ["cust_id","NUMBER"],
+          ["cust_name","VARCHAR"],
+          ["city","VARCHAR","NULL when unknown"],
+          ["segment","VARCHAR","RETAIL, PREMIUM or BUSINESS; NULL when not yet assigned"],
+          ["joined_on","DATE"],
+          ["age","NUMBER","NULL when not recorded"]
+        ],
+        "rows": [
+          [1,"Asha Rao","Mumbai","PREMIUM","2019-03-12",34],
+          [2,"Vikram Shah","Delhi","RETAIL","2020-07-01",45],
+          [3,"Meera Iyer","Chennai","RETAIL","2021-01-15",29],
+          [4,"Rahul Nair","Mumbai","BUSINESS","2018-11-20",52],
+          [5,"Priya Menon","Bengaluru","PREMIUM","2022-05-09",38],
+          [6,"Arjun Das","Delhi","RETAIL","2023-02-28",23],
+          [7,"Sneha Pillai","Chennai",null,"2021-09-30",31],
+          [8,"Karthik Reddy","Hyderabad","BUSINESS","2017-06-05",47],
+          [9,"Divya Kumar","Mumbai","RETAIL","2024-01-10",null],
+          [10,"Nikhil Joshi","Pune","RETAIL","2020-10-18",41],
+          [11,"Farah Khan","Mumbai","PREMIUM","2019-08-22",36],
+          [12,"Lakshmi Bose","Kolkata","RETAIL","2022-12-01",58],
+          [13,"Imran Sheikh","Hyderabad","RETAIL","2023-07-14",27],
+          [14,"Ananya Ghosh","Kolkata","PREMIUM","2016-04-03",61],
+          [15,"Rohan Mehta","Pune","BUSINESS","2024-06-25",33],
+          [16,"Kavya Nambiar",null,"RETAIL","2025-03-08",19]
+        ]
+      },
+      "accounts": {
+        "columns": [
+          ["acct_id","NUMBER"],
+          ["cust_id","NUMBER","the customer who owns the account"],
+          ["acct_type","VARCHAR","SAVINGS, CURRENT or FD"],
+          ["balance","NUMBER","in rupees; NULL when not yet calculated"],
+          ["opened_on","DATE"],
+          ["acct_status","VARCHAR","ACTIVE, DORMANT or CLOSED"]
+        ],
+        "rows": [
+          [101,1,"SAVINGS",250000,"2019-03-12","ACTIVE"],
+          [102,1,"FD",1000000,"2021-06-01","ACTIVE"],
+          [103,2,"SAVINGS",48000,"2020-07-01","ACTIVE"],
+          [104,3,"SAVINGS",15500,"2021-01-15","ACTIVE"],
+          [105,4,"CURRENT",820000,"2018-11-20","ACTIVE"],
+          [106,4,"SAVINGS",61000,"2019-02-10","DORMANT"],
+          [107,5,"SAVINGS",390000,"2022-05-09","ACTIVE"],
+          [108,5,"FD",500000,"2023-01-20","ACTIVE"],
+          [109,6,"SAVINGS",7200,"2023-02-28","ACTIVE"],
+          [110,7,"SAVINGS",33000,"2021-09-30","ACTIVE"],
+          [111,8,"CURRENT",1450000,"2017-06-05","ACTIVE"],
+          [112,9,"SAVINGS",12000,"2024-01-10","ACTIVE"],
+          [113,10,"SAVINGS",0,"2020-10-18","CLOSED"],
+          [114,11,"SAVINGS",275000,"2019-08-22","ACTIVE"],
+          [115,11,"FD",300000,"2020-02-14","ACTIVE"],
+          [116,12,"SAVINGS",89000,"2022-12-01","DORMANT"],
+          [117,13,"SAVINGS",5400,"2023-07-14","ACTIVE"],
+          [118,14,"SAVINGS",640000,"2016-04-03","ACTIVE"],
+          [119,15,"CURRENT",null,"2024-06-25","ACTIVE"],
+          [120,16,"SAVINGS",2500,"2025-03-08","ACTIVE"]
+        ]
+      }
+    },
+    "starter": "SELECT cust_name, city\nFROM customers",
+    "examples": [
+      { "label": "Two columns", "sql": "SELECT cust_name, city\nFROM customers" },
+      { "label": "Whole card", "sql": "SELECT *\nFROM accounts" },
+      { "label": "Balance in lakhs", "sql": "SELECT acct_id, balance, balance / 100000 AS balance_lakh\nFROM accounts" }
+    ],
+    "challenges": [
+      { "level": "Easy", "task": "Show the cust_name and segment of every customer.", "hint": "Two columns, separated by a comma, from the customers table.", "answer": "SELECT cust_name, segment FROM customers" },
+      { "level": "Easy", "task": "Show every column of every row in the accounts table.", "hint": "The star means every column.", "answer": "SELECT * FROM accounts" },
+      { "level": "Medium", "task": "Show the acct_id and the balance in lakhs (balance divided by 100000) for every account.", "hint": "Maths goes straight into the SELECT list: balance / 100000.", "answer": "SELECT acct_id, balance / 100000 AS balance_lakh FROM accounts" },
+      { "level": "Medium", "task": "List each different city in the customers table once. Return only the city.", "hint": "DISTINCT right after SELECT removes repeats.", "answer": "SELECT DISTINCT city FROM customers ORDER BY city" },
+      { "level": "Medium", "task": "Show cust_name, age, and the age each customer will be in ten years (age plus 10) for every customer.", "hint": "Three things in the SELECT list; the third is age + 10.", "answer": "SELECT cust_name, age, age + 10 AS age_in_ten_years FROM customers" },
+      { "level": "Hard", "task": "List each different pair of acct_type and acct_status that appears in the accounts table, each pair once. Return both columns.", "hint": "DISTINCT works on the whole row, so put both columns after it.", "answer": "SELECT DISTINCT acct_type, acct_status FROM accounts ORDER BY acct_type, acct_status" }
+    ]
+  },
+  "quiz": [
+    { "q": "In the library analogy, what is a table?", "options": ["One index card", "A bookshelf", "The request slip"], "answer": 1, "why": "A table is a bookshelf. Each book's index card is a row, and each field on the card is a column." },
+    { "q": "Which keyword names the table a query reads from?", "options": ["SELECT", "FROM", "AS"], "answer": 1, "why": "FROM names the table. SELECT names the columns. AS renames a column in the result." },
+    { "q": "What does SELECT * do?", "options": ["Returns every column", "Returns only the first column", "Deletes the table"], "answer": 0, "why": "The star is shorthand for every column. SELECT never deletes or changes anything." },
+    { "q": "What happens if you run SELECT cust_name city FROM customers (no comma)?", "options": ["An error", "Names appear under the heading city", "Both columns are returned"], "answer": 1, "why": "SQL reads it as cust_name AS city. You get one column, the name, with the wrong heading. Check your commas." },
+    { "q": "After SELECT balance / 100000 AS balance_lakh FROM accounts, what has changed in the accounts table?", "options": ["Nothing", "The balance column is now in lakhs", "A new column was added"], "answer": 0, "why": "SELECT only copies. The maths and the alias exist in the result, never in the table." },
+    { "q": "You type FROM customers but the table was created as CUSTOMERS. What does Snowflake do?", "options": ["Fails: names are case-sensitive", "Reads the table: unquoted names are not case-sensitive", "Creates a new table"], "answer": 1, "why": "Snowflake stores unquoted names in upper case and matches them without caring about case. Only names created in double quotes are case-sensitive." }
+  ]
+}
+</script>

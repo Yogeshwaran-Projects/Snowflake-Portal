@@ -1,0 +1,315 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>SQL: Beginner to Advanced</span><span>Module 3 · Advanced</span><span>Lesson 3.8</span></div>
+  <h1>SQL for data science</h1>
+  <p class="lede">Describe a column, find the median, measure spread and correlation, standardise values, bucket customers and pivot a table, all in SQL and all before the data leaves Snowflake.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>35 min</span>
+    <span class="badge">Advanced</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice: 6 questions</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Produce describe()-style statistics with one query</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Compute median, percentiles, standard deviation and correlation</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Build z-scores and risk bands as model features</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Pivot long data to wide, and sample or approximate when tables are huge</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">Statistical SQL is using aggregate and window functions to describe, compare and reshape data inside the database, so only the small result travels to your notebook.</p></div>
+  </div>
+  <p>Pulling 50 million rows into pandas to compute a mean is slow and often impossible. The database can compute the mean, the median, the standard deviation and the correlation in seconds and hand you one row. Do the heavy lifting in SQL, then take the small table into Python for modelling and plots.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like quick statistics without leaving the library</h2>
+  <p>You could carry every book home and count the pages yourself. Or you could ask the librarians, who already know the shelves, to tell you the average page count, the middle one, and how much the counts vary. They answer in seconds and you carry home a single index card. The library in the sky has librarians for every statistic you learned in your first stats course.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Ask for the summary card</b><span>In SQL: COUNT, AVG, MIN, MAX, STDDEV, MEDIAN in one SELECT.</span></div>
+    <div><small>In the library</small><b>"Do thick books cost more?"</b><span>In SQL: CORR(pages, price), a correlation between two columns.</span></div>
+    <div><small>In the library</small><b>Re-sort the catalogue into a grid</b><span>In SQL: PIVOT, or SUM(CASE WHEN ...) per column.</span></div>
+  </div>
+</section>
+
+<section class="sec" id="syntax" data-toc="The functions">
+  <h2>The functions, step by step</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Need</th><th>Snowflake</th><th>Practice editor (DuckDB)</th></tr></thead>
+      <tbody>
+        <tr><td>Mean, min, max, count</td><td><code>AVG, MIN, MAX, COUNT</code></td><td>Same</td></tr>
+        <tr><td>Median</td><td><code>MEDIAN(x)</code></td><td>Same</td></tr>
+        <tr><td>Percentile</td><td><code>PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY x)</code></td><td>Same</td></tr>
+        <tr><td>Spread</td><td><code>STDDEV(x), VARIANCE(x)</code></td><td>Same</td></tr>
+        <tr><td>Relationship</td><td><code>CORR(x, y), COVAR_SAMP(x, y)</code></td><td>Same</td></tr>
+        <tr><td>Most common value</td><td><code>MODE(x)</code></td><td>Same</td></tr>
+        <tr><td>Fast distinct count</td><td><code>APPROX_COUNT_DISTINCT(x)</code></td><td>Same</td></tr>
+        <tr><td>Random sample</td><td><code>FROM t SAMPLE (10)</code> for 10 percent</td><td><code>FROM t USING SAMPLE 10 PERCENT</code></td></tr>
+        <tr><td>Long to wide</td><td><code>PIVOT(SUM(amount) FOR channel IN ('APP','UPI'))</code></td><td><code>SUM(CASE WHEN channel = 'APP' THEN amount END)</code> works on both</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p><b>Step 1: describe a column.</b> This is pandas <code>describe()</code> in one row.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT COUNT</span>(*) <span class="kw">AS</span> n, <span class="kw">ROUND</span>(<span class="kw">AVG</span>(balance), 2) <span class="kw">AS</span> mean_bal, <span class="kw">MEDIAN</span>(balance) <span class="kw">AS</span> median_bal,
+       <span class="kw">ROUND</span>(<span class="kw">STDDEV</span>(balance), 2) <span class="kw">AS</span> sd_bal, <span class="kw">MIN</span>(balance) <span class="kw">AS</span> min_bal, <span class="kw">MAX</span>(balance) <span class="kw">AS</span> max_bal
+<span class="kw">FROM</span> accounts;</pre></div>
+  <p><b>Step 2: percentiles.</b> <code>PERCENTILE_CONT(0.9)</code> is the value below which 90 percent of rows fall, interpolating between rows. <code>WITHIN GROUP (ORDER BY x)</code> says which column.</p>
+  <p><b>Step 3: z-scores with windows.</b> A z-score is (value minus mean) divided by standard deviation. Use <code>AVG() OVER ()</code> and <code>STDDEV() OVER ()</code> with an empty OVER so every row sees the whole table.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> cust_id, total_balance,
+       <span class="kw">ROUND</span>((total_balance - <span class="kw">AVG</span>(total_balance) <span class="kw">OVER</span> ()) / <span class="kw">STDDEV</span>(total_balance) <span class="kw">OVER</span> (), 2) <span class="kw">AS</span> z
+<span class="kw">FROM</span> (<span class="kw">SELECT</span> cust_id, <span class="kw">SUM</span>(balance) <span class="kw">AS</span> total_balance <span class="kw">FROM</span> accounts <span class="kw">GROUP BY</span> cust_id) t;</pre></div>
+  <p><b>Step 4: buckets with CASE.</b> Turn a score into bands for a report or a categorical feature.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT CASE WHEN</span> churn_score &lt; 0.3 <span class="kw">THEN</span> 'LOW'
+            <span class="kw">WHEN</span> churn_score &lt; 0.6 <span class="kw">THEN</span> 'MEDIUM'
+            <span class="kw">ELSE</span> 'HIGH' <span class="kw">END AS</span> risk_band,
+       <span class="kw">COUNT</span>(*) <span class="kw">AS</span> customers
+<span class="kw">FROM</span> scores
+<span class="kw">GROUP BY</span> risk_band;</pre></div>
+</section>
+
+<section class="sec" id="examples" data-toc="Worked examples">
+  <h2>Worked examples</h2>
+  <p><b>Example 1: median churn score per segment.</b> Median resists outliers, which is why you report it next to the mean.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> segment, <span class="kw">ROUND</span>(<span class="kw">AVG</span>(churn_score), 3) <span class="kw">AS</span> mean_score, <span class="kw">MEDIAN</span>(churn_score) <span class="kw">AS</span> median_score
+<span class="kw">FROM</span> scores
+<span class="kw">GROUP BY</span> segment;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>segment</th><th>mean_score</th><th>median_score</th></tr></thead>
+      <tbody>
+        <tr><td>PREMIUM</td><td>0.68</td><td>0.675</td></tr>
+        <tr><td>RETAIL</td><td>0.238</td><td>0.225</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p><b>Example 2: does wealth relate to churn?</b> Join total balance to the score and ask CORR. A value near +1 means they rise together; near -1 means opposite; near 0 means no straight-line relationship.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT ROUND</span>(<span class="kw">CORR</span>(t.total_balance, s.churn_score), 3) <span class="kw">AS</span> corr_balance_churn
+<span class="kw">FROM</span> (<span class="kw">SELECT</span> cust_id, <span class="kw">SUM</span>(balance) <span class="kw">AS</span> total_balance <span class="kw">FROM</span> accounts <span class="kw">GROUP BY</span> cust_id) t
+<span class="kw">JOIN</span> scores s <span class="kw">ON</span> s.cust_id = t.cust_id;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>corr_balance_churn</th></tr></thead>
+      <tbody><tr><td>0.793</td></tr></tbody>
+    </table>
+  </div>
+  <p>In this tiny sample, richer customers have higher churn scores. With 10 rows that is a hint, not a finding.</p>
+
+  <p><b>Example 3: pivot deposits by channel.</b> One row per account type, one column per channel. The CASE form is portable; Snowflake's PIVOT is shorter.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- works on Snowflake and in the editor</span>
+<span class="kw">SELECT</span> a.acct_type,
+       <span class="kw">SUM</span>(<span class="kw">CASE WHEN</span> t.channel = 'APP'    <span class="kw">THEN</span> t.amount <span class="kw">ELSE</span> 0 <span class="kw">END</span>) <span class="kw">AS</span> app_total,
+       <span class="kw">SUM</span>(<span class="kw">CASE WHEN</span> t.channel = 'BRANCH' <span class="kw">THEN</span> t.amount <span class="kw">ELSE</span> 0 <span class="kw">END</span>) <span class="kw">AS</span> branch_total,
+       <span class="kw">SUM</span>(<span class="kw">CASE WHEN</span> t.channel = 'UPI'    <span class="kw">THEN</span> t.amount <span class="kw">ELSE</span> 0 <span class="kw">END</span>) <span class="kw">AS</span> upi_total
+<span class="kw">FROM</span> transactions t <span class="kw">JOIN</span> accounts a <span class="kw">ON</span> a.acct_id = t.acct_id
+<span class="kw">WHERE</span> t.txn_type = 'DEPOSIT'
+<span class="kw">GROUP BY</span> a.acct_type;
+
+<span class="cm">-- Snowflake PIVOT</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> (<span class="kw">SELECT</span> a.acct_type, t.channel, t.amount
+              <span class="kw">FROM</span> transactions t <span class="kw">JOIN</span> accounts a <span class="kw">ON</span> a.acct_id = t.acct_id
+              <span class="kw">WHERE</span> t.txn_type = 'DEPOSIT')
+<span class="kw">PIVOT</span>(<span class="kw">SUM</span>(amount) <span class="kw">FOR</span> channel <span class="kw">IN</span> ('APP', 'BRANCH', 'UPI'));</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>acct_type</th><th>app_total</th><th>branch_total</th><th>upi_total</th></tr></thead>
+      <tbody>
+        <tr><td>CURRENT</td><td>0</td><td>28000</td><td>9000</td></tr>
+        <tr><td>SAVINGS</td><td>172000</td><td>336000</td><td>91000</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="sec" id="mistakes" data-toc="Common mistakes">
+  <h2>Common mistakes</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Watch out</div><p><b>Integer division.</b> <code>7 / 2</code> is 3 on Snowflake when both are integers. Multiply by 1.0 or cast to get 3.5. The editor returns 3.5 directly, so test ratios on Snowflake too.</p>
+    <p><b>NULL in aggregates.</b> AVG and STDDEV skip NULLs silently, so the n they used may be smaller than COUNT(*). Report COUNT(col) next to the mean.</p>
+    <p><b>Correlation is not causation.</b> CORR tells you two columns move together, not why.</p>
+    <p><b>Sampling before filtering.</b> <code>SAMPLE</code> then <code>WHERE</code> gives a sample of the wrong thing. Filter first, then sample.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="snowflake" data-toc="On Snowflake">
+  <h2>On Snowflake</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Same functions, a few Snowflake extras</div><p>MEDIAN, PERCENTILE_CONT, STDDEV, CORR, MODE and APPROX_COUNT_DISTINCT are spelled the same on Snowflake and in the editor. Sampling differs: Snowflake writes <code>FROM transactions SAMPLE (10)</code> (percent) or <code>SAMPLE (1000 ROWS)</code>; the editor writes <code>USING SAMPLE 10 PERCENT</code>. Samples are random, so the practice does not grade them.</p>
+    <p>Snowflake's <code>PIVOT</code> needs the list of values in <code>IN (...)</code> (newer accounts accept <code>IN (ANY)</code>). The editor has its own PIVOT syntax; the practice uses the SUM(CASE ...) form, which runs on both. <code>APPROX_PERCENTILE(x, 0.9)</code> is a fast estimate for huge tables, and <code>HLL(x)</code> is another name for APPROX_COUNT_DISTINCT.</p>
+    <p>When the summary is done, move on with Snowpark for Python or a notebook in Snowsight: <code>session.sql("...").to_pandas()</code> brings the small result to your laptop.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="Practice">
+  <h2>Practice</h2>
+  <p>Tables: <code>customers</code>, <code>accounts</code>, <code>transactions</code> and <code>scores</code> (one churn score per customer). Round where the task says so. Grading compares values only, with numbers compared to 2 decimal places.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>Let the librarians do the statistics: describe, median, percentiles, STDDEV and CORR in SQL, z-scores with empty OVER(), bands with CASE, wide tables with SUM(CASE) or PIVOT. Carry home the index card, not the shelves.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Median</dt><dd>The middle value; half the rows are below it.</dd>
+    <dt>Percentile</dt><dd>The value below which a given share of rows fall; the 90th is PERCENTILE_CONT(0.9).</dd>
+    <dt>Standard deviation</dt><dd>How spread out values are around the mean.</dd>
+    <dt>Correlation</dt><dd>A number from -1 to 1 saying how strongly two columns move together in a straight line.</dd>
+    <dt>Z-score</dt><dd>(value minus mean) divided by standard deviation; how unusual a value is.</dd>
+    <dt>Pivot</dt><dd>Turning values of one column into separate columns.</dd>
+    <dt>Approximate function</dt><dd>A fast estimate such as APPROX_COUNT_DISTINCT, accurate within a small error.</dd>
+    <dt>Sample</dt><dd>A random subset of rows used to explore a huge table quickly.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Course complete</small><a class="btn btn-primary" href="#home">Back to all courses →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "customers": {
+        "columns": [["cust_id","NUMBER"], ["cust_name","VARCHAR"], ["city","VARCHAR"], ["segment","VARCHAR","RETAIL or PREMIUM"], ["joined_on","DATE"]],
+        "rows": [
+          [1,"Asha Rao","Mumbai","RETAIL","2024-01-15"],
+          [2,"Vikram Shah","Delhi","PREMIUM","2023-06-10"],
+          [3,"Meera Iyer","Chennai","RETAIL","2024-03-22"],
+          [4,"Rahul Nair","Mumbai","PREMIUM","2022-11-05"],
+          [5,"Priya Menon","Bengaluru","RETAIL","2025-02-14"],
+          [6,"Arjun Das","Delhi","RETAIL","2024-08-30"],
+          [7,"Sneha Pillai","Chennai","PREMIUM","2023-01-20"],
+          [8,"Karthik Reddy","Bengaluru","RETAIL","2025-05-01"],
+          [9,"Divya Kumar","Mumbai","RETAIL","2024-12-12"],
+          [10,"Farah Khan","Delhi","PREMIUM","2023-09-09"]
+        ]
+      },
+      "accounts": {
+        "columns": [["acct_id","NUMBER"], ["cust_id","NUMBER"], ["acct_type","VARCHAR","SAVINGS or CURRENT"], ["balance","NUMBER","in rupees"], ["opened_on","DATE"]],
+        "rows": [
+          [101,1,"SAVINGS",125000,"2024-01-20"],
+          [102,1,"CURRENT",40000,"2024-06-01"],
+          [103,2,"SAVINGS",310000,"2023-06-15"],
+          [104,3,"SAVINGS",58000,"2024-03-25"],
+          [105,4,"SAVINGS",275000,"2022-11-10"],
+          [106,4,"CURRENT",92000,"2023-02-01"],
+          [107,5,"SAVINGS",21000,"2025-02-20"],
+          [108,6,"SAVINGS",67000,"2024-09-02"],
+          [109,7,"SAVINGS",189000,"2023-01-25"],
+          [110,7,"CURRENT",150000,"2024-04-10"],
+          [111,8,"SAVINGS",15500,"2025-05-03"],
+          [112,9,"SAVINGS",83000,"2024-12-15"],
+          [113,10,"SAVINGS",240000,"2023-09-12"],
+          [114,10,"CURRENT",125000,"2024-01-08"]
+        ]
+      },
+      "transactions": {
+        "columns": [["txn_id","NUMBER"], ["acct_id","NUMBER"], ["txn_date","DATE"], ["txn_type","VARCHAR","DEPOSIT, WITHDRAWAL or TRANSFER"], ["amount","NUMBER","in rupees"], ["channel","VARCHAR","APP, BRANCH, ATM or UPI"]],
+        "rows": [
+          [1001,101,"2026-03-01","DEPOSIT",20000,"APP"],
+          [1002,101,"2026-03-03","WITHDRAWAL",5000,"ATM"],
+          [1003,101,"2026-03-08","DEPOSIT",12000,"UPI"],
+          [1004,101,"2026-03-15","WITHDRAWAL",8000,"ATM"],
+          [1005,101,"2026-03-22","DEPOSIT",30000,"BRANCH"],
+          [1006,101,"2026-03-29","WITHDRAWAL",3000,"UPI"],
+          [1007,103,"2026-03-02","DEPOSIT",50000,"BRANCH"],
+          [1008,103,"2026-03-05","WITHDRAWAL",15000,"APP"],
+          [1009,103,"2026-03-11","DEPOSIT",25000,"APP"],
+          [1010,103,"2026-03-18","TRANSFER",40000,"APP"],
+          [1011,103,"2026-03-25","DEPOSIT",60000,"BRANCH"],
+          [1012,103,"2026-03-30","WITHDRAWAL",10000,"ATM"],
+          [1013,105,"2026-03-01","DEPOSIT",45000,"APP"],
+          [1014,105,"2026-03-06","WITHDRAWAL",20000,"ATM"],
+          [1015,105,"2026-03-12","DEPOSIT",35000,"UPI"],
+          [1016,105,"2026-03-19","TRANSFER",25000,"APP"],
+          [1017,105,"2026-03-26","DEPOSIT",15000,"UPI"],
+          [1018,109,"2026-03-03","DEPOSIT",30000,"APP"],
+          [1019,109,"2026-03-09","WITHDRAWAL",12000,"ATM"],
+          [1020,109,"2026-03-14","DEPOSIT",30000,"APP"],
+          [1021,109,"2026-03-21","TRANSFER",18000,"UPI"],
+          [1022,109,"2026-03-28","DEPOSIT",22000,"BRANCH"],
+          [1023,113,"2026-03-02","DEPOSIT",80000,"BRANCH"],
+          [1024,113,"2026-03-07","WITHDRAWAL",25000,"ATM"],
+          [1025,113,"2026-03-13","DEPOSIT",10000,"UPI"],
+          [1026,113,"2026-03-20","TRANSFER",50000,"APP"],
+          [1027,113,"2026-03-27","DEPOSIT",80000,"BRANCH"],
+          [1028,102,"2026-03-04","DEPOSIT",9000,"UPI"],
+          [1029,102,"2026-03-16","WITHDRAWAL",4000,"APP"],
+          [1030,104,"2026-03-05","DEPOSIT",7000,"UPI"],
+          [1031,104,"2026-03-17","DEPOSIT",7000,"UPI"],
+          [1032,106,"2026-03-10","TRANSFER",22000,"APP"],
+          [1033,107,"2026-03-08","DEPOSIT",6000,"APP"],
+          [1034,107,"2026-03-23","WITHDRAWAL",2000,"ATM"],
+          [1035,108,"2026-03-11","DEPOSIT",14000,"BRANCH"],
+          [1036,110,"2026-03-12","TRANSFER",35000,"APP"],
+          [1037,111,"2026-03-14","DEPOSIT",5000,"UPI"],
+          [1038,112,"2026-03-15","DEPOSIT",16000,"APP"],
+          [1039,112,"2026-03-24","WITHDRAWAL",6000,"ATM"],
+          [1040,114,"2026-03-18","DEPOSIT",28000,"BRANCH"]
+        ]
+      },
+      "scores": {
+        "columns": [["cust_id","NUMBER"], ["churn_score","NUMBER","0 = will stay, 1 = will leave"], ["segment","VARCHAR"]],
+        "rows": [
+          [1,0.12,"RETAIL"],
+          [2,0.55,"PREMIUM"],
+          [3,0.08,"RETAIL"],
+          [4,0.71,"PREMIUM"],
+          [5,0.33,"RETAIL"],
+          [6,0.26,"RETAIL"],
+          [7,0.64,"PREMIUM"],
+          [8,0.45,"RETAIL"],
+          [9,0.19,"RETAIL"],
+          [10,0.82,"PREMIUM"]
+        ]
+      }
+    },
+    "starter": "SELECT COUNT(*) AS n, ROUND(AVG(balance), 2) AS mean_bal, MEDIAN(balance) AS median_bal,\n       ROUND(STDDEV(balance), 2) AS sd_bal, MIN(balance) AS min_bal, MAX(balance) AS max_bal\nFROM accounts",
+    "examples": [
+      { "label": "Describe balances", "sql": "SELECT COUNT(*) AS n, ROUND(AVG(balance), 2) AS mean_bal, MEDIAN(balance) AS median_bal,\n       ROUND(STDDEV(balance), 2) AS sd_bal, MIN(balance) AS min_bal, MAX(balance) AS max_bal\nFROM accounts" },
+      { "label": "Risk bands", "sql": "SELECT CASE WHEN churn_score < 0.3 THEN 'LOW' WHEN churn_score < 0.6 THEN 'MEDIUM' ELSE 'HIGH' END AS risk_band,\n       COUNT(*) AS customers\nFROM scores\nGROUP BY risk_band\nORDER BY risk_band" },
+      { "label": "Pivot by channel", "sql": "SELECT a.acct_type,\n       SUM(CASE WHEN t.channel = 'APP' THEN t.amount ELSE 0 END) AS app_total,\n       SUM(CASE WHEN t.channel = 'BRANCH' THEN t.amount ELSE 0 END) AS branch_total,\n       SUM(CASE WHEN t.channel = 'UPI' THEN t.amount ELSE 0 END) AS upi_total\nFROM transactions t JOIN accounts a ON a.acct_id = t.acct_id\nWHERE t.txn_type = 'DEPOSIT'\nGROUP BY a.acct_type\nORDER BY a.acct_type" }
+    ],
+    "challenges": [
+      { "level": "Easy", "task": "Describe the balance column of accounts in one row: the number of accounts, the average balance rounded to 2 decimals, the smallest balance and the largest balance.", "hint": "COUNT(*), ROUND(AVG(balance), 2), MIN(balance), MAX(balance).", "answer": "SELECT COUNT(*) AS n, ROUND(AVG(balance), 2) AS avg_balance, MIN(balance) AS min_balance, MAX(balance) AS max_balance FROM accounts" },
+      { "level": "Easy", "task": "For each segment in scores, return the segment and the median churn_score.", "hint": "MEDIAN(churn_score) with GROUP BY segment.", "answer": "SELECT segment, MEDIAN(churn_score) AS median_score FROM scores GROUP BY segment ORDER BY segment" },
+      { "level": "Medium", "task": "Return one row with the standard deviation of transaction amount rounded to 2 decimals, and the 90th percentile of amount (PERCENTILE_CONT 0.9).", "hint": "ROUND(STDDEV(amount), 2) and PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY amount).", "answer": "SELECT ROUND(STDDEV(amount), 2) AS sd_amount, PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY amount) AS p90 FROM transactions" },
+      { "level": "Medium", "task": "Compute the correlation between each customer's total balance (sum over their accounts) and their churn_score. Return one value rounded to 3 decimals.", "hint": "Subquery: SUM(balance) GROUP BY cust_id. JOIN scores. ROUND(CORR(total_balance, churn_score), 3).", "answer": "SELECT ROUND(CORR(t.total_balance, s.churn_score), 3) AS corr_balance_churn FROM (SELECT cust_id, SUM(balance) AS total_balance FROM accounts GROUP BY cust_id) t JOIN scores s ON s.cust_id = t.cust_id" },
+      { "level": "Hard", "task": "Give every customer a z-score for their total balance: (total minus the mean of all totals) divided by the standard deviation of all totals, rounded to 2 decimals. Return cust_id, total_balance and z.", "hint": "Total per customer in a subquery, then (total_balance - AVG(total_balance) OVER ()) / STDDEV(total_balance) OVER ().", "answer": "SELECT cust_id, total_balance, ROUND((total_balance - AVG(total_balance) OVER ()) / STDDEV(total_balance) OVER (), 2) AS z FROM (SELECT cust_id, SUM(balance) AS total_balance FROM accounts GROUP BY cust_id) t ORDER BY cust_id" },
+      { "level": "Hard", "task": "Pivot DEPOSIT amounts by channel: one row per acct_type with four columns app_total, branch_total, atm_total and upi_total (use 0 when a type has no deposits in a channel). Return acct_type and the four totals.", "hint": "SUM(CASE WHEN t.channel = 'APP' THEN t.amount ELSE 0 END) and so on, JOIN accounts, WHERE txn_type = 'DEPOSIT', GROUP BY acct_type.", "answer": "SELECT a.acct_type, SUM(CASE WHEN t.channel = 'APP' THEN t.amount ELSE 0 END) AS app_total, SUM(CASE WHEN t.channel = 'BRANCH' THEN t.amount ELSE 0 END) AS branch_total, SUM(CASE WHEN t.channel = 'ATM' THEN t.amount ELSE 0 END) AS atm_total, SUM(CASE WHEN t.channel = 'UPI' THEN t.amount ELSE 0 END) AS upi_total FROM transactions t JOIN accounts a ON a.acct_id = t.acct_id WHERE t.txn_type = 'DEPOSIT' GROUP BY a.acct_type ORDER BY a.acct_type" }
+    ]
+  },
+  "quiz": [
+    { "q": "Why compute the mean in SQL instead of pulling all rows into pandas?", "options": ["pandas cannot compute means", "The database returns one small row instead of moving millions of rows", "SQL is more accurate"], "answer": 1, "why": "Moving data is the slow part. Aggregating in the database sends only the result to your notebook." },
+    { "q": "Which function gives the value below which 90 percent of rows fall?", "options": ["PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY x)", "STDDEV(x)", "NTILE(90)"], "answer": 0, "why": "PERCENTILE_CONT interpolates the 90th percentile. STDDEV measures spread; NTILE buckets rows." },
+    { "q": "What does CORR(x, y) = -0.9 mean?", "options": ["x causes y to fall", "x and y move strongly in opposite directions", "There is no relationship"], "answer": 1, "why": "A correlation near -1 is a strong inverse straight-line relationship. It says nothing about cause." },
+    { "q": "How do you compute a z-score for every row in one query?", "options": ["GROUP BY the column", "Use AVG() OVER () and STDDEV() OVER () so each row sees the whole table", "Use MEDIAN"], "answer": 1, "why": "An empty OVER() makes the window the whole result, so every row can subtract the global mean and divide by the global standard deviation." },
+    { "q": "Which pivot form runs on both Snowflake and the practice editor?", "options": ["PIVOT(... FOR ... IN (...))", "SUM(CASE WHEN channel = 'APP' THEN amount END) per column", "UNPIVOT"], "answer": 1, "why": "Conditional aggregation is standard SQL. Snowflake's PIVOT and DuckDB's PIVOT have different syntax." },
+    { "q": "When would you use APPROX_COUNT_DISTINCT instead of COUNT(DISTINCT x)?", "options": ["Always", "On huge tables where a tiny error is fine and speed matters", "Only on small tables"], "answer": 1, "why": "The approximate version is much faster and uses less memory on billions of rows, with an error of about 1 to 2 percent." }
+  ]
+}
+</script>

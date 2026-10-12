@@ -1,0 +1,443 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>CoCo Masterclass</span><span>Module 1 · Meet CoCo</span><span>Lesson 1.2</span></div>
+  <h1>Where CoCo runs and setup</h1>
+  <p class="lede">CoCo lives in four places: Snowsight, a desktop app, a command-line tool and VS Code. Learn which one to use, switch CoCo on in your trial, and build the database for the course project, the Bank Churn Predictor.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 min</span>
+    <span class="badge">Beginner</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab + project step P1</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Name the four places CoCo runs and pick the right one</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>List the roles and settings CoCo needs, so you know what to ask an admin</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Switch CoCo on in your own trial account</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Create BANK_DS and load the project data, with CoCo and with a vetted script</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">A CoCo surface is a place where you talk to CoCo. There are four: Snowsight (in the browser), CoCo Desktop (an app), the CoCo CLI (a terminal tool) and the Snowflake extension for VS Code. All of them talk to the same Snowflake account under your role.</p></div>
+  </div>
+  <p>Setup means two things: the <b>account</b> must allow CoCo (region and AI settings), and <b>your role</b> must hold the right database roles. Get both right once, and every surface works.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like doors into the library</h2>
+  <p>The robot assistant lives in the library, but you can call it from different doors. The front desk (Snowsight) is easiest: walk in and it is there. The robot can also visit your home office (Desktop or CLI), where it sees your own papers (local files) as well as the library. Or it can sit next to you in your favourite workshop (VS Code).</p>
+  <div class="map">
+    <div><small>In the library</small><b>The front desk</b><span>In Snowflake: CoCo in Snowsight. Nothing to install</span></div>
+    <div><small>In the library</small><b>A home office</b><span>In Snowflake: CoCo Desktop or the CLI, which can also read files on your laptop</span></div>
+    <div><small>In the library</small><b>A badge to enter</b><span>In Snowflake: the database roles CoCo needs before any door opens</span></div>
+  </div>
+</section>
+
+<section class="sec" id="surfaces" data-toc="The four surfaces">
+  <h2>The four surfaces</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Surface</th><th>How you open it</th><th>Best for</th></tr></thead>
+      <tbody>
+        <tr><td><b>Snowsight</b></td><td>Select the <b>CoCo icon in the lower-right corner</b>. A panel opens on the right. Inside <b>Projects » Workspaces</b> it can also read the open SQL file or notebook and show changes as a diff.</td><td>Daily SQL and notebook work. The safe default on a client project.</td></tr>
+        <tr><td><b>CoCo Desktop</b></td><td>A native app for macOS and Windows, downloaded from Snowflake's downloads page.</td><td>Working across local code repositories and Snowflake in one window.</td></tr>
+        <tr><td><b>CoCo CLI</b></td><td>Install with one command, then type <code>cortex</code> in a terminal. It uses connections from <code>~/.snowflake/connections.toml</code>, the same file as the Snowflake CLI.</td><td>Engineers who work with git, dbt and scripts.</td></tr>
+        <tr><td><b>VS Code</b></td><td>CoCo is built into the Snowflake extension for VS Code (version 1.39 or later). It adds <b>Ask CoCo</b> above each SQL statement and <b>Fix with CoCo</b> when a query fails.</td><td>People who already write code in VS Code.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm"># CoCo CLI install, macOS / Linux / WSL (from the CoCo CLI docs)</span>
+curl -LsS https://ai.snowflake.com/static/cc-scripts/install.sh | sh
+
+<span class="cm"># CoCo CLI install, Windows PowerShell</span>
+irm https://ai.snowflake.com/static/cc-scripts/install.ps1 | iex
+
+<span class="cm"># Start it. The first run asks you to pick or create a connection.</span>
+cortex</pre></div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">On a bank project</div><p>Client laptops are locked down, and the client decides which surfaces are approved. Do not install the CLI or Desktop on a client machine, or connect them to a client account, until your project lead says yes. Snowsight needs no install, so it is usually the approved choice.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="prereqs" data-toc="What CoCo needs">
+  <h2>What CoCo needs before it works</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Need</th><th>What it means</th><th>Who sets it</th></tr></thead>
+      <tbody>
+        <tr><td><b>SNOWFLAKE.CORTEX_USER</b> or <b>SNOWFLAKE.CORTEX_AGENT_USER</b></td><td>Database roles that unlock Cortex AI. At least one is required on every surface. CORTEX_USER is granted to PUBLIC by default, but a bank may have revoked that.</td><td>Admin</td></tr>
+        <tr><td><b>SNOWFLAKE.COPILOT_USER</b></td><td>Listed as required for CoCo in Snowsight. A Snowflake change rolling out from the week of 19 October 2026 removes this need; the date can vary by account. The CLI and Desktop never needed it.</td><td>Admin</td></tr>
+        <tr><td><b>Cross-region inference</b></td><td>Lets Snowflake call an AI model in another region if your region lacks it. CoCo is available to accounts with it enabled.</td><td>ACCOUNTADMIN</td></tr>
+        <tr><td><b>A daily credit limit above 0</b></td><td>Each surface has a per-user daily limit parameter. <code>-1</code> (the default) means no limit; <code>0</code> blocks CoCo.</td><td>Admin</td></tr>
+        <tr><td><b>Trial accounts</b></td><td>On self-service trials, AI features are off by default. An admin must add a credit card; this does not upgrade or end the trial. The CLI does not support standard trials; it has its own CoCo trial at signup.snowflake.com/cortex-code.</td><td>You, on your trial</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>If CoCo returns a permissions error, the docs say to check your <b>default role</b>: CoCo starts each session with it. You can ask CoCo to switch roles inside a chat.</p>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>On day one at a bank, you will not be ACCOUNTADMIN. You will get a project role, for example <code>DS_CHURN_ROLE</code>. Send your admin a short, precise request rather than "CoCo does not work":</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre>Hi, I am on the churn project. To use CoCo in Snowsight, could you confirm that:
+1. my default role DS_CHURN_ROLE has SNOWFLAKE.CORTEX_USER (or CORTEX_AGENT_USER),
+2. it has SNOWFLAKE.COPILOT_USER, if our account still needs it,
+3. cross-region inference is allowed for our account, and
+4. CORTEX_CODE_SNOWSIGHT_DAILY_EST_CREDIT_LIMIT_PER_USER is not 0 for me.
+Thank you!</pre></div>
+  <p>Some banks deliberately turn cross-region inference off, because data must not leave a region. If so, CoCo may only offer the models hosted in your region, or may not be available. That is a policy decision; respect it.</p>
+</section>
+
+<section class="sec" id="sim-setup" data-toc="Simulator: setup check">
+  <h2>Try it: ask CoCo to check your setup</h2>
+  <div data-simulator="coco-1-2-setup-check"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>After any data load you check three things: row counts, duplicates and missing values. These small tables look like the project's RAW tables. Each challenge is a check you asked CoCo for: write the SQL it should produce.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: switch CoCo on in your trial</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Enable AI, grant the roles, open the panel</h3>
+      <div class="meta"><span>About 10 min</span><span>Your Snowflake trial</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>In Snowsight, open <b>Admin » Billing</b> (on some accounts, <b>Admin » Billing &amp; Terms</b>) and add a payment card. This turns on AI features in a self-service trial. It does not upgrade the trial or end your free credits.</p>
+        <p class="expect">Expected: the card is saved. If your menu looks different, search the Snowsight help for "payment method"; menu names may vary by account.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Open a new SQL file in <b>Projects » Workspaces</b> and run this as ACCOUNTADMIN:</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE ROLE</span> ACCOUNTADMIN;
+<span class="kw">ALTER ACCOUNT SET</span> CORTEX_ENABLED_CROSS_REGION = 'ANY_REGION';
+<span class="kw">GRANT DATABASE ROLE</span> SNOWFLAKE.CORTEX_USER <span class="kw">TO ROLE</span> ACCOUNTADMIN;
+<span class="kw">GRANT DATABASE ROLE</span> SNOWFLAKE.COPILOT_USER <span class="kw">TO ROLE</span> ACCOUNTADMIN;
+<span class="kw">SHOW PARAMETERS LIKE</span> 'CORTEX_CODE%' <span class="kw">IN ACCOUNT</span>;</pre></div>
+        <p class="expect">Expected: "Statement executed successfully" for the first four, then a list of CORTEX_CODE parameters. The daily limits should show -1 (no limit). If a GRANT says the role is already granted, that is fine.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Refresh the page and select the <b>CoCo icon in the lower-right corner</b>. Ask: <i>"Am I set up correctly to use you? Check my role and grants."</i></p>
+        <p class="expect">Expected: the panel opens and CoCo answers, maybe after running SELECT CURRENT_ROLE() or SHOW GRANTS. If the icon is still missing, sign out and in again; if it is still missing, availability may vary by account, so check the CoCo docs.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Find the <b>model selector</b> at the lower right of the message box. Leave it on <b>Auto</b> for this course.</p>
+        <p class="expect">Expected: a list such as Auto, Auto Intelligent, Auto Efficient and named models. The list depends on your role and region.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="project" data-toc="Project step P1">
+  <h2>Project step P1: create the project database and load data</h2>
+  <div class="callout project">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>
+    <div><div class="label">What we build and why</div><p>The <b>Bank Churn Predictor</b> needs a home. In P1 you create warehouse <code>LEARN_WH</code>, database <code>BANK_DS</code> with five schemas (<code>RAW</code>, <code>CLEAN</code>, <code>FEATURES</code>, <code>ML</code>, <code>APP</code>), and load three synthetic bank tables into <code>RAW</code>. Every later step reads from here: P2 explores RAW, P3 cleans it into CLEAN, P4 builds FEATURES, P5 and P6 train and score in ML, P7 builds a dashboard in APP.</p></div>
+  </div>
+  <p>The data is fake but realistic, and it has the problems real bank data has: about 2% of ages are missing and 30 customers were loaded twice. Churn is not random: it is higher for inactive members, short tenure, customers with one product and customers who raise many support tickets. That is what lets a model learn it in P5.</p>
+  <h3>Path A: ask CoCo to write it</h3>
+  <p>Open a new SQL file in Workspaces, open the CoCo panel, and paste this prompt:</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre>Write, but do not run, one Snowflake SQL script that:
+1. Creates warehouse LEARN_WH (XSMALL, AUTO_SUSPEND = 60, AUTO_RESUME = TRUE) if missing,
+   database BANK_DS and schemas RAW, CLEAN, FEATURES, ML, APP.
+2. Creates BANK_DS.RAW.CUSTOMERS with 5,000 synthetic rows using TABLE(GENERATOR(ROWCOUNT => 5000))
+   and UNIFORM with RANDOM(seed), a different fixed seed per column. Columns: CUSTOMER_ID NUMBER,
+   AGE NUMBER, CITY VARCHAR, SEGMENT VARCHAR ('RETAIL','PRIORITY','BUSINESS'), TENURE_MONTHS NUMBER,
+   NUM_PRODUCTS NUMBER, HAS_CREDIT_CARD BOOLEAN, IS_ACTIVE_MEMBER BOOLEAN,
+   ESTIMATED_SALARY NUMBER(12,2), BALANCE NUMBER(12,2), JOINED_ON DATE, CHURNED BOOLEAN.
+   CHURNED must be more likely when inactive, tenure under 12 months, 1 product, or many tickets.
+   Set AGE to NULL for about 2% of rows and append 30 duplicate CUSTOMER_ID rows.
+3. Creates RAW.TRANSACTIONS (about 100,000 rows in the 12 months up to 2026-09-30; TXN_TYPE in
+   DEPOSIT, WITHDRAWAL, TRANSFER, UPI, CARD) and RAW.SUPPORT_TICKETS (about 8,000 rows; CATEGORY in
+   FEES, CARD, LOAN, APP, SERVICE; RESOLVED BOOLEAN).
+4. Ends with row-count checks. Explain each step in one comment line.</pre></div>
+  <p>Step through what a typical answer looks like, and what to check:</p>
+  <div data-simulator="coco-1-2-p1-load"></div>
+  <h3>Path B: the vetted script</h3>
+  <p>CoCo's script will differ from person to person. So that everyone on this course has the <b>same tables with the same columns and the same data problems</b>, run this vetted script. If CoCo wrote something different, keep its script for comparison, but load the data with this one. It is safe to re-run.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre>-- Bank Churn Predictor, project step P1: setup and synthetic data
+-- Safe to re-run: every object uses IF NOT EXISTS or CREATE OR REPLACE.
+USE ROLE ACCOUNTADMIN;
+
+-- 0. Warehouse, database and the five schemas
+CREATE WAREHOUSE IF NOT EXISTS LEARN_WH
+  WAREHOUSE_SIZE = 'XSMALL' AUTO_SUSPEND = 60 AUTO_RESUME = TRUE INITIALLY_SUSPENDED = TRUE;
+USE WAREHOUSE LEARN_WH;
+CREATE DATABASE IF NOT EXISTS BANK_DS;
+CREATE SCHEMA IF NOT EXISTS BANK_DS.RAW;
+CREATE SCHEMA IF NOT EXISTS BANK_DS.CLEAN;
+CREATE SCHEMA IF NOT EXISTS BANK_DS.FEATURES;
+CREATE SCHEMA IF NOT EXISTS BANK_DS.ML;
+CREATE SCHEMA IF NOT EXISTS BANK_DS.APP;
+USE SCHEMA BANK_DS.RAW;
+
+-- 1. One random draw per column, each with its own fixed seed
+CREATE OR REPLACE TEMPORARY TABLE CUST_DRAWS AS
+SELECT
+  ROW_NUMBER() OVER (ORDER BY SEQ4())       AS CUSTOMER_ID,
+  UNIFORM(18, 75, RANDOM(101))              AS AGE,
+  UNIFORM(1, 6, RANDOM(102))                AS CITY_N,
+  UNIFORM(1, 100, RANDOM(103))              AS SEGMENT_N,
+  UNIFORM(1, 120, RANDOM(104))              AS TENURE_MONTHS,
+  UNIFORM(1, 100, RANDOM(105))              AS PRODUCTS_N,
+  UNIFORM(1, 100, RANDOM(106))              AS CARD_N,
+  UNIFORM(1, 100, RANDOM(107))              AS ACTIVE_N,
+  UNIFORM(15000, 250000, RANDOM(108))       AS SALARY_N,
+  UNIFORM(1, 100, RANDOM(109))              AS BALANCE_N,
+  UNIFORM(1000, 900000, RANDOM(110))        AS BALANCE_AMT,
+  UNIFORM(0, 99, RANDOM(111))               AS PAISE,
+  UNIFORM(0::FLOAT, 1::FLOAT, RANDOM(112))  AS CHURN_DRAW,
+  UNIFORM(1, 100, RANDOM(113))              AS TICKETS_N
+FROM TABLE(GENERATOR(ROWCOUNT =&gt; 5000));
+
+-- 2. Turn the draws into customer features (plus a hidden ticket count)
+CREATE OR REPLACE TEMPORARY TABLE CUST_FEATURES AS
+SELECT
+  CUSTOMER_ID,
+  IFF(MOD(CUSTOMER_ID, 50) = 7, NULL, AGE) AS AGE,          -- exactly 100 NULL ages (2%)
+  DECODE(CITY_N, 1, 'Mumbai', 2, 'Delhi', 3, 'Bengaluru', 4, 'Chennai', 5, 'Hyderabad', 'Pune') AS CITY,
+  CASE WHEN SEGMENT_N &lt;= 70 THEN 'RETAIL' WHEN SEGMENT_N &lt;= 88 THEN 'PRIORITY' ELSE 'BUSINESS' END AS SEGMENT,
+  TENURE_MONTHS,
+  CASE WHEN PRODUCTS_N &lt;= 45 THEN 1 WHEN PRODUCTS_N &lt;= 85 THEN 2 WHEN PRODUCTS_N &lt;= 96 THEN 3 ELSE 4 END AS NUM_PRODUCTS,
+  CARD_N &lt;= 70   AS HAS_CREDIT_CARD,
+  ACTIVE_N &lt;= 55 AS IS_ACTIVE_MEMBER,
+  SALARY_N + PAISE / 100 AS ESTIMATED_SALARY,
+  IFF(BALANCE_N &lt;= 25, 0, BALANCE_AMT + PAISE / 100) AS BALANCE,   -- about 25% hold a zero balance
+  DATEADD(MONTH, -TENURE_MONTHS, '2026-09-30'::DATE) AS JOINED_ON,
+  CASE WHEN TICKETS_N &lt;= 36 THEN 0 WHEN TICKETS_N &lt;= 66 THEN 1 WHEN TICKETS_N &lt;= 86 THEN 2
+       WHEN TICKETS_N &lt;= 96 THEN 3 ELSE 4 END
+    + IFF(ACTIVE_N &lt;= 55, 0, 1) AS NUM_TICKETS,                  -- inactive customers complain more
+  CHURN_DRAW
+FROM CUST_DRAWS;
+
+-- 3. Churn label: the chance of leaving rises with each risk factor
+CREATE OR REPLACE TEMPORARY TABLE CUST_LABELLED AS
+SELECT *,
+  CHURN_DRAW &lt; ( 0.05
+               + IFF(IS_ACTIVE_MEMBER, 0, 0.15)
+               + CASE WHEN TENURE_MONTHS &lt; 12 THEN 0.12 WHEN TENURE_MONTHS &lt; 24 THEN 0.05 ELSE 0 END
+               + IFF(NUM_PRODUCTS = 1, 0.08, 0)
+               + LEAST(NUM_TICKETS, 4) * 0.04
+               + IFF(SEGMENT = 'RETAIL', 0.02, 0) ) AS CHURNED
+FROM CUST_FEATURES;
+
+-- 4. RAW.CUSTOMERS: 5,000 customers, then customers 1 to 30 loaded a second time (30 duplicates)
+CREATE OR REPLACE TABLE BANK_DS.RAW.CUSTOMERS AS
+WITH BASE_ROWS AS (
+  SELECT CUSTOMER_ID::NUMBER(38,0)       AS CUSTOMER_ID,
+         AGE::NUMBER(38,0)               AS AGE,
+         CITY::VARCHAR                   AS CITY,
+         SEGMENT::VARCHAR                AS SEGMENT,
+         TENURE_MONTHS::NUMBER(38,0)     AS TENURE_MONTHS,
+         NUM_PRODUCTS::NUMBER(38,0)      AS NUM_PRODUCTS,
+         HAS_CREDIT_CARD,
+         IS_ACTIVE_MEMBER,
+         ESTIMATED_SALARY::NUMBER(12,2)  AS ESTIMATED_SALARY,
+         BALANCE::NUMBER(12,2)           AS BALANCE,
+         JOINED_ON,
+         CHURNED
+  FROM CUST_LABELLED
+)
+SELECT * FROM BASE_ROWS
+UNION ALL
+SELECT * FROM BASE_ROWS WHERE CUSTOMER_ID &lt;= 30;
+
+-- 5. RAW.TRANSACTIONS: 100,000 rows in the 12 months up to 2026-09-30.
+--    Most customers who churned stopped transacting in the last 4 months.
+CREATE OR REPLACE TABLE BANK_DS.RAW.TRANSACTIONS AS
+WITH DRAWS AS (
+  SELECT ROW_NUMBER() OVER (ORDER BY SEQ4())                      AS TXN_ID,
+         UNIFORM(1, 5000, RANDOM(201))                            AS CUSTOMER_ID,
+         UNIFORM(0, 364, RANDOM(202))                             AS DAYS_ANY,
+         UNIFORM(120, 364, RANDOM(203))                           AS DAYS_OLD,
+         UNIFORM(1, 100, RANDOM(204))                             AS SHIFT_N,
+         ROUND(UNIFORM(100::FLOAT, 50000::FLOAT, RANDOM(205)), 2) AS AMOUNT,
+         UNIFORM(1, 5, RANDOM(206))                               AS TYPE_N,
+         UNIFORM(1, 4, RANDOM(207))                               AS CHANNEL_N
+  FROM TABLE(GENERATOR(ROWCOUNT =&gt; 100000))
+)
+SELECT d.TXN_ID::NUMBER(38,0)        AS TXN_ID,
+       d.CUSTOMER_ID::NUMBER(38,0)   AS CUSTOMER_ID,
+       DATEADD(DAY, -IFF(c.CHURNED AND d.SHIFT_N &lt;= 70, d.DAYS_OLD, d.DAYS_ANY), '2026-09-30'::DATE) AS TXN_DATE,
+       d.AMOUNT::NUMBER(12,2)        AS AMOUNT,
+       DECODE(d.TYPE_N, 1, 'DEPOSIT', 2, 'WITHDRAWAL', 3, 'TRANSFER', 4, 'UPI', 'CARD')::VARCHAR AS TXN_TYPE,
+       DECODE(d.CHANNEL_N, 1, 'MOBILE', 2, 'NET_BANKING', 3, 'BRANCH', 'ATM')::VARCHAR AS CHANNEL
+FROM DRAWS d
+JOIN CUST_LABELLED c ON c.CUSTOMER_ID = d.CUSTOMER_ID;
+
+-- 6. RAW.SUPPORT_TICKETS: NUM_TICKETS rows per customer (about 8,000 in total)
+CREATE OR REPLACE TABLE BANK_DS.RAW.SUPPORT_TICKETS AS
+WITH SLOTS AS (
+  SELECT ROW_NUMBER() OVER (ORDER BY SEQ4()) AS SLOT FROM TABLE(GENERATOR(ROWCOUNT =&gt; 5))
+),
+TICKET_ROWS AS (
+  SELECT c.CUSTOMER_ID, c.CHURNED, s.SLOT
+  FROM CUST_LABELLED c
+  JOIN SLOTS s ON s.SLOT &lt;= c.NUM_TICKETS
+)
+SELECT ROW_NUMBER() OVER (ORDER BY CUSTOMER_ID, SLOT)::NUMBER(38,0) AS TICKET_ID,
+       CUSTOMER_ID::NUMBER(38,0)                                    AS CUSTOMER_ID,
+       DATEADD(DAY, -UNIFORM(0, 364, RANDOM(301)), '2026-09-30'::DATE) AS OPENED_ON,
+       DECODE(UNIFORM(1, 5, RANDOM(302)), 1, 'FEES', 2, 'CARD', 3, 'LOAN', 4, 'APP', 'SERVICE')::VARCHAR AS CATEGORY,
+       UNIFORM(1, 100, RANDOM(303)) &lt;= IFF(CHURNED, 60, 85)         AS RESOLVED
+FROM TICKET_ROWS;
+
+-- 7. Tidy up the helper tables
+DROP TABLE IF EXISTS CUST_DRAWS;
+DROP TABLE IF EXISTS CUST_FEATURES;
+DROP TABLE IF EXISTS CUST_LABELLED;
+
+-- 8. Check the load
+SELECT 'CUSTOMERS' AS TABLE_NAME, COUNT(*) AS ROW_COUNT FROM BANK_DS.RAW.CUSTOMERS
+UNION ALL SELECT 'TRANSACTIONS', COUNT(*) FROM BANK_DS.RAW.TRANSACTIONS
+UNION ALL SELECT 'SUPPORT_TICKETS', COUNT(*) FROM BANK_DS.RAW.SUPPORT_TICKETS;
+
+SELECT COUNT(*)                                 AS CUSTOMER_ROWS,
+       COUNT(DISTINCT CUSTOMER_ID)              AS DISTINCT_CUSTOMERS,
+       COUNT_IF(AGE IS NULL)                    AS NULL_AGE_ROWS,
+       ROUND(AVG(IFF(CHURNED, 1, 0)) * 100, 1)  AS CHURN_PCT
+FROM BANK_DS.RAW.CUSTOMERS;</pre></div>
+  <h3>Expected results</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Check</th><th>Expected</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td><b>RAW.CUSTOMERS rows</b></td><td>5,030</td><td>5,000 customers plus 30 duplicates</td></tr>
+        <tr><td><b>Distinct CUSTOMER_ID</b></td><td>5,000</td><td>Ids 1 to 30 appear twice</td></tr>
+        <tr><td><b>NULL AGE rows</b></td><td>101</td><td>100 customers, and customer 7 is also a duplicate</td></tr>
+        <tr><td><b>RAW.TRANSACTIONS rows</b></td><td>100,000</td><td>Fixed by GENERATOR</td></tr>
+        <tr><td><b>RAW.SUPPORT_TICKETS rows</b></td><td>About 8,100 (7,800 to 8,400)</td><td>Depends on random draws</td></tr>
+        <tr><td><b>CHURN_PCT</b></td><td>About 25 (22 to 28)</td><td>Depends on random draws</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">If CoCo gives you something different</div><p>That is normal. Check its script against the prompt: all 12 columns with the right types, the five schemas, seeds on every RANDOM, the NULL ages and the 30 duplicates, and a churn rule that uses the features. A common miss is CHURNED drawn at random with no link to the features; a model could never learn that. Whatever CoCo wrote, load the data with the vetted script so your numbers match later lessons. Snowflake's docs say RANDOM is not guaranteed to repeat exactly even with a seed, which is why counts are fixed but churn and ticket totals are "about".</p></div>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember it</div><p>Four doors, one robot: Snowsight, Desktop, CLI and VS Code all reach the same account under your role. CoCo needs CORTEX_USER (plus COPILOT_USER in Snowsight for now), cross-region inference and, on a trial, a card on file. Snowsight is the safe default on a bank project.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Surface</dt><dd>A place where you use CoCo: Snowsight, Desktop, CLI or VS Code.</dd>
+    <dt>Database role</dt><dd>A role that lives inside a database. SNOWFLAKE.CORTEX_USER is one; it is granted to your account role.</dd>
+    <dt>Cross-region inference</dt><dd>An account setting that lets Snowflake run AI models in another region.</dd>
+    <dt>connections.toml</dt><dd>A file on your laptop that stores named Snowflake connections for the CLI tools.</dd>
+    <dt>GENERATOR</dt><dd>A table function that produces a given number of empty rows to fill with generated values.</dd>
+    <dt>UNIFORM</dt><dd>A function that returns a random number between a minimum and maximum.</dd>
+    <dt>Seed</dt><dd>A fixed starting number for RANDOM, so each column gets its own sequence.</dd>
+    <dt>Temporary table</dt><dd>A table that disappears when your session ends. Good for helper steps.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#coco/1-3">1.3 How CoCo works →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+   "tables": {
+    "raw_customers": {
+      "columns": [["customer_id", "NUMBER"], ["age", "NUMBER", "NULL when missing"], ["city", "VARCHAR"], ["segment", "VARCHAR", "RETAIL, PRIORITY or BUSINESS"], ["tenure_months", "NUMBER"], ["is_active_member", "NUMBER", "1 = active, 0 = not"], ["churned", "NUMBER", "1 = left, 0 = stayed"]],
+      "rows": [
+        [1, 34, "Mumbai", "RETAIL", 4, 0, 1],
+        [2, 51, "Delhi", "PRIORITY", 60, 1, 0],
+        [3, null, "Chennai", "RETAIL", 18, 0, 1],
+        [4, 45, "Bengaluru", "BUSINESS", 96, 1, 0],
+        [5, 29, "Mumbai", "RETAIL", 30, 1, 0],
+        [6, 23, "Pune", "RETAIL", 7, 0, 1],
+        [7, null, "Delhi", "RETAIL", 72, 1, 0],
+        [8, 38, "Hyderabad", "PRIORITY", 11, 0, 1],
+        [9, 62, "Chennai", "BUSINESS", 40, 1, 0],
+        [10, 27, "Bengaluru", "RETAIL", 2, 0, 1],
+        [1, 34, "Mumbai", "RETAIL", 4, 0, 1],
+        [2, 51, "Delhi", "PRIORITY", 60, 1, 0],
+        [11, 44, "Mumbai", "PRIORITY", 84, 1, 0],
+        [12, 31, "Pune", "RETAIL", 55, 0, 0]
+      ]
+    },
+    "raw_tickets": {
+      "columns": [["ticket_id", "NUMBER"], ["customer_id", "NUMBER"], ["opened_on", "DATE"], ["category", "VARCHAR", "FEES, CARD, LOAN, APP or SERVICE"], ["resolved", "NUMBER", "1 = yes, 0 = no"]],
+      "rows": [
+        [101, 1, "2026-05-02", "FEES", 0],
+        [102, 1, "2026-06-11", "CARD", 0],
+        [103, 3, "2026-04-20", "APP", 1],
+        [104, 6, "2026-07-01", "FEES", 0],
+        [105, 8, "2026-08-15", "SERVICE", 1],
+        [106, 10, "2026-09-03", "FEES", 0],
+        [107, 10, "2026-09-20", "APP", 0],
+        [108, 2, "2026-03-14", "LOAN", 1],
+        [109, 5, "2026-02-09", "CARD", 1],
+        [110, 12, "2026-08-28", "SERVICE", 1]
+      ]
+    }
+   },
+   "starter": "-- You asked CoCo: 'Check the load: how many rows are in each table?'\nSELECT 'raw_customers' AS table_name, COUNT(*) AS row_count FROM raw_customers\nUNION ALL\nSELECT 'raw_tickets', COUNT(*) FROM raw_tickets",
+   "examples": [
+    {"label": "Rows vs distinct ids", "sql": "SELECT COUNT(*) AS customer_rows,\n       COUNT(DISTINCT customer_id) AS distinct_customers\nFROM raw_customers"},
+    {"label": "Which ids are duplicated?", "sql": "SELECT customer_id, COUNT(*) AS copies\nFROM raw_customers\nGROUP BY customer_id\nHAVING COUNT(*) > 1\nORDER BY customer_id"},
+    {"label": "Tickets per category", "sql": "SELECT category, COUNT(*) AS tickets\nFROM raw_tickets\nGROUP BY category\nORDER BY tickets DESC, category"}
+   ],
+   "challenges": [
+    {"task": "You asked CoCo: 'How many customer rows have a missing age?' Write the SQL it should produce (one number).", "hint": "COUNT(*) with WHERE age IS NULL. Note: '= NULL' never matches anything.", "answer": "SELECT COUNT(*) AS null_age_rows FROM raw_customers WHERE age IS NULL"},
+    {"task": "You asked CoCo: 'Churn rate in percent for active vs inactive members.' Write the SQL it should produce (is_active_member and churn percent).", "hint": "100.0 * SUM(churned) / COUNT(*), GROUP BY is_active_member, ORDER BY is_active_member.", "answer": "SELECT is_active_member, ROUND(100.0 * SUM(churned) / COUNT(*), 1) AS churn_pct FROM raw_customers GROUP BY is_active_member ORDER BY is_active_member"},
+    {"task": "You asked CoCo: 'How many unresolved tickets does each customer have? Only customers with at least one, most first.' Write the SQL it should produce.", "hint": "WHERE resolved = 0, GROUP BY customer_id, ORDER BY the count DESC then customer_id.", "answer": "SELECT customer_id, COUNT(*) AS open_tickets FROM raw_tickets WHERE resolved = 0 GROUP BY customer_id ORDER BY open_tickets DESC, customer_id"}
+   ]
+  },
+  "simulators": [
+    {"id": "coco-1-2-setup-check", "title": "Is my account ready for CoCo?", "tool": "coco", "intro": "You are on a fresh trial and want CoCo to check the setup for you.", "steps": [
+      {"prompt": "Check whether my current role has what it needs to use you. Only run read-only commands.", "say": "I checked your role and its grants. Your role ACCOUNTADMIN has SNOWFLAKE.CORTEX_USER through PUBLIC. I could not find SNOWFLAKE.COPILOT_USER on your role.", "code": {"lang": "sql", "text": "SELECT CURRENT_ROLE();\nSHOW GRANTS TO ROLE ACCOUNTADMIN;\nSHOW GRANTS TO ROLE PUBLIC;"}, "check": ["Only SELECT and SHOW: nothing was changed, as you asked", "It explains where CORTEX_USER came from (PUBLIC)"]},
+      {"prompt": "Is cross-region inference enabled on this account?", "say": "It is set to DISABLED. To allow CoCo to use models in other regions, an ACCOUNTADMIN can run the statement below. I have not run it.", "code": {"lang": "sql", "text": "SHOW PARAMETERS LIKE 'CORTEX_ENABLED_CROSS_REGION' IN ACCOUNT;\n\n-- Proposed, not run:\nALTER ACCOUNT SET CORTEX_ENABLED_CROSS_REGION = 'ANY_REGION';"}, "output": {"columns": ["key", "value", "default", "level"], "rows": [["CORTEX_ENABLED_CROSS_REGION", "DISABLED", "DISABLED", ""]]}, "check": ["ALTER ACCOUNT changes the whole account: fine on your own trial, a policy decision at a bank", "CoCo proposed it but did not run it"]},
+      {"prompt": "It is my own trial. Run the ALTER and grant COPILOT_USER to ACCOUNTADMIN.", "say": "Both statements ran successfully. Refresh Snowsight if any CoCo feature still looks disabled.", "code": {"lang": "sql", "text": "ALTER ACCOUNT SET CORTEX_ENABLED_CROSS_REGION = 'ANY_REGION';\nGRANT DATABASE ROLE SNOWFLAKE.COPILOT_USER TO ROLE ACCOUNTADMIN;"}, "outputText": "Statement executed successfully.\nStatement executed successfully.", "check": ["You gave explicit approval for an account-level change", "On a client account you would send this to the admin team instead"]},
+      {"prompt": "What are my daily CoCo credit limits?", "say": "Each surface has its own per-user daily limit. All three are -1, which means no limit. A value of 0 would block that surface.", "code": {"lang": "sql", "text": "SHOW PARAMETERS LIKE 'CORTEX_CODE%' IN ACCOUNT;"}, "output": {"columns": ["key", "value"], "rows": [["CORTEX_CODE_CLI_DAILY_EST_CREDIT_LIMIT_PER_USER", "-1"], ["CORTEX_CODE_DESKTOP_DAILY_EST_CREDIT_LIMIT_PER_USER", "-1"], ["CORTEX_CODE_SNOWSIGHT_DAILY_EST_CREDIT_LIMIT_PER_USER", "-1"]]}, "check": ["-1 = unlimited, 0 = blocked, a positive number = a cap over a rolling 24 hours", "Lesson 2.4 shows how to watch what CoCo costs"]}
+    ]},
+    {"id": "coco-1-2-p1-load", "title": "P1: CoCo writes the load script", "tool": "coco", "intro": "You pasted the Path A prompt into the CoCo panel. Here is a typical session.", "steps": [
+      {"prompt": "(The Path A prompt above: create LEARN_WH, BANK_DS, five schemas, and three synthetic RAW tables. Write, do not run.)", "say": "Here is the script. I have not run it. Step 1 creates the warehouse, database and schemas. Step 2 builds 5,000 customers from GENERATOR with a seeded RANDOM per column.", "code": {"lang": "sql", "text": "CREATE WAREHOUSE IF NOT EXISTS LEARN_WH\n  WAREHOUSE_SIZE = 'XSMALL' AUTO_SUSPEND = 60 AUTO_RESUME = TRUE;\nCREATE DATABASE IF NOT EXISTS BANK_DS;\nCREATE SCHEMA IF NOT EXISTS BANK_DS.RAW;\n-- ... CLEAN, FEATURES, ML, APP\n\nCREATE OR REPLACE TABLE BANK_DS.RAW.CUSTOMERS AS\nSELECT SEQ4() + 1 AS CUSTOMER_ID,\n       UNIFORM(18, 75, RANDOM(1)) AS AGE,\n       ...\n       UNIFORM(1, 100, RANDOM(9)) <= 25 AS CHURNED\nFROM TABLE(GENERATOR(ROWCOUNT => 5000));"}, "check": ["All five schemas created?", "SEQ4() can have gaps; ROW_NUMBER() OVER (ORDER BY SEQ4()) is safer for ids", "CHURNED here is a flat 25% coin flip with no link to the features: a model could never learn it"]},
+      {"prompt": "CHURNED must depend on the features. Make it more likely when IS_ACTIVE_MEMBER is false, tenure is under 12 months, NUM_PRODUCTS = 1, or the customer has many support tickets. Also add the 2% NULL ages and 30 duplicate ids. Show only the changed part.", "say": "Updated. I now build the features first in a temporary table, add a hidden ticket count, and compare a random draw with a probability that rises with each risk factor. Ages are NULL where MOD(CUSTOMER_ID, 50) = 7, which is exactly 100 rows, and ids 1 to 30 are appended a second time.", "code": {"lang": "sql", "text": "CHURN_DRAW < ( 0.05\n             + IFF(IS_ACTIVE_MEMBER, 0, 0.15)\n             + CASE WHEN TENURE_MONTHS < 12 THEN 0.12 WHEN TENURE_MONTHS < 24 THEN 0.05 ELSE 0 END\n             + IFF(NUM_PRODUCTS = 1, 0.08, 0)\n             + LEAST(NUM_TICKETS, 4) * 0.04 ) AS CHURNED"}, "check": ["Each risk factor pushes the probability up: that is the signal for P5", "NULL ages and duplicates are now deliberate and countable", "Compare with the vetted script below; they should match in spirit"]},
+      {"prompt": "Run the vetted script I pasted into the editor, then run the final checks.", "say": "The script ran. Here are the row counts and the customer checks.", "code": {"lang": "sql", "text": "SELECT 'CUSTOMERS' AS TABLE_NAME, COUNT(*) AS ROW_COUNT FROM BANK_DS.RAW.CUSTOMERS\nUNION ALL SELECT 'TRANSACTIONS', COUNT(*) FROM BANK_DS.RAW.TRANSACTIONS\nUNION ALL SELECT 'SUPPORT_TICKETS', COUNT(*) FROM BANK_DS.RAW.SUPPORT_TICKETS;"}, "output": {"columns": ["TABLE_NAME", "ROW_COUNT"], "rows": [["CUSTOMERS", 5030], ["TRANSACTIONS", 100000], ["SUPPORT_TICKETS", 8128]]}, "check": ["CUSTOMERS = 5,030 and TRANSACTIONS = 100,000 exactly", "SUPPORT_TICKETS about 8,100: yours may differ slightly"]},
+      {"prompt": "And the duplicate, NULL and churn checks?", "code": {"lang": "sql", "text": "SELECT COUNT(*) AS CUSTOMER_ROWS,\n       COUNT(DISTINCT CUSTOMER_ID) AS DISTINCT_CUSTOMERS,\n       COUNT_IF(AGE IS NULL) AS NULL_AGE_ROWS,\n       ROUND(AVG(IFF(CHURNED, 1, 0)) * 100, 1) AS CHURN_PCT\nFROM BANK_DS.RAW.CUSTOMERS;"}, "output": {"columns": ["CUSTOMER_ROWS", "DISTINCT_CUSTOMERS", "NULL_AGE_ROWS", "CHURN_PCT"], "rows": [[5030, 5000, 101, 25.0]]}, "check": ["5,030 rows but 5,000 distinct ids: the 30 duplicates are there for P3", "101 NULL ages (customer 7 is NULL and also duplicated)", "Churn about 25%: realistic for a churn study"]}
+    ]}
+  ],
+  "quiz": [
+    {"q": "Where do you open CoCo in Snowsight?", "options": ["Admin » Billing", "The CoCo icon in the lower-right corner", "Data » Databases"], "answer": 1, "why": "The docs say to select the CoCo icon in the lower-right corner; a panel opens on the right."},
+    {"q": "Which database role is required on every CoCo surface?", "options": ["SNOWFLAKE.CORTEX_USER or SNOWFLAKE.CORTEX_AGENT_USER", "SNOWFLAKE.OBJECT_VIEWER", "SYSADMIN"], "answer": 0, "why": "At least one of CORTEX_USER or CORTEX_AGENT_USER is required. COPILOT_USER is an extra Snowsight requirement that is being removed."},
+    {"q": "Your trial shows no AI features. What is the most likely fix?", "options": ["Buy a bigger warehouse", "An admin adds a credit card to the trial account", "Reinstall the browser"], "answer": 1, "why": "On self-service trials, AI features are off by default. Adding a card turns them on without upgrading or ending the trial."},
+    {"q": "What command starts the CoCo CLI after install?", "options": ["snow coco", "coco start", "cortex"], "answer": 2, "why": "The CLI executable is still called cortex, from the product's former name Cortex Code."},
+    {"q": "A daily limit parameter for CoCo is set to 0. What happens?", "options": ["CoCo is blocked on that surface", "CoCo is unlimited", "CoCo uses free credits"], "answer": 0, "why": "-1 means no limit, 0 blocks access, and a positive number caps estimated credits over a rolling 24 hours."},
+    {"q": "Why does the P1 vetted script give each column its own RANDOM seed?", "options": ["Seeds make the query faster", "Calls with the same seed return the same value within a row, which would make columns move together", "Snowflake requires a seed"], "answer": 1, "why": "Snowflake's docs say RANDOM with the same seed returns the same value for each call in a row. Distinct seeds keep the columns independent."}
+  ]
+}
+</script>

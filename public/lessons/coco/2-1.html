@@ -1,0 +1,368 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>CoCo Masterclass</span><span>Module 2 · CoCo for SQL and data</span><span>Lesson 2.1</span></div>
+  <h1>Explore a new schema</h1>
+  <p class="lede">Day one on a project means a schema you have never seen. Learn a repeatable exploration checklist, the CoCo prompt for each step, and run it on the Bank Churn Predictor data.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 min</span>
+    <span class="badge">Intermediate</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab + project step P2</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Follow an 8-step checklist to explore any unfamiliar schema</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Find the grain, keys and join paths of a table</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Spot duplicates, missing values and orphan rows before they bite</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explore BANK_DS.RAW with CoCo and find its churn patterns (P2)</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+<div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">Exploring a schema means building a map before you analyse: which tables exist, what one row means (the <b>grain</b>), which columns are keys, how tables join, how big and how old the data is, and what is broken.</p></div>
+  </div>
+  <p>Skip this and your first churn chart may count the same customer twice or silently drop customers with no transactions. Ten minutes of exploring saves days of wrong answers.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a tour of a new library wing</h2>
+<p>The library opens a new wing and you must find books in it by Friday. You would not start pulling books at random. You would ask the robot for a tour: which rooms exist, what is on each shelf, how the shelves connect, which shelves are half empty and which books appear twice.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Rooms and shelves</b><span>In Snowflake: the tables in a schema and their row counts</span></div>
+    <div><small>In the library</small><b>What one book is</b><span>In Snowflake: the grain, for example one row per customer or per transaction</span></div>
+    <div><small>In the library</small><b>Corridors between shelves</b><span>In Snowflake: join keys such as CUSTOMER_ID</span></div>
+  </div>
+</section>
+
+<section class="sec" id="checklist" data-toc="The checklist">
+  <h2>The 8-step exploration checklist</h2>
+<div class="table-wrap">
+    <table>
+      <thead><tr><th>Step</th><th>Question</th><th>Prompt for CoCo</th></tr></thead>
+      <tbody>
+        <tr><td><b>1. Inventory</b></td><td>Which tables exist, how many rows?</td><td>"List the tables in @BANK_DS.RAW with row counts."</td></tr>
+        <tr><td><b>2. Columns</b></td><td>What is in each table?</td><td>"Describe @BANK_DS.RAW.CUSTOMERS: column, type, and a guess at the meaning."</td></tr>
+        <tr><td><b>3. Grain</b></td><td>What does one row mean?</td><td>"Is CUSTOMERS one row per CUSTOMER_ID? Compare COUNT(*) and COUNT(DISTINCT)."</td></tr>
+        <tr><td><b>4. Joins</b></td><td>How do tables connect?</td><td>"Which columns join TRANSACTIONS and SUPPORT_TICKETS to CUSTOMERS? Count orphan rows."</td></tr>
+        <tr><td><b>5. Ranges</b></td><td>How old and how wide is the data?</td><td>"MIN and MAX of every date column."</td></tr>
+        <tr><td><b>6. Nulls</b></td><td>What is missing?</td><td>"Count NULLs per column in CUSTOMERS."</td></tr>
+        <tr><td><b>7. Distributions</b></td><td>What do values look like?</td><td>"Counts per SEGMENT, TXN_TYPE and CATEGORY."</td></tr>
+        <tr><td><b>8. Target</b></td><td>How does the label behave?</td><td>"Churn percent overall and by segment, tenure band and products, one row per customer."</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Read-only, always</div><p>Add "read-only: SELECT, SHOW and DESCRIBE only" to exploration prompts. Exploring should never change anything.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+<p>Real bank schemas hide traps that exploration catches early:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Trap</th><th>How you catch it</th></tr></thead>
+      <tbody>
+        <tr><td><b>A customer table with one row per <i>account</i>, not per customer</b></td><td>Step 3: COUNT(*) is far bigger than COUNT(DISTINCT CUSTOMER_ID)</td></tr>
+        <tr><td><b>Transactions for customers missing from the customer table</b></td><td>Step 4: LEFT JOIN and count rows where the customer side is NULL</td></tr>
+        <tr><td><b>Only 3 months of history when the model needs 12</b></td><td>Step 5: MIN and MAX of the date column</td></tr>
+        <tr><td><b>A churn flag that is NULL for new customers</b></td><td>Step 6 and step 8: NULL count on the label</td></tr>
+        <tr><td><b>Amounts in different currencies in one column</b></td><td>Step 7: counts per currency code before any SUM</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="sec" id="sim" data-toc="Simulator: a schema tour">
+  <h2>Try it: a schema tour with CoCo</h2>
+<div data-simulator="coco-2-1-tour"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+<p>Three small tables that look like the project data. <code>cust</code> has a duplicate and <code>tickets</code> has an orphan, just like real life. Write the SQL CoCo should produce.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: explore a schema you have never seen</h2>
+<div class="panel">
+    <div class="panel-head">
+      <h3>Run the checklist on the TPC-H sample data</h3>
+      <div class="meta"><span>About 15 min</span><span>Your trial, sample database</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>Open the CoCo panel and ask for an inventory.</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre>Read-only. List the tables in SNOWFLAKE_SAMPLE_DATA.TPCH_SF1 with row counts, and guess what each one holds in one line.</pre></div>
+        <p class="expect">Expected: 8 tables, from REGION (5 rows) and NATION (25) up to LINEITEM (about 6 million).</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Ask for the grain and the keys.</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre>For ORDERS and LINEITEM in that schema: what does one row mean, and which columns join them? Prove the grain with COUNT(*) vs COUNT(DISTINCT key).</pre></div>
+        <p class="expect">Expected: ORDERS: one row per O_ORDERKEY. LINEITEM: one row per order line, so O_ORDERKEY repeats; the key is L_ORDERKEY plus L_LINENUMBER.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Ask for ranges.</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre>MIN and MAX of O_ORDERDATE in ORDERS.</pre></div>
+        <p class="expect">Expected: about 1992-01-01 to 1998-08-02.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Ask CoCo to summarise what you learned as a short data map you can paste into your notes.</p>
+        <p class="expect">Expected: a list of tables, grain, keys and join paths. Check every line against what you saw in steps 1 to 3.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="project" data-toc="Project step P2">
+  <h2>Project step P2: explore the data with CoCo</h2>
+<div class="callout project">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>
+    <div><div class="label">What we build and why</div><p>Before cleaning or modelling, we need to know the RAW data: its size, its grain, its problems and how churn behaves. P2 is read-only: you <b>save nothing yet</b>. What you learn here decides what P3 cleans (duplicates, NULL ages) and which features P4 builds (tenure, products, activity, tickets).</p></div>
+  </div>
+  <h3>The CoCo prompts</h3>
+  <p>Use these one at a time in the CoCo panel. Each is read-only.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre>1. Read-only. List the tables in @BANK_DS.RAW with row counts.
+2. Is @BANK_DS.RAW.CUSTOMERS one row per CUSTOMER_ID? Show the duplicated ids.
+3. Count NULLs in AGE, TENURE_MONTHS, BALANCE and CHURNED.
+4. Keeping one row per CUSTOMER_ID, give churn percent by SEGMENT, by tenure band
+   (0-11, 12-23, 24-59, 60+ months), and by NUM_PRODUCTS and IS_ACTIVE_MEMBER.
+5. Join ticket counts per customer from SUPPORT_TICKETS and give churn percent by
+   number of tickets (cap at 4). Customers with no tickets count as 0.
+6. Date range of TRANSACTIONS and SUPPORT_TICKETS, and orphan rows whose CUSTOMER_ID
+   is not in CUSTOMERS. Then summarise the data issues you found.</pre></div>
+  <div data-simulator="coco-2-1-p2"></div>
+  <h3>The vetted SQL</h3>
+  <p>If CoCo's answers look odd, run this script and compare. It only reads.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre>-- Bank Churn Predictor, project step P2: explore (read-only, saves nothing)
+USE WAREHOUSE LEARN_WH;
+USE SCHEMA BANK_DS.RAW;
+
+-- 1. Inventory: tables and row counts
+SELECT TABLE_NAME, ROW_COUNT
+FROM BANK_DS.INFORMATION_SCHEMA.TABLES
+WHERE TABLE_SCHEMA = 'RAW'
+ORDER BY TABLE_NAME;
+
+-- 2. Grain: is CUSTOMERS one row per customer?
+SELECT COUNT(*) AS CUSTOMER_ROWS, COUNT(DISTINCT CUSTOMER_ID) AS DISTINCT_IDS
+FROM CUSTOMERS;
+
+SELECT CUSTOMER_ID, COUNT(*) AS COPIES
+FROM CUSTOMERS
+GROUP BY CUSTOMER_ID
+HAVING COUNT(*) &gt; 1
+ORDER BY CUSTOMER_ID;
+
+-- 3. Missing values in the columns a model will use
+SELECT COUNT_IF(AGE IS NULL)              AS NULL_AGE,
+       COUNT_IF(TENURE_MONTHS IS NULL)    AS NULL_TENURE,
+       COUNT_IF(BALANCE IS NULL)          AS NULL_BALANCE,
+       COUNT_IF(CHURNED IS NULL)          AS NULL_CHURNED
+FROM CUSTOMERS;
+
+-- 4. Churn overall and by segment, one row per customer
+WITH CUST AS (
+  SELECT * FROM CUSTOMERS
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY CUSTOMER_ID ORDER BY JOINED_ON) = 1
+)
+SELECT SEGMENT, COUNT(*) AS CUSTOMERS, ROUND(AVG(IFF(CHURNED, 1, 0)) * 100, 1) AS CHURN_PCT
+FROM CUST
+GROUP BY SEGMENT
+ORDER BY CHURN_PCT DESC;
+
+-- 5. Churn by tenure band
+WITH CUST AS (
+  SELECT * FROM CUSTOMERS
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY CUSTOMER_ID ORDER BY JOINED_ON) = 1
+)
+SELECT CASE WHEN TENURE_MONTHS &lt; 12 THEN '1: 0-11'
+            WHEN TENURE_MONTHS &lt; 24 THEN '2: 12-23'
+            WHEN TENURE_MONTHS &lt; 60 THEN '3: 24-59'
+            ELSE '4: 60+' END AS TENURE_BAND,
+       COUNT(*) AS CUSTOMERS,
+       ROUND(AVG(IFF(CHURNED, 1, 0)) * 100, 1) AS CHURN_PCT
+FROM CUST
+GROUP BY TENURE_BAND
+ORDER BY TENURE_BAND;
+
+-- 6. Churn by number of products and by activity
+WITH CUST AS (
+  SELECT * FROM CUSTOMERS
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY CUSTOMER_ID ORDER BY JOINED_ON) = 1
+)
+SELECT NUM_PRODUCTS, IS_ACTIVE_MEMBER, COUNT(*) AS CUSTOMERS,
+       ROUND(AVG(IFF(CHURNED, 1, 0)) * 100, 1) AS CHURN_PCT
+FROM CUST
+GROUP BY NUM_PRODUCTS, IS_ACTIVE_MEMBER
+ORDER BY NUM_PRODUCTS, IS_ACTIVE_MEMBER;
+
+-- 7. Churn by number of support tickets
+WITH CUST AS (
+  SELECT * FROM CUSTOMERS
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY CUSTOMER_ID ORDER BY JOINED_ON) = 1
+),
+T AS (SELECT CUSTOMER_ID, COUNT(*) AS TICKETS FROM SUPPORT_TICKETS GROUP BY CUSTOMER_ID)
+SELECT LEAST(COALESCE(T.TICKETS, 0), 4) AS TICKETS_CAPPED,
+       COUNT(*) AS CUSTOMERS,
+       ROUND(AVG(IFF(C.CHURNED, 1, 0)) * 100, 1) AS CHURN_PCT
+FROM CUST C
+LEFT JOIN T ON T.CUSTOMER_ID = C.CUSTOMER_ID
+GROUP BY TICKETS_CAPPED
+ORDER BY TICKETS_CAPPED;
+
+-- 8. Date ranges and orphans (rows whose CUSTOMER_ID is not in CUSTOMERS)
+SELECT 'TRANSACTIONS' AS TABLE_NAME, MIN(TXN_DATE) AS FIRST_DATE, MAX(TXN_DATE) AS LAST_DATE,
+       COUNT_IF(C.CUSTOMER_ID IS NULL) AS ORPHAN_ROWS
+FROM TRANSACTIONS X
+LEFT JOIN (SELECT DISTINCT CUSTOMER_ID FROM CUSTOMERS) C ON C.CUSTOMER_ID = X.CUSTOMER_ID
+UNION ALL
+SELECT 'SUPPORT_TICKETS', MIN(OPENED_ON), MAX(OPENED_ON), COUNT_IF(C.CUSTOMER_ID IS NULL)
+FROM SUPPORT_TICKETS S
+LEFT JOIN (SELECT DISTINCT CUSTOMER_ID FROM CUSTOMERS) C ON C.CUSTOMER_ID = S.CUSTOMER_ID;</pre></div>
+  <h3>Expected results</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Finding</th><th>Expected (yours will be close)</th></tr></thead>
+      <tbody>
+        <tr><td><b>Row counts</b></td><td>CUSTOMERS 5,030 · TRANSACTIONS 100,000 · SUPPORT_TICKETS about 8,100</td></tr>
+        <tr><td><b>Grain</b></td><td>5,030 rows, 5,000 distinct ids: ids 1 to 30 appear twice</td></tr>
+        <tr><td><b>NULLs</b></td><td>AGE 101, everything else 0</td></tr>
+        <tr><td><b>Churn overall</b></td><td>About 25%</td></tr>
+        <tr><td><b>By segment</b></td><td>RETAIL highest (about 26%), PRIORITY and BUSINESS about 20 to 22%</td></tr>
+        <tr><td><b>By tenure</b></td><td>0-11 months about 35%, falling to about 23% for 60+</td></tr>
+        <tr><td><b>By activity</b></td><td>Inactive about 34%, active about 17%</td></tr>
+        <tr><td><b>By tickets</b></td><td>0 tickets about 14%, rising to about 40% for 4 or more</td></tr>
+        <tr><td><b>Dates and orphans</b></td><td>Both tables from 2025-10-01 to 2026-09-30, 0 orphan rows</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">If CoCo gives you something different</div><p>Check three things. Did it remove duplicates before computing churn (QUALIFY or DISTINCT)? Did customers with no tickets stay in (LEFT JOIN plus COALESCE to 0)? Did it use the right tenure band edges? If the vetted SQL disagrees with CoCo, trust the vetted SQL, then ask CoCo "why do these differ?" and learn from its answer.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+<div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember it</div><p>Explore before you analyse: inventory, columns, grain, joins, ranges, nulls, distributions, target. Ask CoCo for each step, read-only, and verify the grain yourself. In P2 you found 30 duplicate ids, 101 NULL ages and clear churn signals.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+<dl class="glossary">
+    <dt>Grain</dt><dd>What one row of a table means, such as one customer or one transaction.</dd>
+    <dt>Key</dt><dd>A column (or columns) that identifies a row, such as CUSTOMER_ID.</dd>
+    <dt>Orphan row</dt><dd>A row whose key has no match in the parent table.</dd>
+    <dt>Distribution</dt><dd>How often each value appears.</dd>
+    <dt>Target</dt><dd>The column a model predicts. Here: CHURNED.</dd>
+    <dt>INFORMATION_SCHEMA</dt><dd>A built-in schema in every database that describes its tables and columns.</dd>
+    <dt>QUALIFY</dt><dd>A clause that filters rows on a window function, like WHERE for ROW_NUMBER().</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+<div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#coco/2-2">2.2 Write, explain and fix SQL →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+   "tables": {
+    "cust": {
+      "columns": [["customer_id", "NUMBER"], ["segment", "VARCHAR"], ["tenure_months", "NUMBER"], ["num_products", "NUMBER"], ["churned", "NUMBER", "1 = left"]],
+      "rows": [
+        [1, "RETAIL", 4, 1, 1],
+        [2, "PRIORITY", 60, 3, 0],
+        [3, "RETAIL", 18, 1, 1],
+        [4, "BUSINESS", 96, 2, 0],
+        [5, "RETAIL", 30, 2, 0],
+        [6, "RETAIL", 7, 1, 1],
+        [7, "RETAIL", 72, 2, 0],
+        [8, "PRIORITY", 11, 1, 1],
+        [9, "BUSINESS", 40, 3, 0],
+        [10, "RETAIL", 2, 1, 0],
+        [2, "PRIORITY", 60, 3, 0]
+      ]
+    },
+    "tickets": {
+      "columns": [["ticket_id", "NUMBER"], ["customer_id", "NUMBER"], ["opened_on", "DATE"], ["category", "VARCHAR"]],
+      "rows": [
+        [101, 1, "2026-05-02", "FEES"],
+        [102, 1, "2026-06-11", "CARD"],
+        [103, 3, "2026-04-20", "APP"],
+        [104, 6, "2026-07-01", "FEES"],
+        [105, 8, "2026-08-15", "SERVICE"],
+        [106, 99, "2026-09-03", "FEES"],
+        [107, 3, "2026-09-20", "APP"]
+      ]
+    },
+    "txns": {
+      "columns": [["txn_id", "NUMBER"], ["customer_id", "NUMBER"], ["txn_date", "DATE"], ["amount", "NUMBER"]],
+      "rows": [
+        [1, 1, "2025-11-03", 5000],
+        [2, 2, "2026-01-14", 1200],
+        [3, 4, "2026-08-20", 25000],
+        [4, 5, "2026-04-11", 800],
+        [5, 7, "2026-09-29", 9000],
+        [6, 9, "2025-10-02", 1500]
+      ]
+    }
+   },
+   "starter": "-- You asked CoCo: 'Is cust one row per customer?'\nSELECT COUNT(*) AS customer_rows,\n       COUNT(DISTINCT customer_id) AS distinct_ids\nFROM cust",
+   "examples": [
+    {"label": "Which ids repeat?", "sql": "SELECT customer_id, COUNT(*) AS copies\nFROM cust\nGROUP BY customer_id\nHAVING COUNT(*) > 1\nORDER BY customer_id"},
+    {"label": "Churn by products", "sql": "SELECT num_products, COUNT(*) AS customers,\n       ROUND(100.0 * SUM(churned) / COUNT(*), 1) AS churn_pct\nFROM (SELECT DISTINCT * FROM cust) c\nGROUP BY num_products\nORDER BY num_products"}
+   ],
+   "challenges": [
+    {"task": "You asked CoCo: 'Churn percent by tenure band: under 12 months as 0-11, otherwise 12+. Use distinct rows.' Write the SQL it should produce (band, customers, churn_pct), ordered by band.", "hint": "CASE WHEN tenure_months < 12 THEN '0-11' ELSE '12+' END, from (SELECT DISTINCT * FROM cust).", "answer": "SELECT CASE WHEN tenure_months < 12 THEN '0-11' ELSE '12+' END AS band, COUNT(*) AS customers, ROUND(100.0 * SUM(churned) / COUNT(*), 1) AS churn_pct FROM (SELECT DISTINCT * FROM cust) c GROUP BY band ORDER BY band"},
+    {"task": "You asked CoCo: 'Find orphan tickets: tickets whose customer_id is not in cust.' Write the SQL it should produce (ticket_id, customer_id).", "hint": "LEFT JOIN cust and keep rows where the cust side IS NULL. Use DISTINCT ids on the cust side so duplicates do not multiply rows.", "answer": "SELECT t.ticket_id, t.customer_id FROM tickets t LEFT JOIN (SELECT DISTINCT customer_id FROM cust) c ON c.customer_id = t.customer_id WHERE c.customer_id IS NULL ORDER BY t.ticket_id"},
+    {"task": "You asked CoCo: 'Date range of txns and of tickets, one row each.' Write the SQL it should produce (table_name, first_date, last_date).", "hint": "Two SELECTs with MIN and MAX, joined by UNION ALL.", "answer": "SELECT 'txns' AS table_name, MIN(txn_date) AS first_date, MAX(txn_date) AS last_date FROM txns UNION ALL SELECT 'tickets', MIN(opened_on), MAX(opened_on) FROM tickets ORDER BY table_name"}
+   ]
+  },
+  "simulators": [
+    {"id": "coco-2-1-tour", "title": "A first tour of an unknown schema", "tool": "coco", "intro": "A colleague gives you access to SNOWFLAKE_SAMPLE_DATA.TPCH_SF1 and says 'it is like orders data'.", "steps": [
+      {"prompt": "Read-only. List the tables in SNOWFLAKE_SAMPLE_DATA.TPCH_SF1 with row counts.", "say": "There are 8 tables. I used INFORMATION_SCHEMA.TABLES.", "code": {"lang": "sql", "text": "SELECT TABLE_NAME, ROW_COUNT\nFROM SNOWFLAKE_SAMPLE_DATA.INFORMATION_SCHEMA.TABLES\nWHERE TABLE_SCHEMA = 'TPCH_SF1'\nORDER BY ROW_COUNT DESC;"}, "output": {"columns": ["TABLE_NAME", "ROW_COUNT"], "rows": [["LINEITEM", 6001215], ["ORDERS", 1500000], ["PARTSUPP", 800000], ["PART", 200000], ["CUSTOMER", 150000], ["SUPPLIER", 10000], ["NATION", 25], ["REGION", 5]]}, "check": ["Read-only query", "Biggest table first: LINEITEM is where cost will come from"]},
+      {"prompt": "What is the grain of LINEITEM? Prove it.", "say": "One row per order line. L_ORDERKEY alone repeats; L_ORDERKEY plus L_LINENUMBER is unique.", "code": {"lang": "sql", "text": "SELECT COUNT(*) AS ROW_COUNT,\n       COUNT(DISTINCT L_ORDERKEY) AS ORDERS,\n       COUNT(DISTINCT L_ORDERKEY, L_LINENUMBER) AS ORDER_LINES\nFROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.LINEITEM;"}, "output": {"columns": ["ROW_COUNT", "ORDERS", "ORDER_LINES"], "rows": [[6001215, 1500000, 6001215]]}, "check": ["ROW_COUNT = ORDER_LINES proves the two-column key", "Joining ORDERS to LINEITEM will multiply order-level values; never SUM an order total after that join"]},
+      {"prompt": "How do CUSTOMER, ORDERS and NATION join?", "say": "CUSTOMER.C_CUSTKEY = ORDERS.O_CUSTKEY and CUSTOMER.C_NATIONKEY = NATION.N_NATIONKEY. Every order has a customer; about a third of customers have no orders.", "check": ["A claim like 'a third have no orders' needs a query; ask CoCo to show it", "Inner joins would silently drop customers without orders"]}
+    ]},
+    {"id": "coco-2-1-p2", "title": "P2: explore BANK_DS.RAW", "tool": "coco", "intro": "Project data from P1. Every step is read-only.", "steps": [
+      {"prompt": "Read-only. List the tables in @BANK_DS.RAW with row counts.", "code": {"lang": "sql", "text": "SELECT TABLE_NAME, ROW_COUNT\nFROM BANK_DS.INFORMATION_SCHEMA.TABLES\nWHERE TABLE_SCHEMA = 'RAW'\nORDER BY TABLE_NAME;"}, "output": {"columns": ["TABLE_NAME", "ROW_COUNT"], "rows": [["CUSTOMERS", 5030], ["SUPPORT_TICKETS", 8128], ["TRANSACTIONS", 100000]]}, "check": ["Matches the P1 expected counts", "No temporary helper tables left over"]},
+      {"prompt": "Is @BANK_DS.RAW.CUSTOMERS one row per CUSTOMER_ID? Then count NULLs in AGE, TENURE_MONTHS, BALANCE and CHURNED.", "say": "No. 5,030 rows but 5,000 distinct ids: ids 1 to 30 appear twice. AGE has 101 NULLs; the other columns have none.", "output": {"columns": ["CUSTOMER_ROWS", "DISTINCT_IDS", "NULL_AGE", "NULL_TENURE", "NULL_BALANCE", "NULL_CHURNED"], "rows": [[5030, 5000, 101, 0, 0, 0]]}, "check": ["Two issues for P3: duplicates and NULL AGE", "No NULLs in the label: good"]},
+      {"prompt": "Keeping one row per CUSTOMER_ID, churn percent by tenure band (0-11, 12-23, 24-59, 60+).", "code": {"lang": "sql", "text": "WITH CUST AS (\n  SELECT * FROM BANK_DS.RAW.CUSTOMERS\n  QUALIFY ROW_NUMBER() OVER (PARTITION BY CUSTOMER_ID ORDER BY JOINED_ON) = 1\n)\nSELECT CASE WHEN TENURE_MONTHS < 12 THEN '1: 0-11'\n            WHEN TENURE_MONTHS < 24 THEN '2: 12-23'\n            WHEN TENURE_MONTHS < 60 THEN '3: 24-59'\n            ELSE '4: 60+' END AS TENURE_BAND,\n       COUNT(*) AS CUSTOMERS,\n       ROUND(AVG(IFF(CHURNED, 1, 0)) * 100, 1) AS CHURN_PCT\nFROM CUST\nGROUP BY TENURE_BAND\nORDER BY TENURE_BAND;"}, "output": {"columns": ["TENURE_BAND", "CUSTOMERS", "CHURN_PCT"], "rows": [["1: 0-11", 434, 35.3], ["2: 12-23", 497, 31.4], ["3: 24-59", 1480, 23.6], ["4: 60+", 2589, 22.8]]}, "check": ["Customers add up to 5,000 (deduplicated)", "The '1:' prefix makes the bands sort in the right order", "New customers churn most: a strong feature for P4"]},
+      {"prompt": "Churn percent by number of support tickets, capped at 4. Customers with no tickets count as 0.", "code": {"lang": "sql", "text": "... LEFT JOIN (SELECT CUSTOMER_ID, COUNT(*) AS TICKETS\n              FROM BANK_DS.RAW.SUPPORT_TICKETS GROUP BY CUSTOMER_ID) T\n  ON T.CUSTOMER_ID = C.CUSTOMER_ID\nGROUP BY LEAST(COALESCE(T.TICKETS, 0), 4) ..."}, "output": {"columns": ["TICKETS_CAPPED", "CUSTOMERS", "CHURN_PCT"], "rows": [[0, 951, 14.2], [1, 1666, 22.6], [2, 1218, 25.7], [3, 732, 34.4], [4, 433, 39.5]]}, "check": ["LEFT JOIN plus COALESCE keeps the 951 customers with no tickets", "Churn climbs with every ticket"]},
+      {"prompt": "Summarise the data issues and churn signals you found. Bullet points.", "say": "Issues: 30 duplicate CUSTOMER_IDs (1 to 30); 101 NULL AGE rows. No orphans; dates run 2025-10-01 to 2026-09-30. Signals: churn about 25% overall, higher for RETAIL, tenure under 12 months, inactive members, 1 product, and many tickets.", "check": ["Every claim matches a query you saw", "This summary is the to-do list for P3 and the feature list for P4"]}
+    ]}
+  ],
+  "quiz": [
+    {"q": "What is the 'grain' of a table?", "options": ["Its file format", "What one row means, such as one customer or one transaction", "The number of columns"], "answer": 1, "why": "Knowing the grain tells you whether COUNT(*) counts customers or something else."},
+    {"q": "COUNT(*) is 5,030 but COUNT(DISTINCT CUSTOMER_ID) is 5,000. What does that tell you?", "options": ["30 rows are duplicate customer ids", "30 customers have NULL ids", "The table is corrupt"], "answer": 0, "why": "More rows than distinct ids means some ids repeat. In P1 ids 1 to 30 were loaded twice."},
+    {"q": "How do you find orphan tickets?", "options": ["INNER JOIN tickets to customers", "LEFT JOIN tickets to customers and keep rows where the customer side IS NULL", "COUNT(*) on tickets"], "answer": 1, "why": "A LEFT JOIN keeps every ticket; a NULL on the customer side means no match."},
+    {"q": "Why use LEFT JOIN plus COALESCE(tickets, 0) when adding ticket counts to customers?", "options": ["It is faster", "So customers with no tickets stay in, with 0", "To remove duplicates"], "answer": 1, "why": "An INNER JOIN would drop the customers with no tickets, who are the ones least likely to churn."},
+    {"q": "Which phrase should every exploration prompt include?", "options": ["'Use bypass mode'", "'Read-only: SELECT, SHOW and DESCRIBE only'", "'Drop temporary tables'"], "answer": 1, "why": "Exploring must never change data. Saying so keeps CoCo to read-only statements."},
+    {"q": "In P2, which group churned most?", "options": ["Customers with 60+ months tenure", "Customers with 4 or more support tickets", "Active members"], "answer": 1, "why": "Churn rises with tickets, reaching about 40% for 4 or more. Long-tenure and active customers churn least."}
+  ]
+}
+</script>

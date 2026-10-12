@@ -77,3 +77,25 @@ aside.toc { position: sticky; top: 56px; height: calc(100vh - 56px); padding: 32
 /* ─────────── playground link in the outline ─────────── */
 /* An icon instead of the status circle: it is a page, not a lesson to tick off. */
 .play-link .st { border: 0; box-shadow: none; color: var(--link); }
+
+/* ─────────── multi-course shell ─────────── */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+a.logo { color: var(--ink); text-decoration: none; border-radius: 8px; }
+.course-switch { min-width: 0; max-width: 280px; font: inherit; font-size: 14px; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 8px; padding: 6px 10px; text-overflow: ellipsis; }
+.course-switch:hover { border-color: var(--accent); }
+
+/* Outline: course name, then the project milestones block. */
+.course-name .mod-head b { font-size: 14px; color: var(--link); }
+.project-block .mod-head b { color: var(--ok); }
+.milestone .ms-id { font-family: var(--mono); font-size: 12px; color: var(--muted); font-weight: 600; }
+.milestone.done .ms-id { color: var(--ok); }
+
+/* "This lesson is being written" panel. */
+.writing { border-style: dashed; }
+
+@media (max-width: 860px) {
+  .course-switch { font-size: 16px; flex: 1 1 auto; max-width: none; padding-block: 5px; }
+}
+@media (max-width: 600px) {
+  .logo-text { display: none; }
+}

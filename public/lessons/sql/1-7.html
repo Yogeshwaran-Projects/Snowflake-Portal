@@ -1,0 +1,300 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>SQL: Beginner to Advanced</span><span>Module 1 · Beginner</span><span>Lesson 1.7</span></div>
+  <h1>GROUP BY and HAVING</h1>
+  <p class="lede">One total is useful. One total per city, per account type, per month is a report. GROUP BY makes the piles, aggregates measure each pile, and HAVING keeps only the piles that matter.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 min</span>
+    <span class="badge">Beginner</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice: 6 questions</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Make one row per group with <code>GROUP BY</code></li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Group by two columns or by an expression such as a month</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Filter groups by their totals with <code>HAVING</code></li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Say in which order SQL runs WHERE, GROUP BY, HAVING, SELECT and ORDER BY</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">GROUP BY splits the rows into piles that share the same value, then every aggregate is worked out once per pile. The result has one row per pile.</p></div>
+  </div>
+  <p>Lesson 1.6 squashed all rows into one. GROUP BY squashes them into one row <b>per group</b>. <code>GROUP BY city</code> gives one row for Mumbai, one for Delhi, and so on. Blanks form a pile of their own.</p>
+  <p><b>HAVING</b> is WHERE for piles. WHERE tests single rows before the piles are made. HAVING tests each finished pile, so it can use totals: <code>HAVING COUNT(*) &gt;= 2</code>.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like sorting cards into piles and counting each pile</h2>
+  <p>You ask the librarian: “sort the customer cards into one pile per city, then tell me how many cards are in each pile”. She makes a Mumbai pile, a Delhi pile, a Chennai pile, and a small pile for cards with no city written in. She counts each pile and writes one line per pile. If you add “and only tell me about piles with at least two cards”, she throws away the thin piles before writing. That last instruction is HAVING.</p>
+  <div class="map">
+    <div><small>In the library</small><b>One pile per city</b><span>In SQL: <code>GROUP BY city</code></span></div>
+    <div><small>In the library</small><b>Count or add up each pile</b><span>In SQL: <code>COUNT(*)</code>, <code>SUM(balance)</code> next to the group column</span></div>
+    <div><small>In the library</small><b>Only piles with 2 or more cards</b><span>In SQL: <code>HAVING COUNT(*) &gt;= 2</code></span></div>
+  </div>
+  <p>A sticky note on the slip (WHERE) decides which cards go into any pile at all. The pile rule (HAVING) decides which finished piles you hear about.</p>
+</section>
+
+<section class="sec" id="syntax" data-toc="How to write it">
+  <h2>How to write it, step by step</h2>
+  <p>Step 1: choose the group column and put it in both SELECT and GROUP BY. Step 2: add aggregates next to it. Step 3: filter rows with WHERE, filter groups with HAVING, then sort.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> acct_type, <span class="kw">COUNT</span>(*) <span class="kw">AS</span> n_accounts, <span class="kw">SUM</span>(balance) <span class="kw">AS</span> total_balance
+<span class="kw">FROM</span> accounts
+<span class="kw">WHERE</span> acct_status = 'ACTIVE'
+<span class="kw">GROUP BY</span> acct_type
+<span class="kw">HAVING</span> <span class="kw">COUNT</span>(*) &gt;= 3
+<span class="kw">ORDER BY</span> total_balance <span class="kw">DESC</span>;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Clause</th><th>Runs</th><th>What it means</th><th>Telling the librarian</th></tr></thead>
+      <tbody>
+        <tr><td><code>FROM</code></td><td>1st</td><td>Which shelf</td><td>“Take the accounts cards…”</td></tr>
+        <tr><td><code>WHERE</code></td><td>2nd</td><td>Which single rows go in</td><td>“…only the active ones…”</td></tr>
+        <tr><td><code>GROUP BY</code></td><td>3rd</td><td>Make the piles</td><td>“…one pile per account type…”</td></tr>
+        <tr><td><code>HAVING</code></td><td>4th</td><td>Keep only some piles, using totals</td><td>“…forget piles with fewer than 3 cards…”</td></tr>
+        <tr><td><code>SELECT</code></td><td>5th</td><td>Write one line per pile</td><td>“…write the type, the count and the total…”</td></tr>
+        <tr><td><code>ORDER BY</code>, <code>LIMIT</code></td><td>6th</td><td>Sort the lines, keep the top</td><td>“…biggest total first.”</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The golden rule: every column in SELECT must either be in GROUP BY or sit inside an aggregate. <code>SELECT city, cust_name, COUNT(*) ... GROUP BY city</code> fails, because one city pile holds many names and SQL cannot pick one.</p>
+</section>
+
+<section class="sec" id="examples" data-toc="Worked examples">
+  <h2>Worked examples</h2>
+  <p><b>Example 1: customers per city.</b> Eight piles, including one for the customer with no city.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> city, <span class="kw">COUNT</span>(*) <span class="kw">AS</span> n_customers
+<span class="kw">FROM</span> customers
+<span class="kw">GROUP BY</span> city
+<span class="kw">ORDER BY</span> n_customers <span class="kw">DESC</span>, city;</pre></div>
+  <div class="table-wrap"><table><thead><tr><th>city</th><th>n_customers</th></tr></thead><tbody>
+    <tr><td>Mumbai</td><td>4</td></tr><tr><td>Chennai</td><td>2</td></tr><tr><td>Delhi</td><td>2</td></tr><tr><td>…</td><td>8 rows in total, NULL with 1</td></tr>
+  </tbody></table></div>
+
+  <p><b>Example 2: two group columns.</b> One pile per type-and-channel pair. The blank channel makes its own pile under DEPOSIT.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> txn_type, channel, <span class="kw">COUNT</span>(*) <span class="kw">AS</span> n_txns, <span class="kw">SUM</span>(amount) <span class="kw">AS</span> total
+<span class="kw">FROM</span> transactions
+<span class="kw">GROUP BY</span> txn_type, channel
+<span class="kw">ORDER BY</span> txn_type, channel;</pre></div>
+  <div class="table-wrap"><table><thead><tr><th>txn_type</th><th>channel</th><th>n_txns</th><th>total</th></tr></thead><tbody>
+    <tr><td>DEPOSIT</td><td>BRANCH</td><td>3</td><td>372000</td></tr><tr><td>DEPOSIT</td><td>NETBANKING</td><td>3</td><td>340000</td></tr><tr><td>DEPOSIT</td><td>UPI</td><td>6</td><td>72500</td></tr><tr><td>DEPOSIT</td><td>NULL</td><td>1</td><td>9000</td></tr><tr><td>…</td><td>…</td><td>…</td><td>9 rows in total</td></tr>
+  </tbody></table></div>
+
+  <p><b>Example 3: group by a month.</b> You can group by an expression. Put the same expression in GROUP BY, or group by its alias.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> <span class="kw">EXTRACT</span>(<span class="kw">MONTH FROM</span> txn_date) <span class="kw">AS</span> txn_month, <span class="kw">SUM</span>(amount) <span class="kw">AS</span> total
+<span class="kw">FROM</span> transactions
+<span class="kw">GROUP BY</span> <span class="kw">EXTRACT</span>(<span class="kw">MONTH FROM</span> txn_date)
+<span class="kw">ORDER BY</span> txn_month;</pre></div>
+  <div class="table-wrap"><table><thead><tr><th>txn_month</th><th>total</th></tr></thead><tbody>
+    <tr><td>8</td><td>258000</td></tr><tr><td>9</td><td>1335500</td></tr>
+  </tbody></table></div>
+
+  <p><b>Example 4: WHERE, then GROUP BY, then HAVING.</b> Deposits only (WHERE), one pile per account, and only accounts whose deposits add up to more than 50000 (HAVING).</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> acct_id, <span class="kw">SUM</span>(amount) <span class="kw">AS</span> total_deposits
+<span class="kw">FROM</span> transactions
+<span class="kw">WHERE</span> txn_type = 'DEPOSIT'
+<span class="kw">GROUP BY</span> acct_id
+<span class="kw">HAVING</span> <span class="kw">SUM</span>(amount) &gt; 50000
+<span class="kw">ORDER BY</span> total_deposits <span class="kw">DESC</span>;</pre></div>
+  <div class="table-wrap"><table><thead><tr><th>acct_id</th><th>total_deposits</th></tr></thead><tbody>
+    <tr><td>111</td><td>350000</td></tr><tr><td>105</td><td>200000</td></tr><tr><td>101</td><td>130000</td></tr><tr><td>107</td><td>60000</td></tr>
+  </tbody></table></div>
+</section>
+
+<section class="sec" id="mistakes" data-toc="Common mistakes">
+  <h2>Common mistakes</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Watch out</div>
+      <p>1. A column in SELECT that is not in GROUP BY and not inside an aggregate. The error says “must appear in the GROUP BY clause”. Either add it to GROUP BY or wrap it in MIN, MAX or COUNT.</p>
+      <p>2. Putting a total in WHERE: <code>WHERE SUM(amount) &gt; 50000</code>. Totals do not exist yet when WHERE runs. Use HAVING.</p>
+      <p>3. Putting a row test in HAVING: <code>HAVING txn_type = 'DEPOSIT'</code>. It can work, but it makes every pile first and throws most away. WHERE is cheaper and clearer.</p>
+      <p>4. Forgetting that NULL makes a pile. <code>GROUP BY city</code> gives a row for the blank city. Filter it with <code>WHERE city IS NOT NULL</code> if the report should not show it.</p>
+      <p>5. Expecting a sorted result. GROUP BY does not sort. Add ORDER BY.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="snowflake" data-toc="On Snowflake">
+  <h2>On Snowflake</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">What is different on your project</div>
+      <p><b>GROUP BY ALL.</b> Snowflake lets you write <code>GROUP BY ALL</code> to mean “group by every non-aggregate column in the SELECT list”. The worksheet engine supports it too. It saves typing when you group by five columns, but it hides the grouping from a reader, so spell the columns out in shared code.</p>
+      <p><b>Positions and aliases.</b> <code>GROUP BY 1, 2</code> groups by the first two SELECT columns, and <code>GROUP BY txn_month</code> accepts an alias from the SELECT list. Both work on both engines. Portable standard SQL repeats the expression, as example 3 does.</p>
+      <p><b>QUALIFY comes later.</b> Snowflake has a fourth filter, <code>QUALIFY</code>, that filters on window functions the way HAVING filters on aggregates. Module 3 covers it. For now: WHERE for rows, HAVING for groups.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="Practice">
+  <h2>Practice</h2>
+  <p>Same bank tables. Each question names the group column and the numbers to return per group. The checker ignores row order, so ORDER BY is optional here, but counting the rows you get back against the number of groups you expect is a good habit.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>GROUP BY makes the piles, aggregates measure each pile, HAVING keeps only the piles that pass. WHERE runs before the piles exist. Every SELECT column is either a group column or an aggregate.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>GROUP BY</dt><dd>Splits rows into groups that share the same value in the named columns.</dd>
+    <dt>Group</dt><dd>One pile of rows with the same group value. Becomes one result row.</dd>
+    <dt>Group column</dt><dd>A column listed in GROUP BY; it may appear bare in SELECT.</dd>
+    <dt>HAVING</dt><dd>A filter on finished groups; it can use aggregates.</dd>
+    <dt>Order of execution</dt><dd>FROM, WHERE, GROUP BY, HAVING, SELECT, ORDER BY, LIMIT.</dd>
+    <dt>GROUP BY ALL</dt><dd>Snowflake shorthand: group by every non-aggregate column in SELECT.</dd>
+    <dt>QUALIFY</dt><dd>Snowflake's filter for window functions. Covered in Module 3.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#sql/2-1">2.1 Inner joins →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "customers": {
+        "columns": [
+          ["cust_id","NUMBER"],
+          ["cust_name","VARCHAR"],
+          ["city","VARCHAR","NULL when unknown"],
+          ["segment","VARCHAR","RETAIL, PREMIUM or BUSINESS; NULL when not yet assigned"],
+          ["joined_on","DATE"],
+          ["age","NUMBER","NULL when not recorded"]
+        ],
+        "rows": [
+          [1,"Asha Rao","Mumbai","PREMIUM","2019-03-12",34],
+          [2,"Vikram Shah","Delhi","RETAIL","2020-07-01",45],
+          [3,"Meera Iyer","Chennai","RETAIL","2021-01-15",29],
+          [4,"Rahul Nair","Mumbai","BUSINESS","2018-11-20",52],
+          [5,"Priya Menon","Bengaluru","PREMIUM","2022-05-09",38],
+          [6,"Arjun Das","Delhi","RETAIL","2023-02-28",23],
+          [7,"Sneha Pillai","Chennai",null,"2021-09-30",31],
+          [8,"Karthik Reddy","Hyderabad","BUSINESS","2017-06-05",47],
+          [9,"Divya Kumar","Mumbai","RETAIL","2024-01-10",null],
+          [10,"Nikhil Joshi","Pune","RETAIL","2020-10-18",41],
+          [11,"Farah Khan","Mumbai","PREMIUM","2019-08-22",36],
+          [12,"Lakshmi Bose","Kolkata","RETAIL","2022-12-01",58],
+          [13,"Imran Sheikh","Hyderabad","RETAIL","2023-07-14",27],
+          [14,"Ananya Ghosh","Kolkata","PREMIUM","2016-04-03",61],
+          [15,"Rohan Mehta","Pune","BUSINESS","2024-06-25",33],
+          [16,"Kavya Nambiar",null,"RETAIL","2025-03-08",19]
+        ]
+      },
+      "accounts": {
+        "columns": [
+          ["acct_id","NUMBER"],
+          ["cust_id","NUMBER","the customer who owns the account"],
+          ["acct_type","VARCHAR","SAVINGS, CURRENT or FD"],
+          ["balance","NUMBER","in rupees; NULL when not yet calculated"],
+          ["opened_on","DATE"],
+          ["acct_status","VARCHAR","ACTIVE, DORMANT or CLOSED"]
+        ],
+        "rows": [
+          [101,1,"SAVINGS",250000,"2019-03-12","ACTIVE"],
+          [102,1,"FD",1000000,"2021-06-01","ACTIVE"],
+          [103,2,"SAVINGS",48000,"2020-07-01","ACTIVE"],
+          [104,3,"SAVINGS",15500,"2021-01-15","ACTIVE"],
+          [105,4,"CURRENT",820000,"2018-11-20","ACTIVE"],
+          [106,4,"SAVINGS",61000,"2019-02-10","DORMANT"],
+          [107,5,"SAVINGS",390000,"2022-05-09","ACTIVE"],
+          [108,5,"FD",500000,"2023-01-20","ACTIVE"],
+          [109,6,"SAVINGS",7200,"2023-02-28","ACTIVE"],
+          [110,7,"SAVINGS",33000,"2021-09-30","ACTIVE"],
+          [111,8,"CURRENT",1450000,"2017-06-05","ACTIVE"],
+          [112,9,"SAVINGS",12000,"2024-01-10","ACTIVE"],
+          [113,10,"SAVINGS",0,"2020-10-18","CLOSED"],
+          [114,11,"SAVINGS",275000,"2019-08-22","ACTIVE"],
+          [115,11,"FD",300000,"2020-02-14","ACTIVE"],
+          [116,12,"SAVINGS",89000,"2022-12-01","DORMANT"],
+          [117,13,"SAVINGS",5400,"2023-07-14","ACTIVE"],
+          [118,14,"SAVINGS",640000,"2016-04-03","ACTIVE"],
+          [119,15,"CURRENT",null,"2024-06-25","ACTIVE"],
+          [120,16,"SAVINGS",2500,"2025-03-08","ACTIVE"]
+        ]
+      },
+      "transactions": {
+        "columns": [
+          ["txn_id","NUMBER"],
+          ["acct_id","NUMBER","the account the money moved in or out of"],
+          ["txn_date","DATE"],
+          ["txn_type","VARCHAR","DEPOSIT, WITHDRAWAL or TRANSFER"],
+          ["amount","NUMBER","in rupees; NULL while still pending"],
+          ["channel","VARCHAR","UPI, ATM, BRANCH or NETBANKING; NULL when not captured"]
+        ],
+        "rows": [
+          [1001,101,"2026-08-28","DEPOSIT",50000,"UPI"],
+          [1002,103,"2026-08-30","WITHDRAWAL",8000,"ATM"],
+          [1003,105,"2026-08-31","DEPOSIT",200000,"NETBANKING"],
+          [1004,107,"2026-09-03","TRANSFER",25000,"UPI"],
+          [1005,109,"2026-09-03","WITHDRAWAL",1500,"ATM"],
+          [1006,111,"2026-09-04","DEPOSIT",350000,"BRANCH"],
+          [1007,104,"2026-09-05","DEPOSIT",12000,"UPI"],
+          [1008,114,"2026-09-06","WITHDRAWAL",40000,"NETBANKING"],
+          [1009,101,"2026-09-07","WITHDRAWAL",15000,"ATM"],
+          [1010,110,"2026-09-08","DEPOSIT",9000,null],
+          [1011,112,"2026-09-09","DEPOSIT",3000,"UPI"],
+          [1012,105,"2026-09-10","TRANSFER",75000,"NETBANKING"],
+          [1013,117,"2026-09-11","DEPOSIT",2000,"UPI"],
+          [1014,118,"2026-09-12","WITHDRAWAL",100000,"BRANCH"],
+          [1015,107,"2026-09-14","DEPOSIT",60000,"NETBANKING"],
+          [1016,103,"2026-09-15","DEPOSIT",22000,"BRANCH"],
+          [1017,111,"2026-09-16","WITHDRAWAL",500000,"NETBANKING"],
+          [1018,120,"2026-09-18","DEPOSIT",1000,"UPI"],
+          [1019,109,"2026-09-20","DEPOSIT",4500,"UPI"],
+          [1020,114,"2026-09-22","TRANSFER",30000,"UPI"],
+          [1021,116,"2026-09-25","WITHDRAWAL",5000,"ATM"],
+          [1022,101,"2026-09-28","DEPOSIT",80000,"NETBANKING"],
+          [1023,106,"2026-09-29","DEPOSIT",null,"BRANCH"],
+          [1024,112,"2026-09-30","WITHDRAWAL",500,"ATM"]
+        ]
+      }
+    },
+    "starter": "SELECT city, COUNT(*) AS n_customers\nFROM customers\nGROUP BY city\nORDER BY n_customers DESC, city",
+    "examples": [
+      { "label": "Customers per city", "sql": "SELECT city, COUNT(*) AS n_customers\nFROM customers\nGROUP BY city\nORDER BY n_customers DESC, city" },
+      { "label": "Type and channel", "sql": "SELECT txn_type, channel, COUNT(*) AS n_txns, SUM(amount) AS total\nFROM transactions\nGROUP BY txn_type, channel\nORDER BY txn_type, channel" },
+      { "label": "Per month", "sql": "SELECT EXTRACT(MONTH FROM txn_date) AS txn_month, SUM(amount) AS total\nFROM transactions\nGROUP BY EXTRACT(MONTH FROM txn_date)\nORDER BY txn_month" },
+      { "label": "WHERE, GROUP BY, HAVING", "sql": "SELECT acct_id, SUM(amount) AS total_deposits\nFROM transactions\nWHERE txn_type = 'DEPOSIT'\nGROUP BY acct_id\nHAVING SUM(amount) > 50000\nORDER BY total_deposits DESC" }
+    ],
+    "challenges": [
+      { "level": "Easy", "task": "For each acct_type, show the acct_type and the number of accounts of that type.", "hint": "GROUP BY acct_type with COUNT(*). Expect 3 rows.", "answer": "SELECT acct_type, COUNT(*) AS n_accounts FROM accounts GROUP BY acct_type ORDER BY acct_type" },
+      { "level": "Easy", "task": "For each txn_type, show the txn_type and the total amount of all its transactions.", "hint": "GROUP BY txn_type with SUM(amount). Expect 3 rows.", "answer": "SELECT txn_type, SUM(amount) AS total_amount FROM transactions GROUP BY txn_type ORDER BY txn_type" },
+      { "level": "Medium", "task": "For each combination of acct_type and acct_status, show acct_type, acct_status and the number of accounts.", "hint": "Two columns in GROUP BY, both also in SELECT. Expect 5 rows.", "answer": "SELECT acct_type, acct_status, COUNT(*) AS n_accounts FROM accounts GROUP BY acct_type, acct_status ORDER BY acct_type, acct_status" },
+      { "level": "Medium", "task": "Show each city and its number of customers, but only cities with 2 or more customers. Leave out customers whose city is blank.", "hint": "WHERE city IS NOT NULL, GROUP BY city, HAVING COUNT(*) >= 2. Expect 6 rows.", "answer": "SELECT city, COUNT(*) AS n_customers FROM customers WHERE city IS NOT NULL GROUP BY city HAVING COUNT(*) >= 2 ORDER BY city" },
+      { "level": "Medium", "task": "For each channel (including the blank one), show the channel, the number of transactions and the average amount rounded to 2 decimal places.", "hint": "GROUP BY channel with COUNT(*) and ROUND(AVG(amount), 2). Expect 5 rows, one of them NULL.", "answer": "SELECT channel, COUNT(*) AS n_txns, ROUND(AVG(amount), 2) AS avg_amount FROM transactions GROUP BY channel ORDER BY channel" },
+      { "level": "Hard", "task": "For transactions dated in September 2026 (1 to 30 September), show the txn_type, the number of transactions and the total amount, but only for types whose September total is more than 500000.", "hint": "WHERE on txn_date first, then GROUP BY txn_type, then HAVING SUM(amount) > 500000. Expect 2 rows.", "answer": "SELECT txn_type, COUNT(*) AS n_txns, SUM(amount) AS total_amount FROM transactions WHERE txn_date BETWEEN '2026-09-01' AND '2026-09-30' GROUP BY txn_type HAVING SUM(amount) > 500000 ORDER BY txn_type" }
+    ]
+  },
+  "quiz": [
+    { "q": "How many rows does SELECT city, COUNT(*) FROM customers GROUP BY city return?", "options": ["One", "One per customer", "One per different city, blank included"], "answer": 2, "why": "GROUP BY gives one row per pile. The blank city is a pile of its own, so there are 8 rows for 7 cities plus NULL." },
+    { "q": "Which clause filters on a total such as SUM(amount) > 50000?", "options": ["WHERE", "HAVING", "GROUP BY"], "answer": 1, "why": "HAVING tests finished groups and can use aggregates. WHERE runs on single rows before any total exists." },
+    { "q": "Why does SELECT city, cust_name, COUNT(*) FROM customers GROUP BY city fail?", "options": ["COUNT needs a column", "cust_name is neither grouped nor aggregated", "Two columns cannot be selected with COUNT"], "answer": 1, "why": "A Mumbai pile holds four names. SQL cannot pick one, so every SELECT column must be a group column or inside an aggregate." },
+    { "q": "In what order do WHERE, GROUP BY and HAVING run?", "options": ["GROUP BY, WHERE, HAVING", "WHERE, GROUP BY, HAVING", "HAVING, WHERE, GROUP BY"], "answer": 1, "why": "WHERE picks rows, GROUP BY makes piles from those rows, HAVING keeps some piles. SELECT and ORDER BY come after." },
+    { "q": "What does Snowflake's GROUP BY ALL mean?", "options": ["Group by every column in the table", "Group by every non-aggregate column in the SELECT list", "Do not group at all"], "answer": 1, "why": "GROUP BY ALL groups by each SELECT column that is not inside an aggregate. It is a shorthand, not a new kind of grouping." },
+    { "q": "Does GROUP BY sort the result?", "options": ["Yes, by the group column", "Yes, by the first aggregate", "No, add ORDER BY"], "answer": 2, "why": "Grouping makes no promise about order. If the report needs an order, say so with ORDER BY." }
+  ]
+}
+</script>

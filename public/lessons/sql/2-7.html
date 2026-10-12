@@ -1,0 +1,382 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>SQL: Beginner to Advanced</span><span>Module 2 · Intermediate</span><span>Lesson 2.7</span></div>
+  <h1>Dates in depth</h1>
+  <p class="lede">Month-end reports, account age, loans older than five years, days between two events. Almost every banking question has a date in it. This lesson makes calendar maths in SQL feel like counting on a calendar.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 min</span>
+    <span class="badge">Intermediate</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice: 6 questions</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Filter a date range the safe way, with &gt;= and &lt;</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Pull out year and month, and bucket rows by month</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Add days or years to a date, and count days between two dates</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Translate between portable SQL and Snowflake’s DATEADD, DATEDIFF, LAST_DAY</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">A DATE is a calendar day with no time of day. SQL can compare dates, extract parts of them, move them forward or back, and measure the gap between two of them.</p></div>
+  </div>
+  <p>Write a date literal as <code>DATE '2026-09-30'</code>, year-month-day. This course uses a fixed “today”, <code>DATE '2026-10-01'</code>, so every answer stays the same no matter when you run it. On a real project you would use <code>CURRENT_DATE</code>.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Job</th><th>Portable (runs here and on Snowflake)</th><th>Snowflake shortcut</th></tr></thead>
+      <tbody>
+        <tr><td>Part of a date</td><td><code>EXTRACT(YEAR FROM d)</code>, <code>EXTRACT(MONTH FROM d)</code></td><td><code>YEAR(d)</code>, <code>MONTH(d)</code></td></tr>
+        <tr><td>First day of month</td><td><code>CAST(DATE_TRUNC('month', d) AS DATE)</code></td><td><code>DATE_TRUNC('month', d)</code> already returns DATE</td></tr>
+        <tr><td>Last day of month</td><td><code>LAST_DAY(d)</code></td><td>same</td></tr>
+        <tr><td>Add time</td><td><code>d + INTERVAL 30 DAY</code>, <code>d + INTERVAL 5 YEAR</code></td><td><code>DATEADD(day, 30, d)</code>, <code>DATEADD(year, 5, d)</code></td></tr>
+        <tr><td>Days between</td><td><code>d2 - d1</code> (a number of days)</td><td><code>DATEDIFF(day, d1, d2)</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like counting on a wall calendar</h2>
+  <p>Put your finger on 10 September. “Which month?” is reading the big word at the top: that is EXTRACT. “Flip to the first square of this page” is DATE_TRUNC to month. “Count 30 squares forward” is adding an interval. “How many squares between this and that?” is subtracting two dates. Nothing here is harder than a wall calendar; SQL just does the counting for you.</p>
+  <div class="map">
+    <div><small>On the calendar</small><b>Read the month name</b><span>In SQL: EXTRACT(MONTH FROM txn_date)</span></div>
+    <div><small>On the calendar</small><b>Count squares forward</b><span>In SQL: opened_on + INTERVAL 30 DAY</span></div>
+    <div><small>On the calendar</small><b>Squares between two dates</b><span>In SQL: DATE '2026-10-01' - opened_on</span></div>
+  </div>
+</section>
+
+<section class="sec" id="syntax" data-toc="Syntax">
+  <h2>Syntax step by step</h2>
+  <p><b>Step 1: a date range.</b> Use <code>&gt;=</code> for the start and <code>&lt;</code> for the day after the end. This never misses the last day and works even when the column later becomes a timestamp.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> txn_id, txn_date, amount
+<span class="kw">FROM</span> transactions
+<span class="kw">WHERE</span> txn_date &gt;= <span class="kw">DATE</span> '2026-09-01'
+  <span class="kw">AND</span> txn_date &lt;  <span class="kw">DATE</span> '2026-10-01';</pre></div>
+  <p><b>Step 2: parts and buckets.</b></p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> cust_name,
+       <span class="kw">EXTRACT</span>(<span class="kw">YEAR</span> <span class="kw">FROM</span> joined_on)  <span class="kw">AS</span> join_year,
+       <span class="kw">EXTRACT</span>(<span class="kw">MONTH</span> <span class="kw">FROM</span> joined_on) <span class="kw">AS</span> join_month,
+       <span class="kw">CAST</span>(<span class="kw">DATE_TRUNC</span>('month', joined_on) <span class="kw">AS DATE</span>) <span class="kw">AS</span> join_month_start
+<span class="kw">FROM</span> customers;</pre></div>
+  <p><b>Step 3: moving and measuring.</b></p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> acct_id, opened_on,
+       opened_on + <span class="kw">INTERVAL</span> 30 <span class="kw">DAY</span>        <span class="kw">AS</span> review_due,
+       <span class="kw">LAST_DAY</span>(opened_on)                <span class="kw">AS</span> first_statement,
+       <span class="kw">DATE</span> '2026-10-01' - opened_on      <span class="kw">AS</span> days_open
+<span class="kw">FROM</span> accounts;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>opened_on</th><th>+ INTERVAL 30 DAY</th><th>LAST_DAY</th><th>2026-10-01 minus opened_on</th></tr></thead>
+      <tbody>
+        <tr><td>2025-11-20</td><td>2025-12-20</td><td>2025-11-30</td><td>315</td></tr>
+        <tr><td>2024-12-15</td><td>2025-01-14</td><td>2024-12-31</td><td>655</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="sec" id="examples" data-toc="Worked examples">
+  <h2>Worked examples</h2>
+  <p><b>Example 1: deposits per month.</b> Bucket, then total. Cast the bucket to DATE so it prints as a date everywhere.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> <span class="kw">CAST</span>(<span class="kw">DATE_TRUNC</span>('month', txn_date) <span class="kw">AS DATE</span>) <span class="kw">AS</span> month_start,
+       <span class="kw">SUM</span>(amount) <span class="kw">AS</span> total_deposits
+<span class="kw">FROM</span> transactions
+<span class="kw">WHERE</span> txn_type = 'DEPOSIT'
+<span class="kw">GROUP BY</span> <span class="kw">CAST</span>(<span class="kw">DATE_TRUNC</span>('month', txn_date) <span class="kw">AS DATE</span>)
+<span class="kw">ORDER BY</span> month_start;</pre></div>
+  <p>Result: July 1,45,000; August 6,42,000; September 3,47,000.</p>
+  <p><b>Example 2: loans older than five years on our fixed today.</b> Add five years to the start and compare.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> loan_id, start_date
+<span class="kw">FROM</span> loans
+<span class="kw">WHERE</span> start_date + <span class="kw">INTERVAL</span> 5 <span class="kw">YEAR</span> &lt; <span class="kw">DATE</span> '2026-10-01';</pre></div>
+  <p>Result: 7001 (2021-04-01) and 7003 (2019-02-01). On Snowflake: <code>DATEADD(year, 5, start_date) &lt; CURRENT_DATE</code>.</p>
+  <p><b>Example 3: days between first and last transaction per customer.</b> Aggregate the dates, then subtract.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> c.cust_name, <span class="kw">MIN</span>(t.txn_date) <span class="kw">AS</span> first_txn, <span class="kw">MAX</span>(t.txn_date) <span class="kw">AS</span> last_txn,
+       <span class="kw">MAX</span>(t.txn_date) - <span class="kw">MIN</span>(t.txn_date) <span class="kw">AS</span> days_span
+<span class="kw">FROM</span> customers c
+<span class="kw">JOIN</span> accounts a <span class="kw">ON</span> a.cust_id = c.cust_id
+<span class="kw">JOIN</span> transactions t <span class="kw">ON</span> t.acct_id = a.acct_id
+<span class="kw">GROUP BY</span> c.cust_id, c.cust_name;</pre></div>
+  <p>Result: Anil Kapoor (id 1) spans 90 days, from 2 July to 30 September. Anil Kapoor (id 11) has one transaction, so his span is 0.</p>
+  <p><b>Example 4: customers who joined in the last 2 years.</b> Move today back, then compare.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> cust_name, joined_on
+<span class="kw">FROM</span> customers
+<span class="kw">WHERE</span> joined_on &gt;= <span class="kw">DATE</span> '2026-10-01' - <span class="kw">INTERVAL</span> 2 <span class="kw">YEAR</span>;</pre></div>
+  <p>Result: 3 customers: Jay Mehta (2025-02-11), Anil Kapoor (2025-09-01) and Kavya Iyer (2026-03-03).</p>
+</section>
+
+<section class="sec" id="mistakes" data-toc="Common mistakes">
+  <h2>Common mistakes</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">BETWEEN and the last day</div><p><code>BETWEEN '2026-09-01' AND '2026-09-30'</code> is fine for a DATE column. The day the column becomes a TIMESTAMP, 30 September 14:05 is after 30 September 00:00 and falls out. The <code>&gt;= start AND &lt; next_day</code> form is right in both cases, so make it a habit.</p></div>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Functions on the column kill filters</div><p><code>WHERE EXTRACT(YEAR FROM txn_date) = 2026</code> must compute the year for every row before it can filter. On a billion-row Snowflake table that means scanning everything. Write the range instead: <code>txn_date &gt;= DATE '2026-01-01' AND txn_date &lt; DATE '2027-01-01'</code>. Lesson 3.7 explains why this matters for pruning.</p></div>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Dates stored as text</div><p>If a column holds '15/03/2019' as VARCHAR, comparisons sort as text and '15/03/2019' comes after '01/12/2026'. Convert once: <code>CAST(col AS DATE)</code> for ISO text, or Snowflake’s <code>TO_DATE(col, 'DD/MM/YYYY')</code> for other layouts, ideally when the data is loaded.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="snowflake" data-toc="On Snowflake">
+  <h2>On Snowflake</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">The names you will see in bank code</div><p><code>DATEADD(day, 30, d)</code> adds; <code>DATEDIFF(day, d1, d2)</code> counts whole units from d1 to d2 (also month, year); <code>DATE_TRUNC('month', d)</code> and <code>LAST_DAY(d)</code> bucket; <code>TO_DATE(text, 'DD/MM/YYYY')</code> parses; <code>TO_CHAR(d, 'YYYY-MM')</code> formats; <code>CURRENT_DATE</code> is today. Careful with <code>DATEDIFF(year, …)</code>: it counts year boundaries crossed, so 31 Dec to 1 Jan is 1 year. Use day counts when precision matters. Snowflake also has <code>DAYOFWEEK</code> and <code>WEEK</code>, but the start of the week depends on an account setting, <code>WEEK_START</code>; check it before trusting weekly reports. Date subtraction <code>d2 - d1</code> returns days on both engines.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice">
+  <h2>Practice</h2>
+  <p>Tables: <code>customers</code>, <code>accounts</code>, <code>transactions</code> and <code>loans</code>. Treat <code>DATE '2026-10-01'</code> as today. Write date literals as <code>DATE 'YYYY-MM-DD'</code>. Cast DATE_TRUNC results to DATE.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>Ranges use &gt;= start and &lt; next day. EXTRACT reads a part, DATE_TRUNC jumps to the first of the month, INTERVAL moves a date, and subtracting two dates gives days. On Snowflake the same jobs are DATEADD, DATEDIFF, DATE_TRUNC and LAST_DAY.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>DATE</dt><dd>A calendar day with no time part, written 'YYYY-MM-DD'.</dd>
+    <dt>TIMESTAMP</dt><dd>A date plus a time of day.</dd>
+    <dt>EXTRACT</dt><dd>Reads one part of a date, such as the year or month.</dd>
+    <dt>DATE_TRUNC</dt><dd>Rounds a date down to the start of a unit, such as the first of the month.</dd>
+    <dt>INTERVAL</dt><dd>A length of time you can add to or subtract from a date, such as INTERVAL 30 DAY.</dd>
+    <dt>LAST_DAY</dt><dd>The last calendar day of the month a date falls in.</dd>
+    <dt>DATEADD / DATEDIFF</dt><dd>Snowflake’s functions for moving a date and for counting units between two dates.</dd>
+    <dt>Half-open range</dt><dd>A filter of the form &gt;= start AND &lt; end, where end is excluded.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#sql/3-1">3.1 Ranking windows →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "customers": {
+        "columns": [
+          ["cust_id", "NUMBER"],
+          ["cust_name", "VARCHAR"],
+          ["city", "VARCHAR"],
+          ["segment", "VARCHAR", "RETAIL, PREMIUM or SME"],
+          ["joined_on", "DATE"],
+          ["branch_id", "NUMBER", "NULL for online-only customers"]
+        ],
+        "rows": [
+          [1, "Anil Kapoor", "Mumbai", "RETAIL", "2019-03-15", 1],
+          [2, "Bhavna Desai", "Mumbai", "PREMIUM", "2020-07-01", 1],
+          [3, "Chetan Patel", "Delhi", "RETAIL", "2021-01-20", 2],
+          [4, "Deepa Nair", "Delhi", "PREMIUM", "2018-11-05", 2],
+          [5, "Esha Singh", "Chennai", "RETAIL", "2022-05-10", 3],
+          [6, "Farhan Ali", "Chennai", "SME", "2020-02-28", 3],
+          [7, "Gita Rao", "Bengaluru", "PREMIUM", "2023-08-14", 4],
+          [8, "Harish Kumar", "Bengaluru", "RETAIL", "2024-01-09", 4],
+          [9, "Isha Verma", "Hyderabad", "SME", "2024-06-30", 5],
+          [10, "Jay Mehta", "Pune", "RETAIL", "2025-02-11", null],
+          [11, "Anil Kapoor", "Delhi", "RETAIL", "2025-09-01", 2],
+          [12, "Kavya Iyer", "Chennai", "RETAIL", "2026-03-03", 3]
+        ]
+      },
+      "accounts": {
+        "columns": [
+          ["acct_id", "NUMBER"],
+          ["cust_id", "NUMBER"],
+          ["acct_type", "VARCHAR", "SAVINGS, CURRENT or FD"],
+          ["balance", "NUMBER", "in rupees"],
+          ["opened_on", "DATE"],
+          ["acct_status", "VARCHAR", "ACTIVE, DORMANT or CLOSED"]
+        ],
+        "rows": [
+          [1001, 1, "SAVINGS", 85000, "2019-03-15", "ACTIVE"],
+          [1002, 1, "CURRENT", 240000, "2020-01-10", "ACTIVE"],
+          [1003, 2, "SAVINGS", 520000, "2020-07-01", "ACTIVE"],
+          [1004, 3, "SAVINGS", 15000, "2021-01-20", "ACTIVE"],
+          [1005, 4, "SAVINGS", 310000, "2018-11-05", "ACTIVE"],
+          [1006, 4, "FD", 1000000, "2022-03-01", "ACTIVE"],
+          [1007, 5, "SAVINGS", 4200, "2022-05-10", "DORMANT"],
+          [1008, 6, "CURRENT", 760000, "2020-02-28", "ACTIVE"],
+          [1009, 7, "SAVINGS", 95000, "2023-08-14", "ACTIVE"],
+          [1010, 8, "SAVINGS", 12500, "2024-01-09", "ACTIVE"],
+          [1011, 9, "CURRENT", 430000, "2024-06-30", "ACTIVE"],
+          [1012, 11, "SAVINGS", 7800, "2025-09-01", "ACTIVE"],
+          [1013, 6, "FD", 500000, "2024-12-15", "CLOSED"],
+          [1014, 2, "FD", 250000, "2025-11-20", "ACTIVE"]
+        ]
+      },
+      "transactions": {
+        "columns": [
+          ["txn_id", "NUMBER"],
+          ["acct_id", "NUMBER"],
+          ["txn_date", "DATE"],
+          ["txn_type", "VARCHAR", "DEPOSIT or WITHDRAWAL"],
+          ["amount", "NUMBER", "in rupees"],
+          ["channel", "VARCHAR", "BRANCH, ATM, UPI or NETBANKING"]
+        ],
+        "rows": [
+          [5001, 1001, "2026-07-02", "DEPOSIT", 25000, "BRANCH"],
+          [5002, 1001, "2026-07-15", "WITHDRAWAL", 8000, "ATM"],
+          [5003, 1002, "2026-07-20", "DEPOSIT", 120000, "NETBANKING"],
+          [5004, 1003, "2026-07-28", "WITHDRAWAL", 40000, "NETBANKING"],
+          [5005, 1004, "2026-08-01", "DEPOSIT", 5000, "UPI"],
+          [5006, 1005, "2026-08-03", "DEPOSIT", 60000, "BRANCH"],
+          [5007, 1005, "2026-08-03", "WITHDRAWAL", 15000, "ATM"],
+          [5008, 1008, "2026-08-10", "DEPOSIT", 300000, "NETBANKING"],
+          [5009, 1008, "2026-08-12", "WITHDRAWAL", 125000, "NETBANKING"],
+          [5010, 1009, "2026-08-18", "DEPOSIT", 22000, "UPI"],
+          [5011, 1010, "2026-08-20", "WITHDRAWAL", 2500, "UPI"],
+          [5012, 1011, "2026-08-25", "DEPOSIT", 180000, "NETBANKING"],
+          [5013, 1003, "2026-08-30", "DEPOSIT", 75000, "BRANCH"],
+          [5014, 1001, "2026-09-01", "DEPOSIT", 25000, "BRANCH"],
+          [5015, 1012, "2026-09-05", "DEPOSIT", 3000, "UPI"],
+          [5016, 1004, "2026-09-09", "WITHDRAWAL", 1200, "ATM"],
+          [5017, 1006, "2026-09-10", "DEPOSIT", 200000, "NETBANKING"],
+          [5018, 1009, "2026-09-14", "WITHDRAWAL", 9000, "ATM"],
+          [5019, 1011, "2026-09-18", "WITHDRAWAL", 50000, "NETBANKING"],
+          [5020, 1002, "2026-09-22", "WITHDRAWAL", 35000, "NETBANKING"],
+          [5021, 1010, "2026-09-25", "DEPOSIT", 4000, "UPI"],
+          [5022, 1008, "2026-09-28", "DEPOSIT", 90000, "BRANCH"],
+          [5023, 1003, "2026-09-30", "WITHDRAWAL", 20000, "ATM"],
+          [5024, 1001, "2026-09-30", "DEPOSIT", 25000, "BRANCH"]
+        ]
+      },
+      "loans": {
+        "columns": [
+          ["loan_id", "NUMBER"],
+          ["cust_id", "NUMBER"],
+          ["loan_type", "VARCHAR", "HOME, CAR, PERSONAL or BUSINESS"],
+          ["principal", "NUMBER", "in rupees"],
+          ["start_date", "DATE"],
+          ["loan_status", "VARCHAR", "ACTIVE or CLOSED"]
+        ],
+        "rows": [
+          [7001, 1, "HOME", 3500000, "2021-04-01", "ACTIVE"],
+          [7002, 2, "CAR", 800000, "2023-06-15", "ACTIVE"],
+          [7003, 4, "HOME", 6000000, "2019-02-01", "CLOSED"],
+          [7004, 6, "BUSINESS", 2500000, "2022-09-10", "ACTIVE"],
+          [7005, 8, "PERSONAL", 300000, "2024-11-05", "ACTIVE"],
+          [7006, 9, "BUSINESS", 1500000, "2025-01-20", "ACTIVE"],
+          [7007, 10, "PERSONAL", 200000, "2025-05-12", "ACTIVE"],
+          [7008, 3, "CAR", 450000, "2026-02-14", "ACTIVE"],
+          [7009, 1, "PERSONAL", 150000, "2025-08-01", "CLOSED"]
+        ]
+      }
+    },
+    "starter": "SELECT txn_id, txn_date, amount\nFROM transactions\nWHERE txn_date >= DATE '2026-09-01'\n  AND txn_date <  DATE '2026-10-01'\nORDER BY txn_date",
+    "examples": [
+      {
+        "label": "Deposits per month",
+        "sql": "SELECT CAST(DATE_TRUNC('month', txn_date) AS DATE) AS month_start,\n       SUM(amount) AS total_deposits\nFROM transactions\nWHERE txn_type = 'DEPOSIT'\nGROUP BY CAST(DATE_TRUNC('month', txn_date) AS DATE)\nORDER BY month_start"
+      },
+      {
+        "label": "Move and measure",
+        "sql": "SELECT acct_id, opened_on,\n       CAST(opened_on + INTERVAL 30 DAY AS DATE) AS review_due,\n       LAST_DAY(opened_on) AS first_statement,\n       DATE '2026-10-01' - opened_on AS days_open\nFROM accounts\nORDER BY acct_id"
+      },
+      {
+        "label": "Joined in last 2 years",
+        "sql": "SELECT cust_name, joined_on\nFROM customers\nWHERE joined_on >= DATE '2026-10-01' - INTERVAL 2 YEAR\nORDER BY joined_on"
+      }
+    ],
+    "challenges": [
+      {
+        "level": "Easy",
+        "task": "Show txn_id and txn_date for every transaction in September 2026.",
+        "hint": "WHERE txn_date >= DATE '2026-09-01' AND txn_date < DATE '2026-10-01'. Expect 11 rows.",
+        "answer": "SELECT txn_id, txn_date FROM transactions WHERE txn_date >= DATE '2026-09-01' AND txn_date < DATE '2026-10-01' ORDER BY txn_id"
+      },
+      {
+        "level": "Easy",
+        "task": "For every customer show cust_name, the year they joined and the month number they joined.",
+        "hint": "EXTRACT(YEAR FROM joined_on) and EXTRACT(MONTH FROM joined_on).",
+        "answer": "SELECT cust_name, EXTRACT(YEAR FROM joined_on) AS join_year, EXTRACT(MONTH FROM joined_on) AS join_month FROM customers ORDER BY cust_id"
+      },
+      {
+        "level": "Medium",
+        "task": "Show the first day of each month as a DATE and the total WITHDRAWAL amount in that month.",
+        "hint": "CAST(DATE_TRUNC('month', txn_date) AS DATE), WHERE txn_type = 'WITHDRAWAL', GROUP BY that expression. Expect 3 rows.",
+        "answer": "SELECT CAST(DATE_TRUNC('month', txn_date) AS DATE) AS month_start, SUM(amount) AS total_withdrawn FROM transactions WHERE txn_type = 'WITHDRAWAL' GROUP BY CAST(DATE_TRUNC('month', txn_date) AS DATE) ORDER BY month_start"
+      },
+      {
+        "level": "Medium",
+        "task": "For every account show acct_id and the number of days it had been open on DATE '2026-10-01'.",
+        "hint": "DATE '2026-10-01' - opened_on gives a number of days.",
+        "answer": "SELECT acct_id, DATE '2026-10-01' - opened_on AS days_open FROM accounts ORDER BY acct_id"
+      },
+      {
+        "level": "Medium",
+        "task": "Show loan_id and start_date for every loan that started more than 5 years before DATE '2026-10-01'.",
+        "hint": "WHERE start_date + INTERVAL 5 YEAR < DATE '2026-10-01'. Expect 2 rows.",
+        "answer": "SELECT loan_id, start_date FROM loans WHERE start_date + INTERVAL 5 YEAR < DATE '2026-10-01' ORDER BY loan_id"
+      },
+      {
+        "level": "Hard",
+        "task": "For every customer who has at least one transaction, show cust_id, cust_name and the number of days between their first and last transaction across all their accounts.",
+        "hint": "Join customers to accounts to transactions, GROUP BY cust_id and cust_name, then MAX(txn_date) - MIN(txn_date). A single transaction gives 0.",
+        "answer": "SELECT c.cust_id, c.cust_name, MAX(t.txn_date) - MIN(t.txn_date) AS days_span FROM customers c JOIN accounts a ON a.cust_id = c.cust_id JOIN transactions t ON t.acct_id = a.acct_id GROUP BY c.cust_id, c.cust_name ORDER BY c.cust_id"
+      }
+    ]
+  },
+  "quiz": [
+    {
+      "q": "Which filter safely selects all of September 2026?",
+      "options": ["txn_date BETWEEN '2026-09-01' AND '2026-09-30'", "txn_date >= DATE '2026-09-01' AND txn_date < DATE '2026-10-01'", "EXTRACT(MONTH FROM txn_date) = 9"],
+      "answer": 1,
+      "why": "The half-open range includes every moment of 30 September even if the column becomes a timestamp, and it lets Snowflake prune data. EXTRACT ignores the year and forces a full scan."
+    },
+    {
+      "q": "What does DATE_TRUNC('month', DATE '2026-09-14') return?",
+      "options": ["2026-09-01", "2026-09-30", "9"],
+      "answer": 0,
+      "why": "DATE_TRUNC rounds down to the start of the unit. LAST_DAY would give 2026-09-30 and EXTRACT(MONTH) would give 9."
+    },
+    {
+      "q": "What is the Snowflake equivalent of d + INTERVAL 30 DAY?",
+      "options": ["DATEDIFF(day, d, 30)", "DATEADD(day, 30, d)", "LAST_DAY(d)"],
+      "answer": 1,
+      "why": "DATEADD moves a date by a number of units. DATEDIFF measures the gap between two dates."
+    },
+    {
+      "q": "What does DATE '2026-10-01' - DATE '2025-11-20' give?",
+      "options": ["A date", "315, the number of days", "An error"],
+      "answer": 1,
+      "why": "Subtracting two dates gives the number of days between them on DuckDB and on Snowflake."
+    },
+    {
+      "q": "Why does DuckDB show DATE_TRUNC output as 2026-08-01 00:00:00 while Snowflake shows 2026-08-01?",
+      "options": ["DuckDB returns a timestamp; CAST it AS DATE to match", "Snowflake is wrong", "DuckDB does not support DATE_TRUNC"],
+      "answer": 0,
+      "why": "The values are the same day. The cast makes both engines print a plain date, which the grader needs."
+    },
+    {
+      "q": "DATEDIFF(year, DATE '2025-12-31', DATE '2026-01-01') on Snowflake returns what?",
+      "options": ["0", "1", "0.003"],
+      "answer": 1,
+      "why": "Snowflake's DATEDIFF counts unit boundaries crossed, not full years elapsed. Use day counts when precision matters."
+    }
+  ]
+}
+</script>

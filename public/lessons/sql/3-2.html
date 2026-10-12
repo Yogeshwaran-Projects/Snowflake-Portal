@@ -1,0 +1,286 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>SQL: Beginner to Advanced</span><span>Module 3 · Advanced</span><span>Lesson 3.2</span></div>
+  <h1>LAG, LEAD, running totals and frames</h1>
+  <p class="lede">Look at the row before you, the row after you, and add up everything so far. These windows power balance histories, month-over-month changes and moving averages.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>35 min</span>
+    <span class="badge">Advanced</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice: 6 questions</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Fetch the previous or next row's value with LAG and LEAD</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Build a running total and a running balance per account</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Write a window frame (ROWS BETWEEN) for moving averages</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Avoid the LAST_VALUE trap that catches almost everyone once</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">LAG and LEAD read a value from a neighbouring row. A running total is SUM over a window that grows one row at a time. A frame tells the window how many rows to look back or forward.</p></div>
+  </div>
+  <p>Last lesson every row wrote down its position. Now every row can also copy a value from its neighbours, or add up the values of everyone in front of it. The shape is the same: a function, <code>OVER (...)</code>, and an <code>ORDER BY</code> that says what "before" and "after" mean.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a queue, a piggy bank and a look-back rule</h2>
+  <p>Back in the bank queue. <b>LAG</b> is turning around to read the card of the person right behind you. <b>LEAD</b> is reading the card of the person in front. A <b>running total</b> is a piggy bank: each person drops their coins in and writes the new total on their own card, so the number grows as the line moves. A <b>frame</b> is a rule about how far you may look: "only the last three people" or "everyone from the start of the line to me".</p>
+  <div class="map">
+    <div><small>In the queue</small><b>Peek behind or ahead</b><span>In SQL: LAG(col) and LEAD(col). You get NULL if nobody is there.</span></div>
+    <div><small>In the queue</small><b>The piggy bank total</b><span>In SQL: SUM(col) OVER (ORDER BY ...). Each row sees the total so far.</span></div>
+    <div><small>In the queue</small><b>The look-back rule</b><span>In SQL: ROWS BETWEEN 2 PRECEDING AND CURRENT ROW. How far the window reaches.</span></div>
+  </div>
+</section>
+
+<section class="sec" id="syntax" data-toc="Syntax">
+  <h2>Syntax, step by step</h2>
+  <p><b>Step 1: LAG and LEAD.</b> The first argument is the column, the second is how many rows away (default 1), the third is the value to use when there is no neighbour (default NULL).</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> txn_id, txn_date, amount,
+       <span class="kw">LAG</span>(amount)        <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> txn_date, txn_id) <span class="kw">AS</span> prev_amount,
+       <span class="kw">LEAD</span>(amount, 1, 0) <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> txn_date, txn_id) <span class="kw">AS</span> next_amount
+<span class="kw">FROM</span> transactions
+<span class="kw">WHERE</span> acct_id = 101;</pre></div>
+  <p><b>Step 2: running total.</b> Add an ORDER BY to SUM and it stops being a grand total. It becomes "the total up to and including this row".</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> txn_id, txn_date, amount,
+       <span class="kw">SUM</span>(amount) <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> acct_id <span class="kw">ORDER BY</span> txn_date, txn_id
+                        <span class="kw">ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</span>) <span class="kw">AS</span> running_total
+<span class="kw">FROM</span> transactions;</pre></div>
+  <p><b>Step 3: the frame.</b> The part starting with ROWS BETWEEN is the frame. Three frames cover almost every need:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Frame</th><th>Meaning</th><th>Typical use</th></tr></thead>
+      <tbody>
+        <tr><td><code>ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code></td><td>From the first row to me</td><td>Running total, running balance</td></tr>
+        <tr><td><code>ROWS BETWEEN 2 PRECEDING AND CURRENT ROW</code></td><td>Me and the two before me</td><td>3-period moving average</td></tr>
+        <tr><td><code>ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING</code></td><td>The whole partition</td><td>FIRST_VALUE and LAST_VALUE</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>If you write ORDER BY but no frame, the engine uses a default frame: <code>RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code>. RANGE treats rows with the same ORDER BY value as one block, which is why you should write ROWS and a tie-breaker yourself.</p>
+</section>
+
+<section class="sec" id="examples" data-toc="Worked examples">
+  <h2>Worked examples</h2>
+  <p><b>Example 1: running total for account 103.</b></p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> txn_id, txn_date, amount,
+       <span class="kw">SUM</span>(amount) <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> txn_date, txn_id
+                        <span class="kw">ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</span>) <span class="kw">AS</span> running_total
+<span class="kw">FROM</span> transactions
+<span class="kw">WHERE</span> acct_id = 103;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>txn_id</th><th>txn_date</th><th>amount</th><th>running_total</th></tr></thead>
+      <tbody>
+        <tr><td>1007</td><td>2026-03-02</td><td>50000</td><td>50000</td></tr>
+        <tr><td>1008</td><td>2026-03-05</td><td>15000</td><td>65000</td></tr>
+        <tr><td>1009</td><td>2026-03-11</td><td>25000</td><td>90000</td></tr>
+        <tr><td>1010</td><td>2026-03-18</td><td>40000</td><td>130000</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p><b>Example 2: days since the previous transaction.</b> Subtracting one date from another gives a number of days. The first row of each account has no previous row, so it gets NULL.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> txn_id, acct_id, txn_date,
+       txn_date - <span class="kw">LAG</span>(txn_date) <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> acct_id <span class="kw">ORDER BY</span> txn_date, txn_id) <span class="kw">AS</span> days_since_prev
+<span class="kw">FROM</span> transactions
+<span class="kw">WHERE</span> acct_id = 101;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>txn_id</th><th>acct_id</th><th>txn_date</th><th>days_since_prev</th></tr></thead>
+      <tbody>
+        <tr><td>1001</td><td>101</td><td>2026-03-01</td><td>NULL</td></tr>
+        <tr><td>1002</td><td>101</td><td>2026-03-03</td><td>2</td></tr>
+        <tr><td>1003</td><td>101</td><td>2026-03-08</td><td>5</td></tr>
+        <tr><td>1004</td><td>101</td><td>2026-03-15</td><td>7</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p><b>Example 3: 3-transaction moving average.</b> The frame "2 PRECEDING AND CURRENT ROW" holds at most 3 rows. The first row averages only itself, the second averages two rows.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> txn_id, amount,
+       <span class="kw">ROUND</span>(<span class="kw">AVG</span>(amount) <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> txn_date, txn_id
+                              <span class="kw">ROWS BETWEEN</span> 2 <span class="kw">PRECEDING AND CURRENT ROW</span>), 2) <span class="kw">AS</span> moving_avg
+<span class="kw">FROM</span> transactions
+<span class="kw">WHERE</span> acct_id = 101;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>txn_id</th><th>amount</th><th>moving_avg</th></tr></thead>
+      <tbody>
+        <tr><td>1001</td><td>20000</td><td>20000</td></tr>
+        <tr><td>1002</td><td>5000</td><td>12500</td></tr>
+        <tr><td>1003</td><td>12000</td><td>12333.33</td></tr>
+        <tr><td>1004</td><td>8000</td><td>8333.33</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p><b>Example 4: the LAST_VALUE trap.</b> With the default frame, LAST_VALUE only sees rows up to the current one, so it just returns the current row. Give it the full frame and it returns the real last row.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT DISTINCT</span> acct_id,
+       <span class="kw">FIRST_VALUE</span>(amount) <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> acct_id <span class="kw">ORDER BY</span> txn_date, txn_id
+                                <span class="kw">ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING</span>) <span class="kw">AS</span> first_amount,
+       <span class="kw">LAST_VALUE</span>(amount)  <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> acct_id <span class="kw">ORDER BY</span> txn_date, txn_id
+                                <span class="kw">ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING</span>) <span class="kw">AS</span> last_amount
+<span class="kw">FROM</span> transactions;</pre></div>
+</section>
+
+<section class="sec" id="mistakes" data-toc="Common mistakes">
+  <h2>Common mistakes</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Watch out</div><p><b>No ORDER BY in the running total.</b> <code>SUM(amount) OVER (PARTITION BY acct_id)</code> gives the grand total of the account on every row, not a running total.</p>
+    <p><b>Forgetting PARTITION BY.</b> Without it, the running total of account 103 includes account 101's money.</p>
+    <p><b>LAG with ties.</b> If two transactions share a date, LAG can pick either one. Always add <code>txn_id</code> to the ORDER BY.</p>
+    <p><b>Doing maths on NULL.</b> <code>amount - LAG(amount)</code> is NULL on the first row. Use <code>LAG(amount, 1, 0)</code> or <code>COALESCE</code> if you need a number.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="snowflake" data-toc="On Snowflake">
+  <h2>On Snowflake</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Same syntax, two small notes</div><p>LAG, LEAD, FIRST_VALUE, LAST_VALUE and ROWS BETWEEN frames are identical in Snowflake and in the practice editor (DuckDB). <code>date1 - date2</code> returns whole days on both.</p>
+    <p>Snowflake also accepts the shorter <code>ROWS UNBOUNDED PRECEDING</code>, and if you omit the frame after ORDER BY it uses the same RANGE default. On a real project, write the full ROWS frame every time; reviewers will thank you.</p>
+    <p>Snowflake has <code>CONDITIONAL_CHANGE_EVENT</code> and <code>RATIO_TO_REPORT</code> as extras. The editor does not have those, so they are not used in practice.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="Practice">
+  <h2>Practice</h2>
+  <p>Same bank: <code>accounts</code> and <code>transactions</code>. Order every window by <code>txn_date, txn_id</code> so ties never change the answer. Grading compares values only.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>LAG looks back, LEAD looks forward. SUM with ORDER BY is a piggy bank that grows row by row. The frame says how far to look; write ROWS BETWEEN yourself, and give LAST_VALUE the whole partition.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>LAG(col, n, default)</dt><dd>Value of col from n rows before this one; default when none exists.</dd>
+    <dt>LEAD(col, n, default)</dt><dd>Value of col from n rows after this one.</dd>
+    <dt>Running total</dt><dd>SUM over all rows from the start of the partition to the current row.</dd>
+    <dt>Frame</dt><dd>The ROWS BETWEEN part of a window; which rows the function may see.</dd>
+    <dt>UNBOUNDED PRECEDING</dt><dd>The first row of the partition.</dd>
+    <dt>CURRENT ROW</dt><dd>The row the function is computing a value for.</dd>
+    <dt>Moving average</dt><dd>AVG over a frame of fixed size, such as the last 3 rows.</dd>
+    <dt>FIRST_VALUE / LAST_VALUE</dt><dd>The first or last value inside the frame, not the partition, unless the frame covers everything.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#sql/3-3">3.3 QUALIFY and de-duplication →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "accounts": {
+        "columns": [["acct_id","NUMBER"], ["cust_id","NUMBER"], ["acct_type","VARCHAR","SAVINGS or CURRENT"], ["balance","NUMBER","in rupees"], ["opened_on","DATE"]],
+        "rows": [
+          [101,1,"SAVINGS",125000,"2024-01-20"],
+          [102,1,"CURRENT",40000,"2024-06-01"],
+          [103,2,"SAVINGS",310000,"2023-06-15"],
+          [104,3,"SAVINGS",58000,"2024-03-25"],
+          [105,4,"SAVINGS",275000,"2022-11-10"],
+          [106,4,"CURRENT",92000,"2023-02-01"],
+          [107,5,"SAVINGS",21000,"2025-02-20"],
+          [108,6,"SAVINGS",67000,"2024-09-02"],
+          [109,7,"SAVINGS",189000,"2023-01-25"],
+          [110,7,"CURRENT",150000,"2024-04-10"],
+          [111,8,"SAVINGS",15500,"2025-05-03"],
+          [112,9,"SAVINGS",83000,"2024-12-15"],
+          [113,10,"SAVINGS",240000,"2023-09-12"],
+          [114,10,"CURRENT",125000,"2024-01-08"]
+        ]
+      },
+      "transactions": {
+        "columns": [["txn_id","NUMBER"], ["acct_id","NUMBER"], ["txn_date","DATE"], ["txn_type","VARCHAR","DEPOSIT, WITHDRAWAL or TRANSFER"], ["amount","NUMBER","in rupees"], ["channel","VARCHAR","APP, BRANCH, ATM or UPI"]],
+        "rows": [
+          [1001,101,"2026-03-01","DEPOSIT",20000,"APP"],
+          [1002,101,"2026-03-03","WITHDRAWAL",5000,"ATM"],
+          [1003,101,"2026-03-08","DEPOSIT",12000,"UPI"],
+          [1004,101,"2026-03-15","WITHDRAWAL",8000,"ATM"],
+          [1005,101,"2026-03-22","DEPOSIT",30000,"BRANCH"],
+          [1006,101,"2026-03-29","WITHDRAWAL",3000,"UPI"],
+          [1007,103,"2026-03-02","DEPOSIT",50000,"BRANCH"],
+          [1008,103,"2026-03-05","WITHDRAWAL",15000,"APP"],
+          [1009,103,"2026-03-11","DEPOSIT",25000,"APP"],
+          [1010,103,"2026-03-18","TRANSFER",40000,"APP"],
+          [1011,103,"2026-03-25","DEPOSIT",60000,"BRANCH"],
+          [1012,103,"2026-03-30","WITHDRAWAL",10000,"ATM"],
+          [1013,105,"2026-03-01","DEPOSIT",45000,"APP"],
+          [1014,105,"2026-03-06","WITHDRAWAL",20000,"ATM"],
+          [1015,105,"2026-03-12","DEPOSIT",35000,"UPI"],
+          [1016,105,"2026-03-19","TRANSFER",25000,"APP"],
+          [1017,105,"2026-03-26","DEPOSIT",15000,"UPI"],
+          [1018,109,"2026-03-03","DEPOSIT",30000,"APP"],
+          [1019,109,"2026-03-09","WITHDRAWAL",12000,"ATM"],
+          [1020,109,"2026-03-14","DEPOSIT",30000,"APP"],
+          [1021,109,"2026-03-21","TRANSFER",18000,"UPI"],
+          [1022,109,"2026-03-28","DEPOSIT",22000,"BRANCH"],
+          [1023,113,"2026-03-02","DEPOSIT",80000,"BRANCH"],
+          [1024,113,"2026-03-07","WITHDRAWAL",25000,"ATM"],
+          [1025,113,"2026-03-13","DEPOSIT",10000,"UPI"],
+          [1026,113,"2026-03-20","TRANSFER",50000,"APP"],
+          [1027,113,"2026-03-27","DEPOSIT",80000,"BRANCH"],
+          [1028,102,"2026-03-04","DEPOSIT",9000,"UPI"],
+          [1029,102,"2026-03-16","WITHDRAWAL",4000,"APP"],
+          [1030,104,"2026-03-05","DEPOSIT",7000,"UPI"],
+          [1031,104,"2026-03-17","DEPOSIT",7000,"UPI"],
+          [1032,106,"2026-03-10","TRANSFER",22000,"APP"],
+          [1033,107,"2026-03-08","DEPOSIT",6000,"APP"],
+          [1034,107,"2026-03-23","WITHDRAWAL",2000,"ATM"],
+          [1035,108,"2026-03-11","DEPOSIT",14000,"BRANCH"],
+          [1036,110,"2026-03-12","TRANSFER",35000,"APP"],
+          [1037,111,"2026-03-14","DEPOSIT",5000,"UPI"],
+          [1038,112,"2026-03-15","DEPOSIT",16000,"APP"],
+          [1039,112,"2026-03-24","WITHDRAWAL",6000,"ATM"],
+          [1040,114,"2026-03-18","DEPOSIT",28000,"BRANCH"]
+        ]
+      }
+    },
+    "starter": "SELECT txn_id, txn_date, amount,\n       LAG(amount)  OVER (ORDER BY txn_date, txn_id) AS prev_amount,\n       LEAD(amount) OVER (ORDER BY txn_date, txn_id) AS next_amount,\n       SUM(amount)  OVER (ORDER BY txn_date, txn_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_total\nFROM transactions\nWHERE acct_id = 101\nORDER BY txn_date, txn_id",
+    "examples": [
+      { "label": "LAG and LEAD", "sql": "SELECT txn_id, txn_date, amount,\n       LAG(amount)  OVER (ORDER BY txn_date, txn_id) AS prev_amount,\n       LEAD(amount) OVER (ORDER BY txn_date, txn_id) AS next_amount\nFROM transactions\nWHERE acct_id = 101\nORDER BY txn_date, txn_id" },
+      { "label": "Running total per account", "sql": "SELECT txn_id, acct_id, txn_date, amount,\n       SUM(amount) OVER (PARTITION BY acct_id ORDER BY txn_date, txn_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_total\nFROM transactions\nORDER BY acct_id, txn_date, txn_id" },
+      { "label": "Moving average", "sql": "SELECT txn_id, amount,\n       ROUND(AVG(amount) OVER (ORDER BY txn_date, txn_id ROWS BETWEEN 2 PRECEDING AND CURRENT ROW), 2) AS moving_avg\nFROM transactions\nWHERE acct_id = 101\nORDER BY txn_date, txn_id" }
+    ],
+    "challenges": [
+      { "level": "Easy", "task": "For account 101 only, return txn_id, txn_date, amount and the amount of the previous transaction (by txn_date, then txn_id). The first row has no previous amount.", "hint": "LAG(amount) OVER (ORDER BY txn_date, txn_id) with WHERE acct_id = 101.", "answer": "SELECT txn_id, txn_date, amount, LAG(amount) OVER (ORDER BY txn_date, txn_id) AS prev_amount FROM transactions WHERE acct_id = 101 ORDER BY txn_date, txn_id" },
+      { "level": "Easy", "task": "For account 103 only, return txn_id, txn_date, amount and a running total of amount in date order (tie-breaker txn_id).", "hint": "SUM(amount) OVER (ORDER BY txn_date, txn_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW).", "answer": "SELECT txn_id, txn_date, amount, SUM(amount) OVER (ORDER BY txn_date, txn_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_total FROM transactions WHERE acct_id = 103 ORDER BY txn_date, txn_id" },
+      { "level": "Medium", "task": "For every transaction, return txn_id, acct_id, txn_date and the number of days since the previous transaction of the same account (NULL for the first one). Order within each account by txn_date, then txn_id.", "hint": "txn_date - LAG(txn_date) OVER (PARTITION BY acct_id ORDER BY txn_date, txn_id).", "answer": "SELECT txn_id, acct_id, txn_date, txn_date - LAG(txn_date) OVER (PARTITION BY acct_id ORDER BY txn_date, txn_id) AS days_since_prev FROM transactions ORDER BY acct_id, txn_date, txn_id" },
+      { "level": "Medium", "task": "Build a running net balance per account: deposits count as +amount, withdrawals and transfers as -amount. Return txn_id, acct_id, txn_date and the running net, ordered inside each account by txn_date then txn_id.", "hint": "SUM(CASE WHEN txn_type = 'DEPOSIT' THEN amount ELSE -amount END) OVER (PARTITION BY acct_id ORDER BY txn_date, txn_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW).", "answer": "SELECT txn_id, acct_id, txn_date, SUM(CASE WHEN txn_type = 'DEPOSIT' THEN amount ELSE -amount END) OVER (PARTITION BY acct_id ORDER BY txn_date, txn_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_net FROM transactions ORDER BY acct_id, txn_date, txn_id" },
+      { "level": "Hard", "task": "For every transaction, return txn_id, acct_id and the moving average of amount over the current row and the 2 previous rows of the same account (ordered by txn_date, txn_id), rounded to 2 decimals.", "hint": "ROUND(AVG(amount) OVER (PARTITION BY acct_id ORDER BY txn_date, txn_id ROWS BETWEEN 2 PRECEDING AND CURRENT ROW), 2).", "answer": "SELECT txn_id, acct_id, ROUND(AVG(amount) OVER (PARTITION BY acct_id ORDER BY txn_date, txn_id ROWS BETWEEN 2 PRECEDING AND CURRENT ROW), 2) AS moving_avg FROM transactions ORDER BY acct_id, txn_date, txn_id" },
+      { "level": "Hard", "task": "For each account, return acct_id, the amount of its first transaction and the amount of its last transaction (by txn_date, then txn_id). One row per account.", "hint": "FIRST_VALUE and LAST_VALUE with ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING, then SELECT DISTINCT.", "answer": "SELECT DISTINCT acct_id, FIRST_VALUE(amount) OVER (PARTITION BY acct_id ORDER BY txn_date, txn_id ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS first_amount, LAST_VALUE(amount) OVER (PARTITION BY acct_id ORDER BY txn_date, txn_id ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_amount FROM transactions ORDER BY acct_id" }
+    ]
+  },
+  "quiz": [
+    { "q": "What does LAG(amount) return on the first row of a partition?", "options": ["0", "NULL", "The last row's amount"], "answer": 1, "why": "There is no row before the first one, so LAG returns NULL unless you pass a default as the third argument." },
+    { "q": "SUM(amount) OVER (PARTITION BY acct_id) with no ORDER BY gives...", "options": ["A running total", "The account's grand total on every row", "An error"], "answer": 1, "why": "Without ORDER BY the window is the whole partition, so every row sees the same total." },
+    { "q": "Which frame means 'me and the two rows before me'?", "options": ["ROWS BETWEEN 2 PRECEDING AND CURRENT ROW", "ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW", "ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING"], "answer": 0, "why": "2 PRECEDING reaches two rows back; CURRENT ROW closes the frame at the row itself." },
+    { "q": "Why does LAST_VALUE often return the current row's value?", "options": ["It is a bug", "The default frame ends at the current row", "It ignores ORDER BY"], "answer": 1, "why": "With ORDER BY and no frame, the frame runs from the start to the current row, so the 'last' row is the current one. Add UNBOUNDED FOLLOWING." },
+    { "q": "What does txn_date - LAG(txn_date) OVER (...) return?", "options": ["A date", "A number of days", "Text"], "answer": 1, "why": "Subtracting two dates gives the number of days between them on both Snowflake and DuckDB." },
+    { "q": "Why add txn_id after txn_date in ORDER BY for LAG?", "options": ["To make LAG faster", "So two transactions on the same date always get the same order", "It is required"], "answer": 1, "why": "Ties in txn_date would let the engine choose either row as 'previous'. The tie-breaker removes that randomness." }
+  ]
+}
+</script>

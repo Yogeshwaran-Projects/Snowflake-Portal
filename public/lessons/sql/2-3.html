@@ -1,0 +1,333 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>SQL: Beginner to Advanced</span><span>Module 2 · Intermediate</span><span>Lesson 2.3</span></div>
+  <h1>Self and cross joins</h1>
+  <p class="lede">Who is each employee’s manager? Which two customers share a name? Which branch must sell which product? These questions join a table to itself, or pair every row with every row.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>25 min</span>
+    <span class="badge">Intermediate</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice: 6 questions</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Join a table to itself with two aliases</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Walk an employee-to-manager hierarchy one level up</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Find pairs of rows without listing each pair twice</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Use CROSS JOIN to build every combination on purpose</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">A self join joins a table to a second copy of itself. A cross join pairs every row of one table with every row of another, with no key at all.</p></div>
+  </div>
+  <ul>
+    <li><b>Self join</b>: same table, two aliases, usually because a row points to another row in the same table (employee to manager).</li>
+    <li><b>Cross join</b>: no ON. Rows × rows. 6 branches × 3 products = 18 rows. Useful for checklists and calendars, dangerous by accident.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like comparing cards on the same shelf</h2>
+  <p>So far you matched cards from two shelves. Now take two photocopies of the same shelf. On copy A you read an employee’s card. Her card has a sticker: “my manager is 101”. On copy B you find card 101. Same shelf, two copies, one join. For a cross join, forget stickers. Lay every card from shelf A next to every card from shelf B, all combinations. That is how a bank builds “every branch must report on every product” before any numbers exist.</p>
+  <div class="map">
+    <div><small>On the shelves</small><b>Two photocopies of one shelf</b><span>In SQL: employees e JOIN employees m, two aliases of one table</span></div>
+    <div><small>On the shelves</small><b>“My manager is 101” sticker</b><span>In SQL: ON m.emp_id = e.manager_id</span></div>
+    <div><small>On the shelves</small><b>Every card next to every card</b><span>In SQL: CROSS JOIN, rows multiplied</span></div>
+  </div>
+</section>
+
+<section class="sec" id="syntax" data-toc="Syntax">
+  <h2>Syntax step by step</h2>
+  <p>Step 1: write the table twice with different aliases. Name them by role: <code>e</code> for employee, <code>m</code> for manager. Step 2: in ON, connect the pointer column of one copy to the id column of the other.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> e.emp_name, m.emp_name <span class="kw">AS</span> manager_name
+<span class="kw">FROM</span> employees e
+<span class="kw">JOIN</span> employees m <span class="kw">ON</span> m.emp_id = e.manager_id;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>e (employee copy)</th><th>e.manager_id</th><th>m (manager copy)</th><th>In the result?</th></tr></thead>
+      <tbody>
+        <tr><td>105 Rahul Nair</td><td>101</td><td>101 Asha Rao</td><td>Yes</td></tr>
+        <tr><td>101 Asha Rao</td><td>100</td><td>100 Suresh Menon</td><td>Yes</td></tr>
+        <tr><td>100 Suresh Menon</td><td>NULL</td><td>(nothing equals NULL)</td><td>Dropped by inner join</td></tr>
+        <tr><td>111 Farah Khan</td><td>NULL</td><td>(nothing equals NULL)</td><td>Dropped by inner join</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Want the top boss in the list too? Make it a <code>LEFT JOIN</code>. Then Suresh Menon appears with manager_name NULL.</p>
+  <h3>Pairs without duplicates</h3>
+  <p>To find two customers with the same name, join customers to customers on the name. Without care you get each pair twice (1 with 11, and 11 with 1) and each row paired with itself. The fix is one extra condition: <code>a.cust_id &lt; b.cust_id</code>.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> a.cust_id <span class="kw">AS</span> first_id, b.cust_id <span class="kw">AS</span> second_id, a.cust_name
+<span class="kw">FROM</span> customers a
+<span class="kw">JOIN</span> customers b
+  <span class="kw">ON</span> b.cust_name = a.cust_name
+ <span class="kw">AND</span> a.cust_id &lt; b.cust_id;</pre></div>
+  <h3>Cross join</h3>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> b.branch_name, p.product_name
+<span class="kw">FROM</span> branches b
+<span class="kw">CROSS JOIN</span> products p;</pre></div>
+  <p>18 rows, every branch with every product. LEFT JOIN this skeleton to real sales later and the zero-sales cells are no longer missing, they are NULL rows you can see.</p>
+</section>
+
+<section class="sec" id="examples" data-toc="Worked examples">
+  <h2>Worked examples</h2>
+  <p><b>Example 1: everyone and their manager, bosses included.</b></p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> e.emp_name, e.job_title, m.emp_name <span class="kw">AS</span> manager_name
+<span class="kw">FROM</span> employees e
+<span class="kw">LEFT JOIN</span> employees m <span class="kw">ON</span> m.emp_id = e.manager_id
+<span class="kw">ORDER BY</span> e.emp_id;</pre></div>
+  <p>Result: 12 rows. Suresh Menon and Farah Khan have manager_name NULL. Note that Farah is not a boss; her branch simply has no manager yet. NULL means “none recorded”, not “top of the tree”.</p>
+  <p><b>Example 2: employees who sit in a different branch from their manager.</b> Compare two columns of the two copies.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> e.emp_name, e.branch_id <span class="kw">AS</span> emp_branch, m.branch_id <span class="kw">AS</span> mgr_branch
+<span class="kw">FROM</span> employees e
+<span class="kw">JOIN</span> employees m <span class="kw">ON</span> m.emp_id = e.manager_id
+<span class="kw">WHERE</span> e.branch_id &lt;&gt; m.branch_id;</pre></div>
+  <p>Result: Vikram Shah, Meera Iyer, Priya Menon. All three report to Suresh Menon in Mumbai from other cities.</p>
+  <p><b>Example 3: direct reports per manager.</b> Group the manager copy.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> m.emp_name <span class="kw">AS</span> manager_name, <span class="kw">COUNT</span>(*) <span class="kw">AS</span> reports
+<span class="kw">FROM</span> employees e
+<span class="kw">JOIN</span> employees m <span class="kw">ON</span> m.emp_id = e.manager_id
+<span class="kw">GROUP BY</span> m.emp_id, m.emp_name;</pre></div>
+  <p>Result: Suresh Menon 4, Asha Rao 2, Vikram Shah 2, Meera Iyer 1, Priya Menon 1.</p>
+  <p><b>Example 4: branch manager by name.</b> Branches point to employees through <code>manager_id</code>. That is a normal join, not a self join, but it looks similar: the pointer lives in one table and the id in another.</p>
+</section>
+
+<section class="sec" id="mistakes" data-toc="Common mistakes">
+  <h2>Common mistakes</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Accidental cross join</div><p>Forget the ON clause in old comma-style syntax, <code>FROM accounts a, transactions t</code>, and you get 14 × 24 = 336 rows. On a real bank table that is billions. If a query returns far more rows than the biggest table, look for a missing join condition first.</p></div>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Which copy is which</div><p>In <code>m.emp_id = e.manager_id</code>, the pointer (<code>manager_id</code>) belongs to the employee copy and the id belongs to the manager copy. Swap them and every manager is shown as the report of their own team members. Name aliases by role, never a and b, when the table points to itself.</p></div>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Pairs counted twice</div><p>Pair-finding self joins need <code>a.id &lt; b.id</code>. With <code>&lt;&gt;</code> you get each pair twice; with nothing you also pair each row with itself.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="snowflake" data-toc="On Snowflake">
+  <h2>On Snowflake</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Same syntax, plus two helpers</div><p>Self joins and CROSS JOIN are identical on Snowflake. A self join walks only one level of a hierarchy; for the whole tree (manager of the manager of …) Snowflake has <code>CONNECT BY</code> and recursive CTEs, which Lesson 3.4 covers. For generating rows without a table, Snowflake has <code>TABLE(GENERATOR(ROWCOUNT =&gt; 30))</code>, often cross-joined to build a calendar. DuckDB uses <code>range(30)</code> for the same job. Both are engine-specific, so the portable way is a small dates table.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice">
+  <h2>Practice</h2>
+  <p>Tables: <code>employees</code> (with <code>manager_id</code> pointing back into the same table), <code>branches</code>, <code>customers</code> and a small <code>products</code> list. Two employees share the name Rahul Nair and two customers share the name Anil Kapoor. The top boss and one new joiner have no manager.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>A self join is two aliases of one table joined on a pointer column. Name the aliases by role. A cross join has no ON and multiplies rows; use it on purpose for checklists, and suspect it whenever a result is far too big.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Self join</dt><dd>A join between two aliases of the same table.</dd>
+    <dt>Cross join</dt><dd>Every row of one table paired with every row of another; also called a Cartesian product.</dd>
+    <dt>Hierarchy</dt><dd>Rows that point to other rows in the same table, such as employee to manager.</dd>
+    <dt>Pointer column</dt><dd>A column holding another row’s id, such as manager_id.</dd>
+    <dt>Pair</dt><dd>Two different rows that satisfy a condition; use a.id &lt; b.id to list each pair once.</dd>
+    <dt>Skeleton</dt><dd>A cross join of dimensions (branch × product, branch × month) used to show every cell, even empty ones.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#sql/2-4">2.4 Subqueries →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "employees": {
+        "columns": [
+          ["emp_id", "NUMBER"],
+          ["emp_name", "VARCHAR"],
+          ["job_title", "VARCHAR"],
+          ["branch_id", "NUMBER"],
+          ["manager_id", "NUMBER", "emp_id of the boss; NULL for the top boss"]
+        ],
+        "rows": [
+          [100, "Suresh Menon", "Regional Head", 1, null],
+          [101, "Asha Rao", "Branch Manager", 1, 100],
+          [102, "Vikram Shah", "Branch Manager", 2, 100],
+          [103, "Meera Iyer", "Branch Manager", 3, 100],
+          [104, "Priya Menon", "Branch Manager", 4, 100],
+          [105, "Rahul Nair", "Relationship Manager", 1, 101],
+          [106, "Divya Kumar", "Teller", 1, 101],
+          [107, "Arjun Das", "Relationship Manager", 2, 102],
+          [108, "Sneha Pillai", "Teller", 3, 103],
+          [109, "Karthik Reddy", "Loan Officer", 4, 104],
+          [110, "Rahul Nair", "Teller", 2, 102],
+          [111, "Farah Khan", "Loan Officer", 5, null]
+        ]
+      },
+      "branches": {
+        "columns": [
+          ["branch_id", "NUMBER"],
+          ["branch_name", "VARCHAR"],
+          ["city", "VARCHAR"],
+          ["manager_id", "NUMBER", "emp_id of the branch manager; NULL when the post is empty"]
+        ],
+        "rows": [
+          [1, "Fort", "Mumbai", 101],
+          [2, "Connaught Place", "Delhi", 102],
+          [3, "T Nagar", "Chennai", 103],
+          [4, "Koramangala", "Bengaluru", 104],
+          [5, "Banjara Hills", "Hyderabad", null],
+          [6, "Salt Lake", "Kolkata", null]
+        ]
+      },
+      "customers": {
+        "columns": [
+          ["cust_id", "NUMBER"],
+          ["cust_name", "VARCHAR"],
+          ["city", "VARCHAR"],
+          ["segment", "VARCHAR", "RETAIL, PREMIUM or SME"],
+          ["joined_on", "DATE"],
+          ["branch_id", "NUMBER", "NULL for online-only customers"]
+        ],
+        "rows": [
+          [1, "Anil Kapoor", "Mumbai", "RETAIL", "2019-03-15", 1],
+          [2, "Bhavna Desai", "Mumbai", "PREMIUM", "2020-07-01", 1],
+          [3, "Chetan Patel", "Delhi", "RETAIL", "2021-01-20", 2],
+          [4, "Deepa Nair", "Delhi", "PREMIUM", "2018-11-05", 2],
+          [5, "Esha Singh", "Chennai", "RETAIL", "2022-05-10", 3],
+          [6, "Farhan Ali", "Chennai", "SME", "2020-02-28", 3],
+          [7, "Gita Rao", "Bengaluru", "PREMIUM", "2023-08-14", 4],
+          [8, "Harish Kumar", "Bengaluru", "RETAIL", "2024-01-09", 4],
+          [9, "Isha Verma", "Hyderabad", "SME", "2024-06-30", 5],
+          [10, "Jay Mehta", "Pune", "RETAIL", "2025-02-11", null],
+          [11, "Anil Kapoor", "Delhi", "RETAIL", "2025-09-01", 2],
+          [12, "Kavya Iyer", "Chennai", "RETAIL", "2026-03-03", 3]
+        ]
+      },
+      "products": {
+        "columns": [
+          ["product_id", "NUMBER"],
+          ["product_name", "VARCHAR"]
+        ],
+        "rows": [
+          [1, "Savings Plus"],
+          [2, "Gold Card"],
+          [3, "Home Loan"]
+        ]
+      }
+    },
+    "starter": "SELECT e.emp_name, e.job_title, m.emp_name AS manager_name\nFROM employees e\nLEFT JOIN employees m ON m.emp_id = e.manager_id\nORDER BY e.emp_id",
+    "examples": [
+      {
+        "label": "Different branch from manager",
+        "sql": "SELECT e.emp_name, e.branch_id AS emp_branch, m.branch_id AS mgr_branch\nFROM employees e\nJOIN employees m ON m.emp_id = e.manager_id\nWHERE e.branch_id <> m.branch_id\nORDER BY e.emp_id"
+      },
+      {
+        "label": "Reports per manager",
+        "sql": "SELECT m.emp_name AS manager_name, COUNT(*) AS reports\nFROM employees e\nJOIN employees m ON m.emp_id = e.manager_id\nGROUP BY m.emp_id, m.emp_name\nORDER BY reports DESC, m.emp_id"
+      },
+      {
+        "label": "Branch x product checklist",
+        "sql": "SELECT b.branch_name, p.product_name\nFROM branches b\nCROSS JOIN products p\nORDER BY b.branch_id, p.product_id"
+      }
+    ],
+    "challenges": [
+      {
+        "level": "Easy",
+        "task": "Show emp_name and the manager's name for every employee who has a manager.",
+        "hint": "employees e JOIN employees m ON m.emp_id = e.manager_id. Expect 10 rows.",
+        "answer": "SELECT e.emp_name, m.emp_name AS manager_name FROM employees e JOIN employees m ON m.emp_id = e.manager_id ORDER BY e.emp_id"
+      },
+      {
+        "level": "Easy",
+        "task": "Build the checklist of every branch with every product: show branch_name and product_name.",
+        "hint": "branches CROSS JOIN products. Expect 6 x 3 = 18 rows.",
+        "answer": "SELECT b.branch_name, p.product_name FROM branches b CROSS JOIN products p ORDER BY b.branch_id, p.product_id"
+      },
+      {
+        "level": "Medium",
+        "task": "Show emp_name and the manager's name for ALL 12 employees. Employees with no manager must show NULL as the manager's name.",
+        "hint": "Same self join, but LEFT JOIN so the top boss and Farah Khan survive.",
+        "answer": "SELECT e.emp_name, m.emp_name AS manager_name FROM employees e LEFT JOIN employees m ON m.emp_id = e.manager_id ORDER BY e.emp_id"
+      },
+      {
+        "level": "Medium",
+        "task": "Find pairs of different customers that share the same cust_name. Show the smaller cust_id, the larger cust_id and the cust_name. List each pair once.",
+        "hint": "customers a JOIN customers b ON b.cust_name = a.cust_name AND a.cust_id < b.cust_id.",
+        "answer": "SELECT a.cust_id AS first_id, b.cust_id AS second_id, a.cust_name FROM customers a JOIN customers b ON b.cust_name = a.cust_name AND a.cust_id < b.cust_id ORDER BY a.cust_id"
+      },
+      {
+        "level": "Medium",
+        "task": "Show emp_name for every employee whose branch_id is different from their manager's branch_id.",
+        "hint": "Inner self join, then WHERE e.branch_id <> m.branch_id.",
+        "answer": "SELECT e.emp_name FROM employees e JOIN employees m ON m.emp_id = e.manager_id WHERE e.branch_id <> m.branch_id ORDER BY e.emp_id"
+      },
+      {
+        "level": "Hard",
+        "task": "For every branch that has a manager, show branch_name, the manager's emp_name, and the number of employees who report directly to that manager.",
+        "hint": "branches b JOIN employees m ON m.emp_id = b.manager_id, then JOIN employees e ON e.manager_id = m.emp_id. GROUP BY branch and manager, COUNT(e.emp_id).",
+        "answer": "SELECT b.branch_name, m.emp_name AS manager_name, COUNT(e.emp_id) AS reports FROM branches b JOIN employees m ON m.emp_id = b.manager_id JOIN employees e ON e.manager_id = m.emp_id GROUP BY b.branch_id, b.branch_name, m.emp_name ORDER BY b.branch_id"
+      }
+    ]
+  },
+  "quiz": [
+    {
+      "q": "What makes a join a self join?",
+      "options": ["It has no ON clause", "Both sides are the same table, under two aliases", "It joins exactly three tables"],
+      "answer": 1,
+      "why": "A self join is one table used twice, such as employees e JOIN employees m."
+    },
+    {
+      "q": "In employees e JOIN employees m ON m.emp_id = e.manager_id, what is m?",
+      "options": ["The employee copy", "The manager copy", "A separate managers table"],
+      "answer": 1,
+      "why": "e.manager_id points to a row in the same table. That row, found by emp_id, is the manager, so the copy is named m."
+    },
+    {
+      "q": "The top boss has manager_id NULL. In an inner self join, what happens to her row?",
+      "options": ["She appears with manager NULL", "She is dropped, because nothing equals NULL", "She appears as her own manager"],
+      "answer": 1,
+      "why": "Inner joins need a match. NULL matches nothing. Use LEFT JOIN to keep her."
+    },
+    {
+      "q": "How many rows does a CROSS JOIN of 6 branches and 3 products return?",
+      "options": ["9", "18", "6"],
+      "answer": 1,
+      "why": "A cross join pairs every row with every row: 6 x 3 = 18."
+    },
+    {
+      "q": "You want each pair of same-named customers listed once. Which condition do you add?",
+      "options": ["a.cust_id <> b.cust_id", "a.cust_id < b.cust_id", "a.cust_id = b.cust_id"],
+      "answer": 1,
+      "why": "< keeps one ordering of each pair and excludes self-pairs. <> gives each pair twice, and = pairs rows with themselves."
+    },
+    {
+      "q": "A query returns far more rows than the biggest table involved. What should you check first?",
+      "options": ["A missing join condition that created a cross join", "The ORDER BY clause", "The column aliases"],
+      "answer": 0,
+      "why": "An accidental cross join multiplies rows. Check that every join has an ON clause on the right key."
+    }
+  ]
+}
+</script>

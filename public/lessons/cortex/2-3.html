@@ -1,0 +1,391 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Cortex Masterclass</span><span>Module 2 · AI SQL functions</span><span>Lesson 2.3</span></div>
+  <h1>Extract, summarise and translate</h1>
+  <p class="lede">Pull exact facts out of messy text, write one summary for thousands of rows, translate Hindi and Hinglish into English and remove personal data, all from SQL.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>35 min</span>
+    <span class="badge">Intermediate</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>2 simulators + lab + project step P3</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Extract named fields with AI_EXTRACT and read the response object</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Summarise many rows with AI_SUMMARIZE_AGG and steer the result with AI_AGG</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Translate with AI_TRANSLATE, including auto-detect for mixed languages</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Redact personal data with AI_REDACT and know its limits</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+<div class="callout def">
+  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+  <div><div class="label">Key definition</div><p class="big">AI_EXTRACT pulls the answers to your questions out of text or a document. AI_SUMMARIZE_AGG and AI_AGG are aggregate functions: they read a whole column across many rows and return one text. AI_TRANSLATE translates between supported languages. AI_REDACT finds and masks personal information.</p></div>
+</div>
+<p>These four change the shape of text. Extract turns a paragraph into columns. The two aggregates turn many rows into one paragraph. Translate keeps the meaning and changes the language. Redact keeps the text and removes the private parts.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a team of note-takers</h2>
+<p>One note-taker reads each letter and fills a small form: amount, product, what the customer wants. Another reads a whole drawer of letters and writes one page: “this month people mostly complained about…”. A translator rewrites Hindi letters in English. A privacy officer blacks out names and phone numbers before letters go to a training class.</p>
+<div class="map">
+  <div><small>In the library</small><b>The small form</b><span>In Snowflake: AI_EXTRACT with a responseFormat of questions</span></div>
+  <div><small>In the library</small><b>One page for a drawer</b><span>In Snowflake: AI_SUMMARIZE_AGG or AI_AGG with GROUP BY</span></div>
+  <div><small>In the library</small><b>Translator and black marker</b><span>In Snowflake: AI_TRANSLATE and AI_REDACT</span></div>
+</div>
+</section>
+
+<section class="sec" id="extract" data-toc="AI_EXTRACT">
+  <h2>AI_EXTRACT in depth</h2>
+<div class="code"><button class="copy" type="button">Copy</button><pre>AI_EXTRACT( text =&gt; &lt;text&gt;, responseFormat =&gt; &lt;format&gt; [, scores =&gt; TRUE] )
+AI_EXTRACT( file =&gt; TO_FILE('@stage', 'file.pdf'), responseFormat =&gt; &lt;format&gt; )
+-- returns {"error": null, "response": { ...your fields... }}</pre></div>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>responseFormat style</th><th>Example</th><th>Use for</th></tr></thead>
+    <tbody>
+      <tr><td><b>Object of label: question</b></td><td><code>{'amount': 'What amount is mentioned?'}</code></td><td>Most cases: you choose the key names</td></tr>
+      <tr><td><b>Array of questions</b></td><td><code>['What amount is mentioned?']</code></td><td>Quick tests</td></tr>
+      <tr><td><b>Array of [label, question]</b></td><td><code>[['amount', 'What amount…?']]</code></td><td>Same as the object, as a list</td></tr>
+      <tr><td><b>JSON schema</b></td><td><code>{'schema': {'type': 'object', 'properties': {…}}}</code></td><td>Lists (<code>type: array</code>) and tables (<code>column_ordering</code>)</td></tr>
+    </tbody>
+  </table>
+</div>
+<p>It runs on the <code>arctic-extract</code> model, reads text or files (PDF, Word, PowerPoint, images, HTML, email and more, under 100 MB) and supports many languages, Hindi included. Both input and output tokens are billed, the responseFormat counts as input, and each document page counts as 970 tokens. Questions can be in natural language or short descriptions such as <code>'City, street, ZIP'</code>.</p>
+</section>
+
+<section class="sec" id="summarise" data-toc="Summarise and AI_AGG">
+  <h2>AI_SUMMARIZE_AGG and AI_AGG</h2>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Function</th><th>Signature</th><th>When to use</th></tr></thead>
+    <tbody>
+      <tr><td><code>AI_SUMMARIZE_AGG</code></td><td><code>AI_SUMMARIZE_AGG(expr)</code></td><td>A general summary of many rows. No instruction needed.</td></tr>
+      <tr><td><code>AI_AGG</code></td><td><code>AI_AGG(expr, 'instruction')</code></td><td>Your own task across rows: top themes, best quote, list of products named.</td></tr>
+    </tbody>
+  </table>
+</div>
+<p>Both are aggregates, so use them with <code>GROUP BY</code> like <code>SUM</code>. They are not limited by one context window: the docs describe 128,000 tokens per row that can be used across multiple rows. Write AI_AGG instructions as plain statements that describe the data and the purpose, for example <i>“You are reading complaints to an Indian retail bank. List the three most common problems with a rough count for each, for the operations committee.”</i></p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> CATEGORY,
+       AI_AGG(TEXT_EN, 'You are reading complaints to an Indian retail bank. List the three most common problems as short bullet points with a rough count for each.') <span class="kw">AS</span> TOP_PROBLEMS
+<span class="kw">FROM</span> BANK_AI.COMPLAINTS.ENRICHED
+<span class="kw">GROUP</span> <span class="kw">BY</span> CATEGORY;</pre></div>
+</section>
+
+<section class="sec" id="translate" data-toc="Translate and redact">
+  <h2>AI_TRANSLATE and AI_REDACT</h2>
+<div class="code"><button class="copy" type="button">Copy</button><pre>AI_TRANSLATE( &lt;text&gt;, &lt;source_language&gt;, &lt;target_language&gt; )   -- '' as source = auto-detect
+AI_REDACT( &lt;input&gt; [, &lt;categories&gt;] [, &lt;return_error_details&gt;] [, &lt;mode&gt;] )  -- mode 'redact' or 'detect'</pre></div>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th></th><th>AI_TRANSLATE</th><th>AI_REDACT</th></tr></thead>
+    <tbody>
+      <tr><td><b>Does</b></td><td>Translates text between supported languages (codes such as <code>en</code>, <code>hi</code>, <code>fr</code>)</td><td>Replaces personal data with placeholders such as [NAME], or lists where it is</td></tr>
+      <tr><td><b>Mixed language</b></td><td>Pass <code>''</code> as source to auto-detect text that mixes languages, such as Hinglish</td><td>Works best on well-formed English</td></tr>
+      <tr><td><b>Limits</b></td><td>Up to 100,000 input tokens per call</td><td>Input plus output up to 4,096 tokens, output up to 1,024: split long text first</td></tr>
+      <tr><td><b>Categories</b></td><td>Not applicable</td><td>NAME, EMAIL, PHONE_NUMBER, ADDRESS, DATE_OF_BIRTH, NATIONAL_ID, PASSPORT, TAX_IDENTIFIER, PAYMENT_CARD_DATA and more</td></tr>
+      <tr><td><b>On error</b></td><td>Row returns NULL</td><td>Whole query fails unless <code>AI_SQL_ERROR_HANDLING_USE_FAIL_ON_ERROR</code> is FALSE</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> AI_TRANSLATE('Aapka app bahut slow hai', '', 'en') <span class="kw">AS</span> EN;
+
+<span class="kw">SELECT</span> AI_REDACT('Please call Asha Rao on 98200 12345 about card 4111 1111 1111 1111.') <span class="kw">AS</span> SAFE;
+<span class="cm">-- Please call [NAME] on [PHONE_NUMBER] about card [PAYMENT_CARD_DATA].</span></pre></div>
+<div class="callout note">
+  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+  <div><div class="label">Redaction is best effort</div><p>The docs say AI_REDACT detects personal data on a best-effort basis and you must review the output against your privacy policy. On a bank project treat it as one layer next to masking policies, never as the only control.</p></div>
+</div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+<p>A bank’s Monday committee pack used to take an analyst a full day of reading. Now a task runs at 6 a.m.: AI_EXTRACT fills amount, product and requested action; AI_TRANSLATE turns regional-language complaints into English; AI_SUMMARIZE_AGG writes one paragraph per product; AI_REDACT strips names and phone numbers from quotes that go into slides. The analyst spends her morning checking the numbers and adding judgement instead of copying text.</p>
+</section>
+
+<section class="sec" id="sim" data-toc="Simulators">
+  <h2>Simulators: extract fields, then translate and summarise</h2>
+<div data-simulator="cortex-2-3-extract"></div>
+<div data-simulator="cortex-2-3-translate-summarise"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+<p>After P3 the <code>enriched</code> table carries <code>amount_mentioned</code>, <code>account_or_card_type</code>, <code>requested_action</code> (pre-computed by AI_EXTRACT) and <code>text_en</code> (AI_TRANSLATE for the four Hindi and Hinglish rows). <code>product_summaries</code> holds the AI_SUMMARIZE_AGG output. Query them as the committee would.</p>
+<div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: four functions, one complaint each</h2>
+<div class="panel">
+  <div class="panel-head">
+    <h3>Extract, translate, aggregate, redact</h3>
+    <div class="meta"><span>About 15 min</span><span>Uses BANK_AI from P1 and P2</span></div>
+  </div>
+  <ol class="steps">
+    <li><div>
+      <p>Extract fields from one complaint and look at the full response object.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> AI_EXTRACT(text =&gt; COMPLAINT_TEXT,
+  responseFormat =&gt; {'amount': 'What money amount in rupees is mentioned?', 'wants': 'What does the customer want?'}) <span class="kw">AS</span> R
+<span class="kw">FROM</span> BANK_AI.COMPLAINTS.RAW_COMPLAINTS <span class="kw">WHERE</span> COMPLAINT_ID = 14;</pre></div>
+<p class="expect">Expected: <code>{"error": null, "response": {"amount": "1,200", "wants": "..."}}</code> or similar. Note the amount may come back with commas or as Rs 1,200: that is why P3 cleans it with REGEXP_REPLACE.</p>
+      <label><input type="checkbox"> Done</label>
+    </div></li>
+    <li><div>
+      <p>Translate the four non-English complaints with auto-detect.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> COMPLAINT_ID, AI_TRANSLATE(COMPLAINT_TEXT, '', 'en') <span class="kw">AS</span> EN
+<span class="kw">FROM</span> BANK_AI.COMPLAINTS.RAW_COMPLAINTS <span class="kw">WHERE</span> COMPLAINT_ID <span class="kw">IN</span> (20, 32, 51, 59);</pre></div>
+<p class="expect">Expected: four English sentences. Check that the amounts 1,500 and 750 survive.</p>
+      <label><input type="checkbox"> Done</label>
+    </div></li>
+    <li><div>
+      <p>Run the AI_AGG query from the summarise section after P3, or replace TEXT_EN with COMPLAINT_TEXT before P3.</p>
+<p class="expect">Expected: one row per category with three bullet points each.</p>
+      <label><input type="checkbox"> Done</label>
+    </div></li>
+    <li><div>
+      <p>Redact a made-up sentence with a name and phone number (the AI_REDACT example above).</p>
+<p class="expect">Expected: the name and number replaced by [NAME] and [PHONE_NUMBER].</p>
+      <label><input type="checkbox"> Done</label>
+    </div></li>
+  </ol>
+</div>
+</section>
+
+<section class="sec" id="project" data-toc="Project step P3">
+  <h2>Project step P3: Extract fields and summarise</h2>
+<div class="callout project">
+  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21V4h12l-2 4 2 4H4"/></svg>
+  <div><div class="label">Complaint Intelligence · P3</div><p>We keep ONE table: P3 adds four columns to <code>BANK_AI.COMPLAINTS.ENRICHED</code> (no ENRICHED_V2): <code>AMOUNT_MENTIONED</code> NUMBER(12,2), <code>ACCOUNT_OR_CARD_TYPE</code> VARCHAR, <code>REQUESTED_ACTION</code> VARCHAR and <code>TEXT_EN</code> VARCHAR (English text for every row). It also creates <code>BANK_AI.COMPLAINTS.PRODUCT_SUMMARIES</code>(PRODUCT, COMPLAINT_COUNT, SUMMARY). P5 builds Cortex Search on TEXT_EN.</p></div>
+</div>
+<p><b>1. Run the script.</b> It is safe to re-run: the columns are added only if missing, and the updates overwrite.</p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE</span> <span class="kw">WAREHOUSE</span> LEARN_WH;
+<span class="kw">USE</span> <span class="kw">SCHEMA</span> BANK_AI.COMPLAINTS;
+
+<span class="cm">-- 1. Four new columns on the SAME table from P2</span>
+<span class="kw">ALTER</span> <span class="kw">TABLE</span> BANK_AI.COMPLAINTS.ENRICHED <span class="kw">ADD</span> <span class="kw">COLUMN</span> <span class="kw">IF</span> <span class="kw">NOT</span> <span class="kw">EXISTS</span> AMOUNT_MENTIONED <span class="kw">NUMBER</span>(12,2);
+<span class="kw">ALTER</span> <span class="kw">TABLE</span> BANK_AI.COMPLAINTS.ENRICHED <span class="kw">ADD</span> <span class="kw">COLUMN</span> <span class="kw">IF</span> <span class="kw">NOT</span> <span class="kw">EXISTS</span> ACCOUNT_OR_CARD_TYPE <span class="kw">VARCHAR</span>;
+<span class="kw">ALTER</span> <span class="kw">TABLE</span> BANK_AI.COMPLAINTS.ENRICHED <span class="kw">ADD</span> <span class="kw">COLUMN</span> <span class="kw">IF</span> <span class="kw">NOT</span> <span class="kw">EXISTS</span> REQUESTED_ACTION <span class="kw">VARCHAR</span>;
+<span class="kw">ALTER</span> <span class="kw">TABLE</span> BANK_AI.COMPLAINTS.ENRICHED <span class="kw">ADD</span> <span class="kw">COLUMN</span> <span class="kw">IF</span> <span class="kw">NOT</span> <span class="kw">EXISTS</span> TEXT_EN <span class="kw">VARCHAR</span>;
+
+<span class="cm">-- 2. Extract three fields in ONE AI_EXTRACT call per row</span>
+<span class="kw">UPDATE</span> BANK_AI.COMPLAINTS.ENRICHED e
+<span class="kw">SET</span> AMOUNT_MENTIONED     = TRY_TO_NUMBER(REGEXP_REPLACE(x.R:response:amount::<span class="kw">STRING</span>, '[^0-9.]', ''), 12, 2),
+    ACCOUNT_OR_CARD_TYPE = NULLIF(x.R:response:account_or_card_type::<span class="kw">STRING</span>, 'None'),
+    REQUESTED_ACTION     = x.R:response:requested_action::<span class="kw">STRING</span>
+<span class="kw">FROM</span> (
+  <span class="kw">SELECT</span> COMPLAINT_ID,
+         AI_EXTRACT(
+           text =&gt; COMPLAINT_TEXT,
+           responseFormat =&gt; {
+             'amount': 'What is the main money amount in rupees mentioned? Digits only, no commas. If none, answer None',
+             'account_or_card_type': 'Which product is involved, for example Credit card, Debit card, Savings account, Home loan, Personal loan? If none, answer None',
+             'requested_action': 'In at most eight English words, what does the customer want the bank to do? If nothing, answer None'
+           }) <span class="kw">AS</span> R
+  <span class="kw">FROM</span> BANK_AI.COMPLAINTS.ENRICHED
+) x
+<span class="kw">WHERE</span> e.COMPLAINT_ID = x.COMPLAINT_ID;
+
+<span class="cm">-- 3. English text: translate only rows written in Hindi or Hinglish</span>
+<span class="kw">UPDATE</span> BANK_AI.COMPLAINTS.ENRICHED
+<span class="kw">SET</span> TEXT_EN = <span class="kw">CASE</span>
+  <span class="kw">WHEN</span> AI_FILTER(PROMPT('Is this text written mainly in Hindi or Hinglish (Hindi in Latin letters) rather than English? {0}', COMPLAINT_TEXT))
+  <span class="kw">THEN</span> AI_TRANSLATE(COMPLAINT_TEXT, '', 'en')
+  <span class="kw">ELSE</span> COMPLAINT_TEXT
+<span class="kw">END</span>;
+
+<span class="cm">-- 4. Optional: re-classify translated rows on their English text</span>
+<span class="kw">UPDATE</span> BANK_AI.COMPLAINTS.ENRICHED
+<span class="kw">SET</span> CATEGORY = AI_CLASSIFY(TEXT_EN, ['Fees and charges', 'Card issues', 'Loan servicing', 'App and UPI', 'Customer service', 'Fraud']):labels[0]::<span class="kw">STRING</span>
+<span class="kw">WHERE</span> TEXT_EN &lt;&gt; COMPLAINT_TEXT;
+
+<span class="cm">-- 5. One summary per product</span>
+<span class="kw">CREATE</span> <span class="kw">OR</span> <span class="kw">REPLACE</span> <span class="kw">TABLE</span> BANK_AI.COMPLAINTS.PRODUCT_SUMMARIES <span class="kw">AS</span>
+<span class="kw">SELECT</span> PRODUCT,
+       <span class="kw">COUNT</span>(*)                  <span class="kw">AS</span> COMPLAINT_COUNT,
+       AI_SUMMARIZE_AGG(TEXT_EN) <span class="kw">AS</span> SUMMARY
+<span class="kw">FROM</span> BANK_AI.COMPLAINTS.ENRICHED
+<span class="kw">GROUP</span> <span class="kw">BY</span> PRODUCT;</pre></div>
+<p><b>2. Check it.</b></p>
+<div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> COMPLAINT_ID, AMOUNT_MENTIONED, ACCOUNT_OR_CARD_TYPE, REQUESTED_ACTION, TEXT_EN
+<span class="kw">FROM</span> BANK_AI.COMPLAINTS.ENRICHED
+<span class="kw">WHERE</span> COMPLAINT_ID <span class="kw">IN</span> (2, 10, 20, 32)
+<span class="kw">ORDER</span> <span class="kw">BY</span> COMPLAINT_ID;
+
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> BANK_AI.COMPLAINTS.PRODUCT_SUMMARIES <span class="kw">ORDER</span> <span class="kw">BY</span> COMPLAINT_COUNT <span class="kw">DESC</span>;</pre></div>
+<p class="expect">Expected: amounts 4500, a figure for row 10 (60000 or 150000: the text mentions both, so decide your rule), 1500 and 750; English TEXT_EN for rows 20 and 32; six summary rows with counts 15, 13, 8, 8, 8, 8. No row should have a NULL TEXT_EN.</p>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+<div class="callout key">
+  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+  <div><div class="label">Remember</div><p>Extract turns text into columns, the aggregates turn many rows into one paragraph, translate makes every row readable in one language and redact removes private data. Always clean and check what comes back before you trust it in a report.</p></div>
+</div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+<dl class="glossary">
+  <dt>AI_EXTRACT</dt><dd>Answers named questions from text or a file. Returns {"error", "response"}.</dd>
+  <dt>responseFormat</dt><dd>The questions or JSON schema that tell AI_EXTRACT what to pull out.</dd>
+  <dt>AI_SUMMARIZE_AGG</dt><dd>Aggregate that summarises a text column across many rows.</dd>
+  <dt>AI_AGG</dt><dd>Aggregate that follows your own instruction across many rows.</dd>
+  <dt>AI_TRANSLATE</dt><dd>Translates text; an empty source language means auto-detect.</dd>
+  <dt>AI_REDACT</dt><dd>Replaces personal data such as names and phone numbers with placeholders.</dd>
+  <dt>PII</dt><dd>Personally identifiable information: data that can identify a person.</dd>
+  <dt>TEXT_EN</dt><dd>Project column with the English version of every complaint.</dd>
+</dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#cortex/2-4">2.4 Documents with AI_PARSE_DOCUMENT →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "enriched": {
+        "columns": [
+          ["complaint_id","NUMBER"],
+          ["product","VARCHAR"],
+          ["category","VARCHAR"],
+          ["sentiment","VARCHAR"],
+          ["is_urgent","NUMBER","1 = TRUE"],
+          ["amount_mentioned","NUMBER","AI_EXTRACT, rupees"],
+          ["account_or_card_type","VARCHAR","AI_EXTRACT"],
+          ["requested_action","VARCHAR","AI_EXTRACT"],
+          ["text_en","VARCHAR","AI_TRANSLATE where needed"]
+        ],
+        "rows": [
+          [1,"CREDIT_CARD","Fees and charges","negative",0,2999,"Credit card","Reverse the annual fee","I was charged an annual fee of Rs 2,999 on my credit card even though the sales agent promised it would be lifetime free. Please reverse this fee."],
+          [2,"UPI","App and UPI","negative",1,4500,"Savings account","Refund the failed UPI payment","My UPI payment of Rs 4,500 to a merchant failed but the money was debited from my savings account. It has been 5 days and there is no refund yet."],
+          [3,"HOME_LOAN","Loan servicing","negative",0,null,"Home loan","Send the interest certificate","I requested a certificate of interest paid on my home loan for income tax filing three weeks ago. Still waiting. Very slow service."],
+          [4,"MOBILE_APP","App and UPI","positive",0,null,null,"None","The new app update is excellent. Login with fingerprint is quick and the spending charts are really useful. Thank you!"],
+          [5,"CREDIT_CARD","Fraud","negative",1,18750,"Credit card","Block the card and reverse the transaction","I got an SMS for a transaction of Rs 18,750 at an online electronics store that I never made. My card is with me. Please block the card immediately."],
+          [6,"SAVINGS","Customer service","positive",0,null,"Savings account","None","The branch staff in Andheri were very patient and helped my elderly father update his KYC in ten minutes. Great experience."],
+          [7,"PERSONAL_LOAN","Loan servicing","negative",1,12400,"Personal loan","Refund the duplicate EMI","My personal loan EMI was debited twice this month, Rs 12,400 each time. Please refund the extra EMI."],
+          [8,"SAVINGS","Fees and charges","negative",0,590,"Savings account","Waive the minimum balance charge","Why is there a charge of Rs 590 for not maintaining minimum balance? I was never informed that the minimum balance went up to Rs 10,000."],
+          [9,"UPI","App and UPI","negative",0,null,null,"Fix the UPI outage","UPI is not working since morning. Every payment shows bank server down. I could not even pay my milk vendor."],
+          [10,"CREDIT_CARD","Card issues","negative",0,60000,"Credit card","Restore the credit limit","My credit card limit was reduced from Rs 1,50,000 to Rs 60,000 without any notice. It is embarrassing when my card gets declined at shops."],
+          [11,"HOME_LOAN","Loan servicing","positive",0,null,"Home loan","None","Thank you for processing my home loan top-up so quickly. The relationship manager explained every charge clearly."],
+          [12,"MOBILE_APP","App and UPI","negative",0,null,null,"Fix the app logout problem","The app keeps logging me out every two minutes. I tried reinstalling but the problem continues. Very frustrating."],
+          [13,"SAVINGS","Fraud","negative",1,35000,"Savings account","Recover the money and freeze the account","Someone called pretending to be from the bank and I shared an OTP. Rs 35,000 has been transferred out of my savings account. Please help urgently."],
+          [14,"CREDIT_CARD","Fees and charges","negative",0,1200,"Credit card","Reverse the late fee and interest","I paid my credit card bill of Rs 22,310 on the due date but you have charged a late payment fee of Rs 1,200 plus interest. Please check your records."],
+          [15,"PERSONAL_LOAN","Loan servicing","positive",0,null,"Personal loan","None","Personal loan approved within 10 minutes in the app. Smooth process, and the interest rate was exactly as quoted."],
+          [16,"UPI","App and UPI","negative",1,2000,"Savings account","Help recover the money","I sent Rs 2,000 by UPI to a wrong UPI ID by mistake. How do I get the money back? The other person is not responding."],
+          [17,"CREDIT_CARD","Card issues","negative",0,null,"Credit card","Send the card PIN","My new credit card was delivered but the PIN never arrived. I have visited the branch twice already."],
+          [18,"SAVINGS","Customer service","neutral",0,null,"Savings account","Update the mobile number","Please update my registered mobile number. I submitted the form at the branch on 2 September and nothing has happened."],
+          [19,"HOME_LOAN","Loan servicing","negative",0,null,"Home loan","Reduce the interest rate","My home loan interest rate was not reduced even though the repo rate came down in August. Other banks have passed on the cut."],
+          [20,"MOBILE_APP","App and UPI","negative",1,1500,"Savings account","Refund the money","Rs 1,500 was deducted from my account but the mobile recharge did not happen. Please return the money."],
+          [21,"CREDIT_CARD","Card issues","negative",0,null,"Credit card","Restore the reward points","Reward points on my credit card expired without any reminder. I lost almost 8,000 points."],
+          [22,"SAVINGS","Customer service","negative",0,null,"Savings account","Open more counters","Waited 50 minutes at the branch just to deposit a cheque. Only one counter was open."],
+          [23,"PERSONAL_LOAN","Loan servicing","negative",0,null,"Personal loan","Stop the recovery calls","Recovery agents are calling me at 10 PM about an EMI that I already paid. This is harassment."],
+          [24,"UPI","App and UPI","positive",0,null,null,"None","UPI payments are fast and I have never had a failure in two years. Keep it up."],
+          [25,"CREDIT_CARD","Fraud","negative",1,null,"Credit card","Block the card and dispute the transactions","There are three international transactions in US dollars on my card statement from last night. I have never travelled abroad. Block my card now."],
+          [26,"HOME_LOAN","Loan servicing","neutral",0,500000,"Home loan","Confirm the prepayment charges","I want to prepay Rs 5,00,000 of my home loan. Please confirm whether there is any prepayment charge."],
+          [27,"SAVINGS","Fees and charges","negative",0,799,"Debit card","Reverse the charge","A debit card annual maintenance charge of Rs 799 was deducted. Nobody told me about this charge when I opened the account."],
+          [28,"MOBILE_APP","App and UPI","negative",1,null,null,"Restore app access","I cannot log in after the update. It says device not registered and the OTP never comes."],
+          [29,"CREDIT_CARD","Customer service","negative",0,null,"Credit card","Call back and replace the card","The call centre agent was rude and disconnected the call when I asked about my card replacement."],
+          [30,"PERSONAL_LOAN","Loan servicing","negative",0,null,"Personal loan","Issue the NOC and update the credit bureau","I closed my personal loan in July but the no objection certificate has not been issued. My credit report still shows the loan as active."],
+          [31,"SAVINGS","Customer service","positive",0,null,"Fixed deposit","None","My fixed deposit renewal was done smoothly and the branch manager explained the new rates. Happy with the service."],
+          [32,"UPI","App and UPI","negative",1,750,null,"Refund the money","I sent Rs 750 by UPI, the money was deducted but the shopkeeper never received it. When will the refund come?"],
+          [33,"CREDIT_CARD","Card issues","negative",1,null,"Credit card","Unblock the card","My card was blocked after three wrong PIN attempts while I was travelling in Goa. I could not pay my hotel bill."],
+          [34,"HOME_LOAN","Loan servicing","negative",0,null,"Home loan","Return the property documents","The property documents for my closed home loan are still not returned after 45 days. I need them to sell the flat."],
+          [35,"MOBILE_APP","App and UPI","neutral",0,null,null,"Add a dark mode","Please add a dark mode to the app. Otherwise the app works well."],
+          [36,"SAVINGS","Customer service","negative",1,null,"Savings account","Unfreeze the account","My account has been frozen without any reason and I cannot withdraw money for my rent. The branch says it is a KYC issue but I updated KYC last month."],
+          [37,"CREDIT_CARD","Fees and charges","negative",0,216,"Credit card","Reverse the GST","GST of Rs 216 was charged on a fee that you already reversed. Please reverse the GST also."],
+          [38,"PERSONAL_LOAN","Fees and charges","negative",0,null,"Personal loan","Refund the extra processing fee","A processing fee of 2.5 percent was deducted from my loan amount but the app showed 1 percent when I applied."],
+          [39,"UPI","Fraud","negative",1,9999,null,"Warn customers about the scam","I received a UPI collect request for Rs 9,999 saying I had won a prize. I almost approved it. Please warn customers about this scam."],
+          [40,"SAVINGS","Customer service","neutral",0,null,"Savings account","Explain the interest calculation","The interest credited on my savings account looks lower than the 3.5 percent advertised. Can someone explain the calculation?"],
+          [41,"CREDIT_CARD","Card issues","negative",0,null,"Credit card","Give an update on the card application","I applied for a new credit card three weeks ago and there is no update. Nobody at the branch knows the status."],
+          [42,"HOME_LOAN","Loan servicing","negative",0,3200,"Home loan","Explain the EMI increase","The EMI for my home loan went up by Rs 3,200 without any letter or SMS. I want an explanation."],
+          [43,"MOBILE_APP","App and UPI","negative",1,25000,"Savings account","Complete or refund the transfer","A fund transfer of Rs 25,000 to my mother is stuck on processing in the app. It is neither successful nor refunded."],
+          [44,"SAVINGS","Customer service","positive",0,null,"Salary account","None","I am very happy with the zero balance salary account. The doorstep banking service for my mother is a big help."],
+          [45,"CREDIT_CARD","Card issues","negative",0,45000,"Credit card","Convert the purchase to EMI","EMI conversion on my credit card purchase of Rs 45,000 was not done even though I requested it before the statement date."],
+          [46,"PERSONAL_LOAN","Fraud","negative",1,200000,"Personal loan","Investigate and remove the loan","I never applied for a personal loan but my credit report shows a loan of Rs 2,00,000 from your bank. Someone has used my PAN."],
+          [47,"UPI","App and UPI","negative",1,1200,"UPI Lite","Restore the balance","My UPI Lite balance of Rs 1,200 disappeared after I changed my phone."],
+          [48,"SAVINGS","Customer service","negative",0,null,"Savings account","Deliver the cheque book","The cheque book I requested 20 days ago has not arrived. The branch says it was dispatched but the courier has no record."],
+          [49,"HOME_LOAN","Loan servicing","negative",0,40000,"Home loan","Correct the outstanding balance","The home loan section of the app shows the wrong outstanding balance, about Rs 40,000 more than my statement."],
+          [50,"CREDIT_CARD","Fraud","positive",0,null,"Credit card","None","Thank you to the fraud team who called me within a minute of a suspicious transaction and blocked it. Excellent service."],
+          [51,"MOBILE_APP","App and UPI","mixed",0,null,null,"Fix the statement download","The Hindi language option in the app is good, but the app closes while downloading the statement."],
+          [52,"SAVINGS","Fees and charges","negative",0,23,"Debit card","Reverse the ATM charge","I have called customer care five times about a wrong ATM withdrawal charge of Rs 23. Each agent gives a different answer."],
+          [53,"PERSONAL_LOAN","Fees and charges","negative",0,null,"Personal loan","Correct the foreclosure charges","Foreclosure charges of 4 percent are too high. The agreement says 2 percent. Please correct the foreclosure statement."],
+          [54,"CREDIT_CARD","Card issues","negative",0,null,"Credit card","Fix contactless payments","Contactless payment on my credit card is not working at any shop since last week. Chip and PIN works."],
+          [55,"UPI","App and UPI","negative",1,null,"Debit card","Help set the UPI PIN","I am unable to set my UPI PIN because the app says my debit card details are invalid, but the card works at ATMs."],
+          [56,"HOME_LOAN","Loan servicing","positive",0,null,"Home loan","None","Good support from the loan team during the balance transfer. The paperwork was simple."],
+          [57,"SAVINGS","Fees and charges","negative",0,15,"Savings account","Remove the SMS charge","An SMS alert charge of Rs 15 per quarter is unfair when most alerts are about offers."],
+          [58,"CREDIT_CARD","Fraud","negative",1,40000,"Credit card","Refund the money and block the card","My credit card was used at an ATM in Kolkata while I was in Pune. Rs 40,000 was withdrawn. Please refund and block the card."],
+          [59,"MOBILE_APP","App and UPI","negative",0,null,null,"Make the app faster","Your app is very slow, even checking the balance takes a minute."],
+          [60,"PERSONAL_LOAN","Loan servicing","positive",0,null,"Personal loan","None","Branch staff helped me restructure my personal loan after I lost my job. The lower EMI has given my family breathing space. Grateful."]
+        ]
+      },
+      "product_summaries": {
+        "columns": [
+          ["product","VARCHAR"],
+          ["complaint_count","NUMBER"],
+          ["summary","VARCHAR","AI_SUMMARIZE_AGG(text_en)"]
+        ],
+        "rows": [
+          ["CREDIT_CARD",15,"Customers report unexpected annual, late payment and GST charges, credit limits cut without notice, missing PINs and expired reward points. Several report card fraud, including foreign and ATM transactions they did not make. One customer praises the fraud team for blocking a suspicious transaction quickly."],
+          ["SAVINGS",13,"Complaints focus on charges customers were not told about (minimum balance, debit card, SMS and ATM fees), slow branch service and requests such as mobile number updates and cheque books. One customer lost Rs 35,000 after sharing an OTP with a fake caller. Some customers praise helpful branch staff."],
+          ["HOME_LOAN",8,"Customers wait for interest certificates and property documents, and question interest rates and EMI increases that were not explained. One reports a wrong outstanding balance in the app. Others praise fast top-up processing and a simple balance transfer."],
+          ["PERSONAL_LOAN",8,"Issues include a duplicate EMI debit, higher processing and foreclosure charges than agreed, late NOCs and recovery calls about paid EMIs. One customer reports a fraudulent loan taken in their name. Customers praise fast approval and a helpful loan restructure."],
+          ["MOBILE_APP",8,"Users report frequent logouts, login failures after an update, slow screens, crashes during statement download, a recharge that was debited but not completed and a stuck transfer of Rs 25,000. Some praise fingerprint login and the Hindi option and ask for a dark mode."],
+          ["UPI",8,"Customers report failed UPI payments that were still debited, money sent to a wrong UPI ID, a lost UPI Lite balance and problems setting a UPI PIN. One warns about a prize scam using collect requests. One customer praises UPI reliability."]
+        ]
+      }
+    },
+    "starter": "SELECT product, complaint_count, summary\nFROM product_summaries\nORDER BY complaint_count DESC, product",
+    "examples": [
+      {"label":"Amounts found","sql":"SELECT complaint_id, amount_mentioned, account_or_card_type, requested_action\nFROM enriched\nWHERE amount_mentioned IS NOT NULL\nORDER BY amount_mentioned DESC"},
+      {"label":"Translated rows","sql":"SELECT complaint_id, product, text_en\nFROM enriched\nWHERE complaint_id IN (20, 32, 51, 59)\nORDER BY complaint_id"},
+      {"label":"What customers want","sql":"SELECT requested_action, COUNT(*) AS times\nFROM enriched\nWHERE requested_action <> 'None'\nGROUP BY requested_action\nORDER BY times DESC, requested_action"}
+    ],
+    "challenges": [
+      {"task":"What is the total amount_mentioned for each product? Show product and the sum, sorted by product.","hint":"SUM ignores NULLs. GROUP BY product ORDER BY product.","answer":"SELECT product, SUM(amount_mentioned) FROM enriched GROUP BY product ORDER BY product"},
+      {"task":"List urgent complaints that mention more than Rs 10,000: complaint_id, amount_mentioned and requested_action, biggest amount first.","hint":"WHERE is_urgent = 1 AND amount_mentioned > 10000 ORDER BY amount_mentioned DESC.","answer":"SELECT complaint_id, amount_mentioned, requested_action FROM enriched WHERE is_urgent = 1 AND amount_mentioned > 10000 ORDER BY amount_mentioned DESC"},
+      {"task":"How many complaints name each account_or_card_type? Skip NULLs, show the type and count, biggest first then by type.","hint":"WHERE account_or_card_type IS NOT NULL, GROUP BY it, ORDER BY count DESC, type.","answer":"SELECT account_or_card_type, COUNT(*) AS complaints FROM enriched WHERE account_or_card_type IS NOT NULL GROUP BY account_or_card_type ORDER BY complaints DESC, account_or_card_type"}
+    ]
+  },
+  "quiz": [
+    {"q":"Where are the extracted fields in the AI_EXTRACT result?","options":["At the top level","Inside the response field","Inside labels"],"answer":1,"why":"AI_EXTRACT returns {\"error\": ..., \"response\": {...}}, so read R:response:amount."},
+    {"q":"What is the difference between AI_SUMMARIZE_AGG and AI_AGG?","options":["AI_AGG takes your own instruction","AI_SUMMARIZE_AGG needs a model name","There is none"],"answer":0,"why":"AI_SUMMARIZE_AGG gives a general summary. AI_AGG follows the instruction you pass, such as listing top themes."},
+    {"q":"How do you translate Hinglish when you do not know the exact language?","options":["Use '' as the source language","Use 'hi' and hope","It cannot be done"],"answer":0,"why":"An empty source language auto-detects, and the docs say mixed-language text is supported this way."},
+    {"q":"What happens by default if AI_REDACT fails on one row in a multi-row query?","options":["That row is NULL","The whole query fails","The row is skipped silently"],"answer":1,"why":"AI_REDACT raises an error and the query fails unless AI_SQL_ERROR_HANDLING_USE_FAIL_ON_ERROR is set to FALSE."},
+    {"q":"Why does P3 run REGEXP_REPLACE on the amount?","options":["To translate it","AI may return text such as Rs 1,200; we keep only digits before converting to NUMBER","Snowflake requires it for all AI output"],"answer":1,"why":"AI text output needs cleaning before it becomes a number. TRY_TO_NUMBER then returns NULL instead of failing on odd values."},
+    {"q":"How is AI_EXTRACT billed on a 5-page PDF?","options":["Per file, flat","Each page counts as 970 input tokens, plus output tokens","It is free"],"answer":1,"why":"For paged documents each page counts as 970 tokens; the responseFormat also counts as input."}
+  ],
+  "simulators": [
+    {
+      "id": "cortex-2-3-extract", "title": "Extract amount, product and action", "tool": "cortex",
+      "intro": "Complaints from RAW_COMPLAINTS, one AI_EXTRACT call per row.",
+      "steps": [
+        {"prompt":"SELECT COMPLAINT_ID, AI_EXTRACT(text => COMPLAINT_TEXT, responseFormat => {'amount': 'What is the main money amount in rupees mentioned? Digits only, no commas. If none, answer None', 'account_or_card_type': 'Which product is involved?', 'requested_action': 'In at most eight English words, what does the customer want?'}) AS R FROM BANK_AI.COMPLAINTS.RAW_COMPLAINTS WHERE COMPLAINT_ID IN (2, 21, 32);","say":"One call returned all three fields under response. Row 21 mentions points, not money, so amount is None. Row 32 is Hinglish and still worked.","output":{"columns":["COMPLAINT_ID","R"],"rows":[[2,"{\"error\":null,\"response\":{\"account_or_card_type\":\"Savings account\",\"amount\":\"4500\",\"requested_action\":\"Refund the failed UPI payment\"}}"],[21,"{\"error\":null,\"response\":{\"account_or_card_type\":\"Credit card\",\"amount\":\"None\",\"requested_action\":\"Restore the expired reward points\"}}"],[32,"{\"error\":null,\"response\":{\"account_or_card_type\":\"None\",\"amount\":\"750\",\"requested_action\":\"Refund the money\"}}"]]},"check":["error is null on every row","8,000 points was not mistaken for rupees"]},
+        {"prompt":"SELECT COMPLAINT_ID, TRY_TO_NUMBER(REGEXP_REPLACE(R:response:amount::STRING, '[^0-9.]', ''), 12, 2) AS AMOUNT FROM extracted;","say":"Cleaning turns None into an empty string, which TRY_TO_NUMBER makes NULL, and keeps real amounts as numbers.","output":{"columns":["COMPLAINT_ID","AMOUNT"],"rows":[[2,4500],[21,null],[32,750]]},"check":["No text left in a NUMBER column","NULL means not mentioned, not zero"]}
+      ]
+    },
+    {
+      "id": "cortex-2-3-translate-summarise", "title": "Translate, then summarise per product", "tool": "cortex",
+      "intro": "After step 3 of the P3 script.",
+      "steps": [
+        {"prompt":"SELECT COMPLAINT_ID, TEXT_EN FROM BANK_AI.COMPLAINTS.ENRICHED WHERE TEXT_EN <> COMPLAINT_TEXT ORDER BY 1;","say":"Only the four rows AI_FILTER judged to be Hindi or Hinglish were translated; English rows were copied as they are.","output":{"columns":["COMPLAINT_ID","TEXT_EN"],"rows":[[20,"Rs 1,500 was deducted from my account but the mobile recharge did not happen. Please return the money."],[32,"I sent Rs 750 by UPI, the money was deducted but the shopkeeper never received it. When will the refund come?"],[51,"The Hindi language option in the app is good, but the app closes while downloading the statement."],[59,"Your app is very slow, even checking the balance takes a minute."]]},"check":["Amounts such as 1,500 and 750 are unchanged","English rows were not paid for twice"]},
+        {"prompt":"SELECT PRODUCT, COMPLAINT_COUNT, SUMMARY FROM BANK_AI.COMPLAINTS.PRODUCT_SUMMARIES WHERE PRODUCT = 'UPI';","say":"AI_SUMMARIZE_AGG read all eight UPI complaints in English and wrote one paragraph.","output":{"columns":["PRODUCT","COMPLAINT_COUNT","SUMMARY"],"rows":[["UPI",8,"Customers report failed UPI payments that were still debited, money sent to a wrong UPI ID, a lost UPI Lite balance and problems setting a UPI PIN. One warns about a prize scam using collect requests. One customer praises UPI reliability."]]},"check":["Every claim in the summary appears in at least one complaint","Counts come from COUNT(*), never from the AI text"]}
+      ]
+    }
+  ]
+}
+</script>

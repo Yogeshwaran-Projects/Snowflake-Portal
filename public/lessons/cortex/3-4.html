@@ -1,0 +1,266 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Cortex Masterclass</span><span>Module 3 · Cortex services</span><span>Lesson 3.4</span></div>
+  <h1>Snowflake CoWork</h1>
+  <p class="lede">Put your agent in front of business users: a ready-made chat app where they ask questions, get charts and cited answers, under the same governance as the data.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>20 min</span>
+    <span class="badge">Intermediate</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Simulator + worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Say what CoWork is, who uses it and how it relates to Cortex Agents</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Add an agent to CoWork with ALTER SNOWFLAKE INTELLIGENCE … ADD AGENT</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain the governance controls: roles, CORTEX_AGENT_USER, allowed interfaces, budgets</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">Snowflake CoWork is Snowflake's ready-to-use agentic chat application for business users. Its “data agents” are Cortex Agents, so people ask questions in plain English over structured and unstructured data and get answers, charts and actions.</p></div>
+  </div>
+  <p>Until June 2026 it was called <b>Snowflake Intelligence</b>, and many SQL commands still use that name (for example <code>CREATE SNOWFLAKE INTELLIGENCE</code>). Cortex Code was renamed CoCo at the same time. You will hear all four names on projects.</p>
+  <ul>
+    <li><b>Users</b>: managers, operations, relationship managers. People who will never open a SQL worksheet.</li>
+    <li><b>Builders</b>: you. You build the agent (lesson 3.3), the semantic view and the search service. CoWork is the front door.</li>
+    <li><b>Where</b>: <code>https://ai.snowflake.com</code> (or a private-link URL), the Snowsight “Preview in Snowflake CoWork” link, and an iOS app.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like the friendly front desk</h2>
+  <p>Most visitors never walk into the back rooms of the sky library. They go to the <b>front desk</b>, ask a question and get a neat answer, sometimes with a chart. Behind the desk, the head librarian (the agent) does the work with her helpers. The desk only offers the helpers the library has approved, and every visitor still shows their ID badge, so nobody gets a book they are not allowed to read.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Front desk</b><span>In Snowflake: CoWork</span></div>
+    <div><small>In the library</small><b>The approved helpers list</b><span>In Snowflake: agents added to the CoWork object</span></div>
+    <div><small>In the library</small><b>Visitor's ID badge</b><span>In Snowflake: the user's default role and its grants</span></div>
+  </div>
+</section>
+
+<section class="sec" id="how" data-toc="How it works">
+  <h2>How agents reach CoWork</h2>
+  <p>An account has <b>one</b> CoWork object, named <code>SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT</code> when created from the UI. If it exists, an agent shows up in CoWork only after you add it. That gives admins a curated list.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="cm">-- Create the object once per account (ACCOUNTADMIN has this right by default)</span>
+<span class="kw">CREATE SNOWFLAKE INTELLIGENCE</span> SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT;
+
+<span class="cm">-- Publish our agent to CoWork, or remove it</span>
+<span class="kw">ALTER SNOWFLAKE INTELLIGENCE</span> SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT
+  <span class="kw">ADD AGENT</span> BANK_AI.COMPLAINTS.COMPLAINT_AGENT;
+<span class="kw">ALTER SNOWFLAKE INTELLIGENCE</span> SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT
+  <span class="kw">DROP AGENT</span> BANK_AI.COMPLAINTS.COMPLAINT_AGENT;
+
+<span class="cm">-- Let users see the CoWork agent list; MODIFY lets a role add or remove agents</span>
+<span class="kw">GRANT USAGE ON SNOWFLAKE INTELLIGENCE</span> SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT <span class="kw">TO ROLE</span> complaints_reader;
+<span class="kw">GRANT USAGE ON AGENT</span> BANK_AI.COMPLAINTS.COMPLAINT_AGENT <span class="kw">TO ROLE</span> complaints_reader;
+<span class="kw">GRANT DATABASE ROLE</span> SNOWFLAKE.CORTEX_AGENT_USER <span class="kw">TO ROLE</span> complaints_reader;
+
+<span class="kw">SHOW SNOWFLAKE INTELLIGENCES</span>;</pre></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Control</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><b>Caller's role</b></td><td>CoWork starts each session with the user's <b>default role and default warehouse</b>. Queries run with the user's credentials, so row access and masking policies apply.</td></tr>
+        <tr><td><b>Tool access</b></td><td>The user's role needs USAGE on the agent, the search service and the semantic view, and SELECT on the tables.</td></tr>
+        <tr><td><b>CORTEX_AGENT_USER</b></td><td>Gives access only to the Agents API, enough for CoWork without other Cortex features. Banks often revoke the broad CORTEX_USER from PUBLIC and grant this instead.</td></tr>
+        <tr><td><b>ALLOWED_INTERFACES</b></td><td><code>ALTER USER … SET ALLOWED_INTERFACES = (SNOWFLAKE_INTELLIGENCE);</code> limits a user to CoWork only.</td></tr>
+        <tr><td><b>Cost limits</b></td><td>Resource budgets and per-user credit quotas. Track spend in <code>SNOWFLAKE.ACCOUNT_USAGE.SNOWFLAKE_COWORK_USAGE_HISTORY</code>.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">What users get</div><p>Charts, saved and shareable artifacts, scheduled reports by email, Deep Research for multi-step investigations, file upload (up to 5 files of 50 MB), and document generation when the agent has the code execution tool. Older projects stored agents in a <code>SNOWFLAKE_INTELLIGENCE.AGENTS</code> schema; that approach is deprecated in favour of the CoWork object.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>A typical rollout: the data team builds three agents (Complaints, Card Fraud Operations, Branch Performance), adds only the reviewed ones to CoWork, and gives each business team a role that can use only its agent. A complaints manager opens CoWork in the morning, picks Complaint Intelligence and asks “What changed in urgent complaints since Friday?”. She never sees fraud data because her role cannot, even if she asks the wrong agent.</p>
+  <p>Before go-live, the bank's checklist usually covers: default role and warehouse set for every invited user, CORTEX_USER revoked from PUBLIC, per-user quotas on, and a named owner for each agent's instructions.</p>
+</section>
+
+<section class="sec" id="simulator" data-toc="Simulator">
+  <h2>Simulator: publish and use the agent</h2>
+  <div data-simulator="cortex-3-4-cowork"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p><code>cowork_usage</code> is a daily summary like the one a platform team builds from the usage views: who asked how many questions of which agent, and the credits used.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: open your agent in CoWork</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Publish COMPLAINT_AGENT and ask it a question</h3>
+      <div class="meta"><span>About 10 min</span><span>Needs P7</span></div>
+    </div>
+    <ol class="steps">
+      <li><div><p>Check whether your trial already has the CoWork object.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE ROLE</span> ACCOUNTADMIN;
+<span class="kw">SHOW SNOWFLAKE INTELLIGENCES</span>;</pre></div>
+        <p class="expect">Expected: zero or one row. If zero, run the CREATE statement from the section above.</p><label><input type="checkbox"> Done</label></div></li>
+      <li><div><p>Add the agent and make sure your user has a default warehouse.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">ALTER SNOWFLAKE INTELLIGENCE</span> SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT
+  <span class="kw">ADD AGENT</span> BANK_AI.COMPLAINTS.COMPLAINT_AGENT;
+<span class="kw">ALTER USER</span> my_user <span class="kw">SET</span> DEFAULT_WAREHOUSE = LEARN_WH;  <span class="cm">-- replace my_user with your username</span></pre></div>
+        <p class="expect">Expected: “Statement executed successfully.” twice. Run <code>SELECT CURRENT_USER();</code> if you forgot your username.</p><label><input type="checkbox"> Done</label></div></li>
+      <li><div><p>Open <b>ai.snowflake.com</b> (or Snowsight » AI &amp; ML » Agents » COMPLAINT_AGENT » Preview in Snowflake CoWork), sign in and pick Complaint Intelligence. Ask: <i>“Show urgent complaints by product as a bar chart, and tell me what the top one is about.”</i></p>
+        <p class="expect">Expected: a chart, a short answer with complaint IDs, and expandable steps showing both tools.</p><label><input type="checkbox"> Done</label></div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>CoWork (formerly Snowflake Intelligence) is the front desk; Cortex Agents are the staff behind it. You publish an agent with ADD AGENT, and every answer still respects the user's role.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Snowflake CoWork</dt><dd>Snowflake's chat application for business users, powered by Cortex Agents. Formerly Snowflake Intelligence.</dd>
+    <dt>CoWork object</dt><dd>The single account-level object (SQL keyword SNOWFLAKE INTELLIGENCE) that lists the agents users can see.</dd>
+    <dt>CORTEX_AGENT_USER</dt><dd>Database role giving access only to Cortex Agents.</dd>
+    <dt>ALLOWED_INTERFACES</dt><dd>User property that can restrict a user to CoWork only.</dd>
+    <dt>Default role</dt><dd>The role CoWork uses when a session starts.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#cortex/4-1">4.1 ML functions: forecast, anomaly, classify →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "simulators": [
+    {
+      "id": "cortex-3-4-cowork",
+      "title": "From agent to front desk",
+      "tool": "cortex",
+      "steps": [
+        {
+          "prompt": "ALTER SNOWFLAKE INTELLIGENCE SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT ADD AGENT BANK_AI.COMPLAINTS.COMPLAINT_AGENT;",
+          "say": "The agent is now on the CoWork list. Creating an agent does NOT publish it; this step does.",
+          "outputText": "Statement executed successfully.",
+          "check": ["Only add agents that passed your test questions.", "You need MODIFY on the CoWork object and USAGE on the agent."]
+        },
+        {
+          "prompt": "(In CoWork, as a complaints manager) Show urgent complaints by product as a bar chart.",
+          "say": "CoWork ran the agent with the manager's default role. The agent used ComplaintMetrics and drew a chart.",
+          "output": {"columns": ["PRODUCT", "URGENT_COUNT"], "rows": [["UPI", 6], ["CREDIT_CARD", 4], ["MOBILE_APP", 3], ["PERSONAL_LOAN", 2], ["SAVINGS", 2], ["HOME_LOAN", 0]]},
+          "check": ["The chart is built from this table; check the numbers, not just the picture."]
+        },
+        {
+          "prompt": "(Same user) Show me the customer phone numbers for these complaints.",
+          "say": "In this bank the manager's role has a masking policy on contact details, so the agent can only return masked values. Governance came along for free.",
+          "outputText": "Here are the complaints with contact numbers. Note: phone numbers are masked for your role.\n2   ******4821\n32  ******9907",
+          "check": ["Never solve this by granting a broader role. Masking is working as designed."]
+        }
+      ]
+    }
+  ],
+  "worksheet": {
+    "tables": {
+      "cowork_usage": {
+        "columns": [["usage_day", "DATE"], ["user_name", "VARCHAR"], ["team", "VARCHAR"], ["agent_name", "VARCHAR"], ["questions", "NUMBER"], ["credits", "NUMBER"]],
+        "rows": [
+          ["2026-10-05", "ANITA", "Complaints", "COMPLAINT_AGENT", 14, 0.42],
+          ["2026-10-05", "RAVI", "Payments", "COMPLAINT_AGENT", 6, 0.21],
+          ["2026-10-05", "MEENA", "Branches", "BRANCH_AGENT", 9, 0.25],
+          ["2026-10-06", "ANITA", "Complaints", "COMPLAINT_AGENT", 18, 0.61],
+          ["2026-10-06", "SURESH", "Complaints", "COMPLAINT_AGENT", 31, 1.38],
+          ["2026-10-06", "MEENA", "Branches", "BRANCH_AGENT", 4, 0.11],
+          ["2026-10-07", "RAVI", "Payments", "COMPLAINT_AGENT", 11, 0.35],
+          ["2026-10-07", "SURESH", "Complaints", "COMPLAINT_AGENT", 42, 2.05],
+          ["2026-10-07", "KAVYA", "Cards", "COMPLAINT_AGENT", 3, 0.09],
+          ["2026-10-08", "ANITA", "Complaints", "COMPLAINT_AGENT", 12, 0.37]
+        ]
+      }
+    },
+    "starter": "SELECT agent_name, SUM(questions) AS questions, SUM(credits) AS credits\nFROM cowork_usage\nGROUP BY agent_name\nORDER BY credits DESC",
+    "examples": [
+      {"label": "All rows", "sql": "SELECT *\nFROM cowork_usage\nORDER BY usage_day, user_name"},
+      {"label": "Credits per day", "sql": "SELECT usage_day, ROUND(SUM(credits), 2) AS credits\nFROM cowork_usage\nGROUP BY usage_day\nORDER BY usage_day"}
+    ],
+    "challenges": [
+      {
+        "task": "Which user spent the most credits in total? Show user_name and total credits, top user only.",
+        "hint": "SUM(credits) GROUP BY user_name, ORDER BY total DESC, LIMIT 1.",
+        "answer": "SELECT user_name, ROUND(SUM(credits), 2) AS total_credits FROM cowork_usage GROUP BY user_name ORDER BY total_credits DESC LIMIT 1"
+      },
+      {
+        "task": "Credits per question by team: show team and ROUND(SUM(credits) / SUM(questions), 3), highest first.",
+        "hint": "Divide the two sums inside ROUND, GROUP BY team.",
+        "answer": "SELECT team, ROUND(SUM(credits) / SUM(questions), 3) AS credits_per_question FROM cowork_usage GROUP BY team ORDER BY credits_per_question DESC"
+      },
+      {
+        "task": "A per-user quota is 1.5 credits per day. Which user and day went over it?",
+        "hint": "WHERE credits > 1.5 on the daily rows.",
+        "answer": "SELECT usage_day, user_name, credits FROM cowork_usage WHERE credits > 1.5 ORDER BY usage_day"
+      }
+    ]
+  },
+  "quiz": [
+    {
+      "q": "What was Snowflake CoWork called before June 2026?",
+      "options": ["Snowflake Intelligence", "Cortex Code", "Snowpark"],
+      "answer": 0,
+      "why": "Snowflake Intelligence became CoWork; Cortex Code became CoCo. SQL commands still say SNOWFLAKE INTELLIGENCE."
+    },
+    {
+      "q": "You created an agent but users cannot see it in CoWork. What is missing?",
+      "options": ["A bigger warehouse", "ALTER SNOWFLAKE INTELLIGENCE … ADD AGENT", "A new semantic view"],
+      "answer": 1,
+      "why": "When the CoWork object exists, agents appear only after they are added to it."
+    },
+    {
+      "q": "Which role does CoWork use for a user's session?",
+      "options": ["ACCOUNTADMIN", "The user's default role", "The agent owner's role"],
+      "answer": 1,
+      "why": "CoWork starts with the user's default role and warehouse, so their grants and policies apply."
+    },
+    {
+      "q": "Which database role gives access to agents but not to other Cortex features?",
+      "options": ["CORTEX_USER", "CORTEX_AGENT_USER", "CORTEX_EMBED_USER"],
+      "answer": 1,
+      "why": "CORTEX_AGENT_USER covers the Agents API only, enough for CoWork."
+    },
+    {
+      "q": "How can an admin limit a user to CoWork only?",
+      "options": ["ALTER USER … SET ALLOWED_INTERFACES = (SNOWFLAKE_INTELLIGENCE)", "Drop the user's role", "Delete Snowsight"],
+      "answer": 0,
+      "why": "ALLOWED_INTERFACES restricts which Snowflake interfaces the user can sign in to."
+    },
+    {
+      "q": "Who builds what?",
+      "options": [
+        "Business users build agents in CoWork",
+        "Data teams build agents, views and search services; business users ask questions in CoWork",
+        "Snowflake builds every agent"
+      ],
+      "answer": 1,
+      "why": "CoWork is the front desk. The builder work behind it is what you learned in lessons 3.1 to 3.3."
+    }
+  ]
+}
+</script>

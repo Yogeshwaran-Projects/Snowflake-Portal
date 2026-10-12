@@ -1,0 +1,390 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>SQL: Beginner to Advanced</span><span>Module 2 · Intermediate</span><span>Lesson 2.5</span></div>
+  <h1>CTEs (WITH)</h1>
+  <p class="lede">Long queries get hard to read. A CTE lets you name a step, build the next step on top of it, and read the whole thing top to bottom like a recipe.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 min</span>
+    <span class="badge">Intermediate</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice: 6 questions</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Write WITH name AS (…) and use it like a table</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Chain several CTEs, each building on the last</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Use one CTE twice instead of copying a subquery</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Avoid row explosion by totalling each child table in its own CTE</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">A CTE (common table expression) is a named result you define with WITH at the top of a query and then use like a table in the rest of it.</p></div>
+  </div>
+  <p>A CTE is a derived table (Lesson 2.4) that moved to the top and got a name. Nothing is stored. It lives only for that one query. The gains are readability, reuse, and the ability to split one hard problem into small steps you can test one at a time.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a named scratch list you make first</h2>
+  <p>You are planning a birthday party. Before you buy anything, you make a list called <b>Guests</b>. Then a second list called <b>Allergies</b>, built by looking at the Guests list. Then the shopping list, built from both. Each list has a name, each one is written before the one that needs it, and you can check any list on its own. A CTE is that scratch list. The final SELECT is the shopping trip.</p>
+  <div class="map">
+    <div><small>Party planning</small><b>A named list made first</b><span>In SQL: WITH guests AS (SELECT …)</span></div>
+    <div><small>Party planning</small><b>A list built from a list</b><span>In SQL: a second CTE that selects FROM the first</span></div>
+    <div><small>Party planning</small><b>The shopping trip</b><span>In SQL: the final SELECT that uses the lists</span></div>
+  </div>
+</section>
+
+<section class="sec" id="syntax" data-toc="Syntax">
+  <h2>Syntax step by step</h2>
+  <p>Step 1: <code>WITH</code>, a name, <code>AS</code>, and a SELECT in brackets. Step 2: the main SELECT uses the name. No semicolon between them; it is one statement.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">WITH</span> active_accts <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> acct_id, cust_id, acct_type, balance
+  <span class="kw">FROM</span> accounts
+  <span class="kw">WHERE</span> acct_status = 'ACTIVE'
+)
+<span class="kw">SELECT</span> acct_type, <span class="kw">COUNT</span>(*) <span class="kw">AS</span> accts
+<span class="kw">FROM</span> active_accts
+<span class="kw">GROUP BY</span> acct_type;</pre></div>
+  <p><b>Several CTEs.</b> Write WITH once, then separate the names with commas. A later CTE may use an earlier one.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">WITH</span> totals <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> cust_id, <span class="kw">SUM</span>(balance) <span class="kw">AS</span> total_balance
+  <span class="kw">FROM</span> accounts
+  <span class="kw">GROUP BY</span> cust_id
+),
+rich <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> cust_id, total_balance
+  <span class="kw">FROM</span> totals
+  <span class="kw">WHERE</span> total_balance &gt; 300000
+)
+<span class="kw">SELECT</span> c.cust_name, r.total_balance
+<span class="kw">FROM</span> rich r
+<span class="kw">JOIN</span> customers c <span class="kw">ON</span> c.cust_id = r.cust_id;</pre></div>
+  <p>To debug, replace the final SELECT with <code>SELECT * FROM totals</code> and look at the step on its own. That is the big practical win over nested subqueries.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Step</th><th>What it holds</th><th>Rows</th></tr></thead>
+      <tbody>
+        <tr><td><code>totals</code></td><td>one row per customer with accounts, total balance</td><td>10</td></tr>
+        <tr><td><code>rich</code></td><td>the customers above 3,00,000</td><td>5</td></tr>
+        <tr><td>final SELECT</td><td>names attached</td><td>5</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="sec" id="examples" data-toc="Worked examples">
+  <h2>Worked examples</h2>
+  <p><b>Example 1: the biggest depositor, written once.</b> Lesson 2.4 repeated the deposits block twice. A CTE is written once and used twice.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">WITH</span> deposits <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> a.cust_id, <span class="kw">SUM</span>(t.amount) <span class="kw">AS</span> total_deposits
+  <span class="kw">FROM</span> transactions t
+  <span class="kw">JOIN</span> accounts a <span class="kw">ON</span> a.acct_id = t.acct_id
+  <span class="kw">WHERE</span> t.txn_type = 'DEPOSIT'
+  <span class="kw">GROUP BY</span> a.cust_id
+)
+<span class="kw">SELECT</span> c.cust_name, d.total_deposits
+<span class="kw">FROM</span> deposits d
+<span class="kw">JOIN</span> customers c <span class="kw">ON</span> c.cust_id = d.cust_id
+<span class="kw">WHERE</span> d.total_deposits = (<span class="kw">SELECT</span> <span class="kw">MAX</span>(total_deposits) <span class="kw">FROM</span> deposits);</pre></div>
+  <p><b>Example 2: no row explosion.</b> Customers per branch and accounts per branch, each counted in its own CTE, then joined. Joining raw customers to raw accounts first would multiply rows.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">WITH</span> cust_counts <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> branch_id, <span class="kw">COUNT</span>(*) <span class="kw">AS</span> customers_cnt
+  <span class="kw">FROM</span> customers <span class="kw">WHERE</span> branch_id <span class="kw">IS NOT NULL</span>
+  <span class="kw">GROUP BY</span> branch_id
+),
+acct_counts <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> c.branch_id, <span class="kw">COUNT</span>(*) <span class="kw">AS</span> accounts_cnt
+  <span class="kw">FROM</span> accounts a
+  <span class="kw">JOIN</span> customers c <span class="kw">ON</span> c.cust_id = a.cust_id
+  <span class="kw">GROUP BY</span> c.branch_id
+)
+<span class="kw">SELECT</span> b.branch_name, cc.customers_cnt, ac.accounts_cnt
+<span class="kw">FROM</span> branches b
+<span class="kw">JOIN</span> cust_counts cc <span class="kw">ON</span> cc.branch_id = b.branch_id
+<span class="kw">JOIN</span> acct_counts ac <span class="kw">ON</span> ac.branch_id = b.branch_id;</pre></div>
+  <p>Result: Fort 2 customers and 4 accounts, Connaught Place 3 and 4, T Nagar 3 and 3, Koramangala 2 and 2, Banjara Hills 1 and 1.</p>
+  <p><b>Example 3: share of the total.</b> One CTE for balance per branch, one for the grand total, then a percentage. The grand-total CTE has one row, so a CROSS JOIN attaches it to every branch row.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">WITH</span> branch_bal <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> c.branch_id, <span class="kw">SUM</span>(a.balance) <span class="kw">AS</span> total_balance
+  <span class="kw">FROM</span> accounts a
+  <span class="kw">JOIN</span> customers c <span class="kw">ON</span> c.cust_id = a.cust_id
+  <span class="kw">GROUP BY</span> c.branch_id
+),
+grand <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> <span class="kw">SUM</span>(total_balance) <span class="kw">AS</span> all_balance <span class="kw">FROM</span> branch_bal
+)
+<span class="kw">SELECT</span> b.branch_name, bb.total_balance,
+       <span class="kw">ROUND</span>(100.0 * bb.total_balance / g.all_balance, 1) <span class="kw">AS</span> pct_of_total
+<span class="kw">FROM</span> branch_bal bb
+<span class="kw">JOIN</span> branches b <span class="kw">ON</span> b.branch_id = bb.branch_id
+<span class="kw">CROSS JOIN</span> grand g;</pre></div>
+  <p>Result: Connaught Place holds 31.5% of all balances, T Nagar 29.9%, Fort 25.9%, Banjara Hills 10.2%, Koramangala 2.5%.</p>
+</section>
+
+<section class="sec" id="mistakes" data-toc="Common mistakes">
+  <h2>Common mistakes</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">A CTE is not saved</div><p>It disappears when the query ends. You cannot run <code>WITH x AS (…)</code> in one statement and <code>SELECT * FROM x</code> in the next. If you need the result later, create a table or a view (Module 3).</p></div>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Only one WITH, commas between CTEs</div><p>Writing <code>WITH a AS (…) WITH b AS (…)</code> is a syntax error. Write <code>WITH a AS (…), b AS (…)</code>. And a CTE can only use CTEs defined above it.</p></div>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Month buckets print differently</div><p>DuckDB’s <code>DATE_TRUNC('month', d)</code> prints as a timestamp, <code>2026-08-01 00:00:00</code>, while Snowflake prints a date. Wrap it: <code>CAST(DATE_TRUNC('month', d) AS DATE)</code>. The practice grader compares printed values, so use the cast.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="snowflake" data-toc="On Snowflake">
+  <h2>On Snowflake</h2>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">CTEs are the house style</div><p>Snowflake supports CTEs exactly as shown, and most bank code is written as a chain of them. Snowflake may run a CTE that is used twice either once (and reuse it) or twice; it decides. Column lists are allowed, <code>WITH totals (cust_id, total_balance) AS (…)</code>, which is handy when the SELECT inside has long expressions. Recursive CTEs (<code>WITH RECURSIVE</code>) walk hierarchies and are covered in Lesson 3.4.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice">
+  <h2>Practice</h2>
+  <p>Tables: <code>customers</code>, <code>accounts</code>, <code>transactions</code> and <code>branches</code>. Every answer should start with WITH, even when a plain query would do. You are building the habit.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>WITH name AS (…) makes a named scratch list for one query. Chain them with commas, test each on its own, and total each child table in its own CTE before joining.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>CTE</dt><dd>Common table expression: a named query defined with WITH.</dd>
+    <dt>WITH clause</dt><dd>The part of a statement where CTEs are defined.</dd>
+    <dt>Chain</dt><dd>Several CTEs where each one reads from the ones before it.</dd>
+    <dt>Grand total</dt><dd>A one-row CTE with the overall sum, attached to every row with CROSS JOIN.</dd>
+    <dt>Materialise</dt><dd>To compute a result once and keep it. Snowflake decides whether to do this for a CTE.</dd>
+    <dt>Recursive CTE</dt><dd>A CTE that refers to itself to walk a tree. Lesson 3.4.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#sql/2-6">2.6 UNION, INTERSECT, EXCEPT →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "customers": {
+        "columns": [
+          ["cust_id", "NUMBER"],
+          ["cust_name", "VARCHAR"],
+          ["city", "VARCHAR"],
+          ["segment", "VARCHAR", "RETAIL, PREMIUM or SME"],
+          ["joined_on", "DATE"],
+          ["branch_id", "NUMBER", "NULL for online-only customers"]
+        ],
+        "rows": [
+          [1, "Anil Kapoor", "Mumbai", "RETAIL", "2019-03-15", 1],
+          [2, "Bhavna Desai", "Mumbai", "PREMIUM", "2020-07-01", 1],
+          [3, "Chetan Patel", "Delhi", "RETAIL", "2021-01-20", 2],
+          [4, "Deepa Nair", "Delhi", "PREMIUM", "2018-11-05", 2],
+          [5, "Esha Singh", "Chennai", "RETAIL", "2022-05-10", 3],
+          [6, "Farhan Ali", "Chennai", "SME", "2020-02-28", 3],
+          [7, "Gita Rao", "Bengaluru", "PREMIUM", "2023-08-14", 4],
+          [8, "Harish Kumar", "Bengaluru", "RETAIL", "2024-01-09", 4],
+          [9, "Isha Verma", "Hyderabad", "SME", "2024-06-30", 5],
+          [10, "Jay Mehta", "Pune", "RETAIL", "2025-02-11", null],
+          [11, "Anil Kapoor", "Delhi", "RETAIL", "2025-09-01", 2],
+          [12, "Kavya Iyer", "Chennai", "RETAIL", "2026-03-03", 3]
+        ]
+      },
+      "accounts": {
+        "columns": [
+          ["acct_id", "NUMBER"],
+          ["cust_id", "NUMBER"],
+          ["acct_type", "VARCHAR", "SAVINGS, CURRENT or FD"],
+          ["balance", "NUMBER", "in rupees"],
+          ["opened_on", "DATE"],
+          ["acct_status", "VARCHAR", "ACTIVE, DORMANT or CLOSED"]
+        ],
+        "rows": [
+          [1001, 1, "SAVINGS", 85000, "2019-03-15", "ACTIVE"],
+          [1002, 1, "CURRENT", 240000, "2020-01-10", "ACTIVE"],
+          [1003, 2, "SAVINGS", 520000, "2020-07-01", "ACTIVE"],
+          [1004, 3, "SAVINGS", 15000, "2021-01-20", "ACTIVE"],
+          [1005, 4, "SAVINGS", 310000, "2018-11-05", "ACTIVE"],
+          [1006, 4, "FD", 1000000, "2022-03-01", "ACTIVE"],
+          [1007, 5, "SAVINGS", 4200, "2022-05-10", "DORMANT"],
+          [1008, 6, "CURRENT", 760000, "2020-02-28", "ACTIVE"],
+          [1009, 7, "SAVINGS", 95000, "2023-08-14", "ACTIVE"],
+          [1010, 8, "SAVINGS", 12500, "2024-01-09", "ACTIVE"],
+          [1011, 9, "CURRENT", 430000, "2024-06-30", "ACTIVE"],
+          [1012, 11, "SAVINGS", 7800, "2025-09-01", "ACTIVE"],
+          [1013, 6, "FD", 500000, "2024-12-15", "CLOSED"],
+          [1014, 2, "FD", 250000, "2025-11-20", "ACTIVE"]
+        ]
+      },
+      "transactions": {
+        "columns": [
+          ["txn_id", "NUMBER"],
+          ["acct_id", "NUMBER"],
+          ["txn_date", "DATE"],
+          ["txn_type", "VARCHAR", "DEPOSIT or WITHDRAWAL"],
+          ["amount", "NUMBER", "in rupees"],
+          ["channel", "VARCHAR", "BRANCH, ATM, UPI or NETBANKING"]
+        ],
+        "rows": [
+          [5001, 1001, "2026-07-02", "DEPOSIT", 25000, "BRANCH"],
+          [5002, 1001, "2026-07-15", "WITHDRAWAL", 8000, "ATM"],
+          [5003, 1002, "2026-07-20", "DEPOSIT", 120000, "NETBANKING"],
+          [5004, 1003, "2026-07-28", "WITHDRAWAL", 40000, "NETBANKING"],
+          [5005, 1004, "2026-08-01", "DEPOSIT", 5000, "UPI"],
+          [5006, 1005, "2026-08-03", "DEPOSIT", 60000, "BRANCH"],
+          [5007, 1005, "2026-08-03", "WITHDRAWAL", 15000, "ATM"],
+          [5008, 1008, "2026-08-10", "DEPOSIT", 300000, "NETBANKING"],
+          [5009, 1008, "2026-08-12", "WITHDRAWAL", 125000, "NETBANKING"],
+          [5010, 1009, "2026-08-18", "DEPOSIT", 22000, "UPI"],
+          [5011, 1010, "2026-08-20", "WITHDRAWAL", 2500, "UPI"],
+          [5012, 1011, "2026-08-25", "DEPOSIT", 180000, "NETBANKING"],
+          [5013, 1003, "2026-08-30", "DEPOSIT", 75000, "BRANCH"],
+          [5014, 1001, "2026-09-01", "DEPOSIT", 25000, "BRANCH"],
+          [5015, 1012, "2026-09-05", "DEPOSIT", 3000, "UPI"],
+          [5016, 1004, "2026-09-09", "WITHDRAWAL", 1200, "ATM"],
+          [5017, 1006, "2026-09-10", "DEPOSIT", 200000, "NETBANKING"],
+          [5018, 1009, "2026-09-14", "WITHDRAWAL", 9000, "ATM"],
+          [5019, 1011, "2026-09-18", "WITHDRAWAL", 50000, "NETBANKING"],
+          [5020, 1002, "2026-09-22", "WITHDRAWAL", 35000, "NETBANKING"],
+          [5021, 1010, "2026-09-25", "DEPOSIT", 4000, "UPI"],
+          [5022, 1008, "2026-09-28", "DEPOSIT", 90000, "BRANCH"],
+          [5023, 1003, "2026-09-30", "WITHDRAWAL", 20000, "ATM"],
+          [5024, 1001, "2026-09-30", "DEPOSIT", 25000, "BRANCH"]
+        ]
+      },
+      "branches": {
+        "columns": [
+          ["branch_id", "NUMBER"],
+          ["branch_name", "VARCHAR"],
+          ["city", "VARCHAR"],
+          ["manager_id", "NUMBER", "emp_id of the branch manager; NULL when the post is empty"]
+        ],
+        "rows": [
+          [1, "Fort", "Mumbai", 101],
+          [2, "Connaught Place", "Delhi", 102],
+          [3, "T Nagar", "Chennai", 103],
+          [4, "Koramangala", "Bengaluru", 104],
+          [5, "Banjara Hills", "Hyderabad", null],
+          [6, "Salt Lake", "Kolkata", null]
+        ]
+      }
+    },
+    "starter": "WITH totals AS (\n  SELECT cust_id, SUM(balance) AS total_balance\n  FROM accounts\n  GROUP BY cust_id\n)\nSELECT c.cust_name, t.total_balance\nFROM totals t\nJOIN customers c ON c.cust_id = t.cust_id\nORDER BY t.total_balance DESC",
+    "examples": [
+      {
+        "label": "Biggest depositor, CTE used twice",
+        "sql": "WITH deposits AS (\n  SELECT a.cust_id, SUM(t.amount) AS total_deposits\n  FROM transactions t\n  JOIN accounts a ON a.acct_id = t.acct_id\n  WHERE t.txn_type = 'DEPOSIT'\n  GROUP BY a.cust_id\n)\nSELECT c.cust_name, d.total_deposits\nFROM deposits d\nJOIN customers c ON c.cust_id = d.cust_id\nWHERE d.total_deposits = (SELECT MAX(total_deposits) FROM deposits)"
+      },
+      {
+        "label": "Two counts, no explosion",
+        "sql": "WITH cust_counts AS (\n  SELECT branch_id, COUNT(*) AS customers_cnt\n  FROM customers WHERE branch_id IS NOT NULL\n  GROUP BY branch_id\n),\nacct_counts AS (\n  SELECT c.branch_id, COUNT(*) AS accounts_cnt\n  FROM accounts a\n  JOIN customers c ON c.cust_id = a.cust_id\n  GROUP BY c.branch_id\n)\nSELECT b.branch_name, cc.customers_cnt, ac.accounts_cnt\nFROM branches b\nJOIN cust_counts cc ON cc.branch_id = b.branch_id\nJOIN acct_counts ac ON ac.branch_id = b.branch_id\nORDER BY b.branch_id"
+      },
+      {
+        "label": "Share of total",
+        "sql": "WITH branch_bal AS (\n  SELECT c.branch_id, SUM(a.balance) AS total_balance\n  FROM accounts a\n  JOIN customers c ON c.cust_id = a.cust_id\n  GROUP BY c.branch_id\n),\ngrand AS (\n  SELECT SUM(total_balance) AS all_balance FROM branch_bal\n)\nSELECT b.branch_name, bb.total_balance,\n       ROUND(100.0 * bb.total_balance / g.all_balance, 1) AS pct_of_total\nFROM branch_bal bb\nJOIN branches b ON b.branch_id = bb.branch_id\nCROSS JOIN grand g\nORDER BY pct_of_total DESC"
+      }
+    ],
+    "challenges": [
+      {
+        "level": "Easy",
+        "task": "Using a CTE named active_accts that holds only ACTIVE accounts, show acct_type and the number of active accounts of that type.",
+        "hint": "WITH active_accts AS (SELECT * FROM accounts WHERE acct_status = 'ACTIVE') SELECT acct_type, COUNT(*) ... GROUP BY acct_type.",
+        "answer": "WITH active_accts AS (SELECT * FROM accounts WHERE acct_status = 'ACTIVE') SELECT acct_type, COUNT(*) AS accts FROM active_accts GROUP BY acct_type ORDER BY acct_type"
+      },
+      {
+        "level": "Easy",
+        "task": "Using a CTE named big_txns that holds transactions of 1,00,000 or more, show txn_id and amount from it.",
+        "hint": "WITH big_txns AS (SELECT * FROM transactions WHERE amount >= 100000) SELECT txn_id, amount FROM big_txns. Expect 5 rows.",
+        "answer": "WITH big_txns AS (SELECT * FROM transactions WHERE amount >= 100000) SELECT txn_id, amount FROM big_txns ORDER BY txn_id"
+      },
+      {
+        "level": "Medium",
+        "task": "Using a CTE of total balance per customer, show cust_name and total balance for customers whose total is above 3,00,000.",
+        "hint": "WITH totals AS (SELECT cust_id, SUM(balance) AS total_balance FROM accounts GROUP BY cust_id), then join customers and filter > 300000. Expect 5 rows.",
+        "answer": "WITH totals AS (SELECT cust_id, SUM(balance) AS total_balance FROM accounts GROUP BY cust_id) SELECT c.cust_name, t.total_balance FROM totals t JOIN customers c ON c.cust_id = t.cust_id WHERE t.total_balance > 300000 ORDER BY c.cust_id"
+      },
+      {
+        "level": "Medium",
+        "task": "Using a CTE that keeps only DEPOSIT transactions, show the first day of each month as a DATE and the total deposited in that month. Cast DATE_TRUNC to DATE.",
+        "hint": "WITH deposits AS (SELECT CAST(DATE_TRUNC('month', txn_date) AS DATE) AS month_start, amount FROM transactions WHERE txn_type = 'DEPOSIT') SELECT month_start, SUM(amount) ... GROUP BY month_start. Expect 3 rows.",
+        "answer": "WITH deposits AS (SELECT CAST(DATE_TRUNC('month', txn_date) AS DATE) AS month_start, amount FROM transactions WHERE txn_type = 'DEPOSIT') SELECT month_start, SUM(amount) AS total_deposits FROM deposits GROUP BY month_start ORDER BY month_start"
+      },
+      {
+        "level": "Medium",
+        "task": "Using two CTEs, one counting customers per branch and one counting accounts per branch, show branch_name, the customer count and the account count for every branch that has customers.",
+        "hint": "Count each table in its own CTE grouped by branch_id, then JOIN both to branches. Do not join customers to accounts before counting.",
+        "answer": "WITH cust_counts AS (SELECT branch_id, COUNT(*) AS customers_cnt FROM customers WHERE branch_id IS NOT NULL GROUP BY branch_id), acct_counts AS (SELECT c.branch_id, COUNT(*) AS accounts_cnt FROM accounts a JOIN customers c ON c.cust_id = a.cust_id GROUP BY c.branch_id) SELECT b.branch_name, cc.customers_cnt, ac.accounts_cnt FROM branches b JOIN cust_counts cc ON cc.branch_id = b.branch_id JOIN acct_counts ac ON ac.branch_id = b.branch_id ORDER BY b.branch_id"
+      },
+      {
+        "level": "Hard",
+        "task": "Using CTEs, show branch_name, the total balance of its customers' accounts, and that balance as a percentage of the grand total of all branches, rounded to 1 decimal place. Only branches with accounts.",
+        "hint": "CTE 1: SUM(balance) per branch_id via customers. CTE 2: SUM of CTE 1 as the grand total. Final: ROUND(100.0 * total_balance / all_balance, 1), with CROSS JOIN to the one-row grand total.",
+        "answer": "WITH branch_bal AS (SELECT c.branch_id, SUM(a.balance) AS total_balance FROM accounts a JOIN customers c ON c.cust_id = a.cust_id GROUP BY c.branch_id), grand AS (SELECT SUM(total_balance) AS all_balance FROM branch_bal) SELECT b.branch_name, bb.total_balance, ROUND(100.0 * bb.total_balance / g.all_balance, 1) AS pct_of_total FROM branch_bal bb JOIN branches b ON b.branch_id = bb.branch_id CROSS JOIN grand g ORDER BY b.branch_id"
+      }
+    ]
+  },
+  "quiz": [
+    {
+      "q": "What is a CTE?",
+      "options": ["A table saved to disk", "A named query defined with WITH and used like a table inside one statement", "A type of index"],
+      "answer": 1,
+      "why": "A CTE exists only for the query it belongs to. It is a named scratch list, not stored data."
+    },
+    {
+      "q": "How do you define two CTEs in one query?",
+      "options": ["WITH a AS (...) WITH b AS (...)", "WITH a AS (...), b AS (...)", "WITH a, b AS (...)"],
+      "answer": 1,
+      "why": "One WITH, then CTEs separated by commas. A later CTE may read from an earlier one."
+    },
+    {
+      "q": "Can you SELECT from a CTE in the next statement after the query ends?",
+      "options": ["Yes, it stays for the session", "No, it disappears when the statement finishes", "Only on Snowflake"],
+      "answer": 1,
+      "why": "To keep a result for later you need a table or a view. A CTE is gone when its query completes."
+    },
+    {
+      "q": "Why total customers and accounts in separate CTEs before joining to branches?",
+      "options": ["Joining the raw tables first would multiply rows and inflate the counts", "CTEs are faster than joins", "GROUP BY does not work after a join"],
+      "answer": 0,
+      "why": "Customers x accounts per branch creates one row per pair, so a COUNT on that join is wrong. Aggregate each child first, then join."
+    },
+    {
+      "q": "How do you look at the middle step of a CTE chain?",
+      "options": ["Add PRINT after it", "Temporarily replace the final SELECT with SELECT * FROM that CTE", "You cannot"],
+      "answer": 1,
+      "why": "That is the main debugging benefit of CTEs. Each step can be inspected on its own."
+    },
+    {
+      "q": "You want DATE_TRUNC('month', d) to show as 2026-08-01 in both DuckDB and Snowflake. What do you do?",
+      "options": ["Use STRFTIME", "CAST the result AS DATE", "Use TO_CHAR"],
+      "answer": 1,
+      "why": "DuckDB returns a timestamp from DATE_TRUNC. CAST(... AS DATE) makes both engines print the same date."
+    }
+  ]
+}
+</script>

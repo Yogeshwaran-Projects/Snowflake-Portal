@@ -1,0 +1,306 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>CoCo Masterclass</span><span>Module 1 · Meet CoCo</span><span>Lesson 1.1</span></div>
+  <h1>What is CoCo?</h1>
+  <p class="lede">Meet the robot assistant of the sky library. Learn what CoCo is, who uses it, what it can and cannot do, how it differs from Cortex, and the one safety habit that matters most on bank data.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>20 min</span>
+    <span class="badge">Beginner</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain CoCo in one sentence, and why it is called an agent</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>List what CoCo can do and what it cannot do</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Tell CoCo apart from Cortex AI and from the old Snowflake Copilot</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Use the reviewer mindset: you read every slip before it is handed in</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">Snowflake CoCo is an AI coding agent built into Snowflake. You describe a data task in plain English; CoCo looks at your account, writes the SQL or Python, can run it with your approval, explains the result and fixes errors.</p></div>
+  </div>
+  <p>CoCo launched as <b>Cortex Code</b>. Snowflake renamed it <b>CoCo</b> in June 2026. You will see both names in docs, blogs and project chats; they mean the same product. Some technical names still say "cortex": the command-line tool is called <code>cortex</code>, and the cost settings start with <code>CORTEX_CODE_</code>.</p>
+  <p>Three words in the definition matter:</p>
+  <ul>
+    <li><b>Agent</b>: a chatbot answers one message. An agent takes a goal, makes a plan, does several steps (look up tables, write a query, run it, read the error, try again) and comes back with a result.</li>
+    <li><b>Your account</b>: CoCo reads the names of your databases, tables and columns, and it works under <b>your role</b>. It sees only what you are allowed to see.</li>
+    <li><b>With your approval</b>: CoCo shows you changes before applying them. You stay in charge.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a robot assistant in the library</h2>
+  <p>Remember the library in the sky? Books are your data, shelves are tables, and teams of librarians (warehouses) fetch answers for wages (credits). Your ID badge (your role) decides which rooms you may enter.</p>
+  <p>Now the library gives you a <b>robot assistant</b>. It has memorised the whole library map. You say, "I need the number of customers who left last year, by city." The robot writes a <b>request slip</b> (the SQL), shows it to you, and, if you say yes, hands it to the librarians. When the answer comes back, it explains it. If a slip is rejected, it reads the reason and rewrites it.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Robot assistant</b><span>In Snowflake: CoCo, which knows the library map (your metadata)</span></div>
+    <div><small>In the library</small><b>Request slips</b><span>In Snowflake: the SQL and Python that CoCo writes for you</span></div>
+    <div><small>In the library</small><b>Your ID badge</b><span>In Snowflake: your role. CoCo opens only the rooms your badge opens</span></div>
+  </div>
+  <p>Two rules make the robot safe. First, it can only open rooms your badge opens. Second, it is still a robot: sometimes it picks the wrong shelf or mishears you. So <b>you read every slip before it is handed in</b>. That habit is the heart of this whole course.</p>
+</section>
+
+<section class="sec" id="who" data-toc="Who uses it">
+  <h2>Who uses CoCo, and for what</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Person</th><th>What they ask CoCo to do</th></tr></thead>
+      <tbody>
+        <tr><td><b>Data scientist (you)</b></td><td>Explore a new schema, profile data, write feature SQL, build Snowpark Python and notebooks, train and score models.</td></tr>
+        <tr><td><b>Data analyst</b></td><td>Write report queries, explain someone else's SQL, fix errors.</td></tr>
+        <tr><td><b>Data engineer</b></td><td>Build pipelines, dbt projects, tasks and dynamic tables.</td></tr>
+        <tr><td><b>Admin</b></td><td>Answer questions on cost, warehouses, roles and grants.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>CoCo can use several large language models. The docs list Claude, OpenAI GPT, Gemini and Grok models, plus three "Auto" choices that let Snowflake pick (Auto, Auto Intelligent and Auto Efficient). Which ones you see depends on your role and your region.</p>
+</section>
+
+<section class="sec" id="cando" data-toc="Can and cannot">
+  <h2>What CoCo can and cannot do</h2>
+  <div class="features">
+    <div class="feature"><b>Knows the map</b><span>Reads metadata: databases, schemas, tables, columns. Type <code>@</code> in Snowsight to search for an object by name.</span><small>Lesson 1.3</small></div>
+    <div class="feature"><b>Writes and edits code</b><span>SQL, Python, notebooks and Streamlit apps. Shows a diff before it changes your file.</span><small>Lesson 2.2</small></div>
+    <div class="feature"><b>Explains</b><span>Walks you through a query line by line in plain English.</span><small>Lesson 1.4</small></div>
+    <div class="feature"><b>Fixes errors</b><span>In Snowsight, a <b>Fix</b> button in the results grid sends the failed query to CoCo.</span><small>Lesson 2.2</small></div>
+    <div class="feature"><b>Plans big jobs</b><span>Breaks a multi-step task into a plan and asks before acting. The CLI and Desktop have a Plan mode.</span><small>Lesson 1.3</small></div>
+    <div class="feature"><b>Answers platform questions</b><span>Cost, warehouses, governance, Snowflake documentation.</span><small>Lesson 2.4</small></div>
+  </div>
+  <p>And what it <b>cannot</b> do:</p>
+  <ul>
+    <li><b>It cannot go past your badge.</b> If your role cannot read a table, CoCo cannot either. "Table not found" may simply mean "not granted to you".</li>
+    <li><b>It does not know your business rules.</b> It does not know that your bank counts a customer as "active" only after 3 logins a month. You must tell it.</li>
+    <li><b>It is not always right.</b> The docs say AI suggestions "can occasionally be incorrect or not match your intent". It can invent a column or pick the wrong join.</li>
+    <li><b>It is not free.</b> CoCo is billed by tokens (the words it reads and writes), and any query it runs also uses warehouse credits.</li>
+  </ul>
+</section>
+
+<section class="sec" id="compare" data-toc="CoCo vs Cortex">
+  <h2>CoCo vs Cortex vs Copilot</h2>
+  <p>Three names sound alike. Here is the short version. The Cortex course has the deep comparison in <a href="#cortex/1-1">Cortex lesson 1.1</a>.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>CoCo</th><th>Cortex AI</th><th>Snowflake Copilot</th></tr></thead>
+      <tbody>
+        <tr><td><b>What it is</b></td><td>A coding agent that writes, runs, explains and fixes code</td><td>AI that works on your data: functions like <code>AI_CLASSIFY</code> and <code>AI_COMPLETE</code>, plus services like Cortex Analyst and Cortex Search</td><td>The first chat assistant in Snowsight</td></tr>
+        <tr><td><b>Who calls it</b></td><td>You, in a chat panel or terminal</td><td>Your SQL, row by row, or an app</td><td>You, in a chat panel</td></tr>
+        <tr><td><b>Status</b></td><td>Generally available</td><td>Generally available (some features in preview)</td><td>Fully sunset and removed from accounts</td></tr>
+        <tr><td><b>In the library</b></td><td>The robot that writes request slips</td><td>The smart-reader librarians who read books for you</td><td>An older, simpler robot</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>One line to remember: <b>Cortex AI works on the data inside your query; CoCo writes the query.</b> You will often combine them, for example by asking CoCo to write a query that calls <code>AI_SENTIMENT</code> on support ticket text.</p>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">One more name</div><p>In the same June 2026 announcement, Snowflake Intelligence was renamed <b>CoWork</b>. CoWork is for business users who ask questions of governed data in plain English. CoCo is for people who write code. Do not mix them up in a meeting.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>Picture your first week on a churn project at a global bank. You get read access to a schema with 200 tables and nobody has time to explain them. Here is how CoCo helps, and what you still own:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Task</th><th>CoCo does</th><th>You still do</th></tr></thead>
+      <tbody>
+        <tr><td>Find the customer table</td><td>Searches the catalog, lists likely tables with a one-line guess each</td><td>Confirm with the data owner which table is the "golden" one</td></tr>
+        <tr><td>Churn rate by segment</td><td>Writes the GROUP BY query and runs it with your approval</td><td>Check how "churned" is defined and that no duplicate customers inflate counts</td></tr>
+        <tr><td>Query fails</td><td>Reads the error and proposes a fix</td><td>Read the diff: did it fix the bug, or just delete the failing filter?</td></tr>
+        <tr><td>Clean-up request</td><td>Writes a DELETE if asked</td><td>Never run destructive SQL on production from a chat; get a second reviewer</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="sec" id="safety" data-toc="Safety mindset">
+  <h2>The safety mindset</h2>
+  <p>On bank data, a wrong query can mis-state money, leak personal data or delete records. Keep these four rules from day one:</p>
+  <ol>
+    <li><b>Read before you run.</b> Every slip, every time. If you cannot explain a line, ask CoCo to explain it.</li>
+    <li><b>Check the numbers.</b> Compare a count or total against something you trust.</li>
+    <li><b>Destructive means two people.</b> DELETE, UPDATE, DROP, TRUNCATE, GRANT: write, do not run, and get a reviewer.</li>
+    <li><b>Data stays home.</b> Do not paste customer records into prompts, and do not let CoCo copy data out of Snowflake unless the project allows it.</li>
+  </ol>
+</section>
+
+<section class="sec" id="sim" data-toc="Try a session">
+  <h2>Try it: a first chat with CoCo</h2>
+  <p>No account needed. Step through a simulated session and tick the review checklist at each step.</p>
+  <div data-simulator="coco-1-1-first-chat"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>The <code>customers</code> table is a tiny slice of a bank's customer list. <code>churned</code> is 1 if the customer left and 0 if they stayed. Each challenge is a prompt you gave CoCo: write the SQL it <b>should</b> produce. Knowing what "right" looks like is how you review the robot.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: say hello to CoCo</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Find CoCo in Snowsight and ask three safe questions</h3>
+      <div class="meta"><span>About 10 min</span><span>Your Snowflake trial</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>Sign in to Snowsight on your trial account. Look for the <b>CoCo icon in the lower-right corner</b> and select it. A panel opens on the right.</p>
+        <p class="expect">Expected: a chat box. If there is no icon, or it says AI is not enabled, do not worry. Lesson 1.2 walks through setup (roles, cross-region inference and the trial credit card). Come back to this lab afterwards.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Ask who you are. This shows CoCo works under your badge.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre>What role and warehouse am I using right now, and which databases can this role see?</pre></div>
+        <p class="expect">Expected: your role (usually ACCOUNTADMIN on a trial), a warehouse such as COMPUTE_WH, and databases such as SNOWFLAKE and SNOWFLAKE_SAMPLE_DATA. It may run SHOW or SELECT CURRENT_ROLE() to find out.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Ask it to explain, not to run.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre>Explain in plain English what this does, but do not run it:
+SELECT c_mktsegment, COUNT(*) FROM snowflake_sample_data.tpch_sf1.customer GROUP BY 1;</pre></div>
+        <p class="expect">Expected: it counts customers per market segment. "GROUP BY 1" means "group by the first column". No query runs.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Test the safety habit. Ask for something destructive and watch what it does.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre>Write, but do not run, a statement that drops the database SNOWFLAKE_SAMPLE_DATA.
+Then tell me what would happen if I ran it.</pre></div>
+        <p class="expect">Expected: CoCo writes the DROP statement without running it and explains the risk. Do not run it. Close the chat when done.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember it</div><p>CoCo is the library's robot assistant: it knows the map, wears your badge, and writes the request slips. Cortex AI reads the books. You read every slip before it is handed in.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>CoCo</dt><dd>Snowflake's AI coding agent, formerly called Cortex Code.</dd>
+    <dt>Agent</dt><dd>An AI that plans and carries out several steps toward a goal.</dd>
+    <dt>Prompt</dt><dd>The instruction you type to CoCo.</dd>
+    <dt>Metadata</dt><dd>Data about data: names of databases, tables and columns, and their types.</dd>
+    <dt>Role</dt><dd>Your ID badge in Snowflake. It decides what you, and CoCo, may see and do.</dd>
+    <dt>Token</dt><dd>A small piece of text an AI model reads or writes. CoCo is billed by tokens.</dd>
+    <dt>Cortex AI</dt><dd>Snowflake's AI features that work on data, such as AI_CLASSIFY and Cortex Analyst.</dd>
+    <dt>CoWork</dt><dd>The new name for Snowflake Intelligence: plain-English questions for business users.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#coco/1-2">1.2 Where CoCo runs and setup →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "customers": {
+        "columns": [
+          ["customer_id", "NUMBER"],
+          ["city", "VARCHAR"],
+          ["segment", "VARCHAR", "RETAIL, PRIORITY or BUSINESS"],
+          ["tenure_months", "NUMBER", "months with the bank"],
+          ["num_products", "NUMBER"],
+          ["balance", "NUMBER", "in rupees"],
+          ["churned", "NUMBER", "1 = left the bank, 0 = stayed"]
+        ],
+        "rows": [
+          [1, "Mumbai", "RETAIL", 4, 1, 12000, 1],
+          [2, "Delhi", "PRIORITY", 60, 3, 850000, 0],
+          [3, "Chennai", "RETAIL", 18, 1, 0, 1],
+          [4, "Bengaluru", "BUSINESS", 96, 2, 1200000, 0],
+          [5, "Mumbai", "RETAIL", 30, 2, 45000, 0],
+          [6, "Pune", "RETAIL", 7, 1, 3000, 1],
+          [7, "Delhi", "RETAIL", 72, 2, 98000, 0],
+          [8, "Hyderabad", "PRIORITY", 11, 1, 300000, 1],
+          [9, "Chennai", "BUSINESS", 40, 3, 640000, 0],
+          [10, "Bengaluru", "RETAIL", 2, 1, 500, 1],
+          [11, "Mumbai", "PRIORITY", 84, 2, 720000, 0],
+          [12, "Pune", "RETAIL", 55, 2, 61000, 0]
+        ]
+      }
+    },
+    "starter": "-- You asked CoCo: 'How many customers left the bank, and how many stayed?'\n-- This is the SQL it wrote. Read it, then Run.\nSELECT churned, COUNT(*) AS customers\nFROM customers\nGROUP BY churned\nORDER BY churned",
+    "examples": [
+      { "label": "All rows", "sql": "SELECT *\nFROM customers" },
+      { "label": "Churn rate by segment", "sql": "SELECT segment,\n       COUNT(*) AS customers,\n       ROUND(100.0 * SUM(churned) / COUNT(*), 1) AS churn_pct\nFROM customers\nGROUP BY segment\nORDER BY churn_pct DESC" },
+      { "label": "New customers who left", "sql": "SELECT customer_id, city, tenure_months\nFROM customers\nWHERE churned = 1 AND tenure_months < 12\nORDER BY tenure_months" }
+    ],
+    "challenges": [
+      { "task": "You asked CoCo: 'How many customers do we have in each city?' Write the SQL it should produce (city and count).", "hint": "COUNT(*) with GROUP BY city.", "answer": "SELECT city, COUNT(*) AS customers FROM customers GROUP BY city ORDER BY city" },
+      { "task": "You asked CoCo: 'List the id, city and balance of customers who churned, biggest balance first.' Write the SQL it should produce.", "hint": "WHERE churned = 1, then ORDER BY balance DESC.", "answer": "SELECT customer_id, city, balance FROM customers WHERE churned = 1 ORDER BY balance DESC" },
+      { "task": "You asked CoCo: 'Average balance of customers who stayed vs customers who left.' Write the SQL it should produce (churned flag and average balance).", "hint": "AVG(balance) with GROUP BY churned.", "answer": "SELECT churned, AVG(balance) AS avg_balance FROM customers GROUP BY churned ORDER BY churned" }
+    ]
+  },
+  "simulators": [
+    {
+      "id": "coco-1-1-first-chat",
+      "title": "A first chat with CoCo",
+      "tool": "coco",
+      "intro": "You have just opened the CoCo panel in Snowsight on a trial account. Step through the chat.",
+      "steps": [
+        {
+          "prompt": "Hi CoCo. What can you do for me, in five bullet points?",
+          "say": "I can explore your account (databases, schemas, tables, columns), write and edit SQL and Python, run statements with your approval, explain code in plain English, and help fix errors. I work under your current role, so I only see what it can see.",
+          "check": ["It says it works under your role: good, that is the badge rule", "It did not run anything just to answer a question"]
+        },
+        {
+          "prompt": "Which role am I using, and what sample data can I see?",
+          "say": "You are using ACCOUNTADMIN on warehouse COMPUTE_WH. I ran two read-only statements to check.",
+          "code": { "lang": "sql", "text": "SELECT CURRENT_ROLE(), CURRENT_WAREHOUSE();\nSHOW SCHEMAS IN DATABASE SNOWFLAKE_SAMPLE_DATA;" },
+          "output": { "columns": ["CURRENT_ROLE()", "CURRENT_WAREHOUSE()"], "rows": [["ACCOUNTADMIN", "COMPUTE_WH"]] },
+          "check": ["Both statements only read; nothing was changed", "ACCOUNTADMIN is normal on a trial, but on a bank project you will use a smaller role"]
+        },
+        {
+          "prompt": "Write a query that counts customers per market segment in snowflake_sample_data.tpch_sf1.customer. Do not run it yet.",
+          "say": "Here is the query. I have not run it. It groups the 150,000 customers by C_MKTSEGMENT.",
+          "code": { "lang": "sql", "text": "SELECT c_mktsegment AS segment,\n       COUNT(*)     AS customers\nFROM snowflake_sample_data.tpch_sf1.customer\nGROUP BY c_mktsegment\nORDER BY customers DESC;" },
+          "check": ["Right database, schema and table", "Right column (C_MKTSEGMENT exists in that table)", "Not run, as you asked"]
+        },
+        {
+          "prompt": "Looks right. Run it.",
+          "say": "Done. Five segments with roughly 30,000 customers each.",
+          "output": { "columns": ["SEGMENT", "CUSTOMERS"], "rows": [["HOUSEHOLD", 30189], ["BUILDING", 30142], ["FURNITURE", 29968], ["MACHINERY", 29949], ["AUTOMOBILE", 29752]] },
+          "check": ["Totals add up to 150,000", "Sorted biggest first, matching ORDER BY customers DESC", "Sanity check: five segments, each close to one fifth of the total"]
+        },
+        {
+          "prompt": "Now delete all BUILDING customers from that table.",
+          "say": "I will not run that. SNOWFLAKE_SAMPLE_DATA is a read-only shared database, and DELETE is destructive. If this were your own table, I would first show a SELECT COUNT(*) of the rows to be removed and wait for your explicit approval.",
+          "check": ["CoCo refused to run a destructive statement without approval", "Your rule: destructive SQL is written, reviewed by a second person, then run"]
+        }
+      ]
+    }
+  ],
+  "quiz": [
+    { "q": "What is CoCo?", "options": ["A Snowflake warehouse size", "Snowflake's AI coding agent, formerly called Cortex Code", "A SQL function that scores text sentiment"], "answer": 1, "why": "CoCo was launched as Cortex Code and renamed in June 2026. It writes, runs, explains and fixes code." },
+    { "q": "Your colleague can see a table, but CoCo says it does not exist for you. Most likely reason?", "options": ["CoCo works under your role, and your role has no access", "The table was deleted", "CoCo cannot read tables"], "answer": 0, "why": "CoCo uses your badge. If your role is not granted the table, CoCo cannot see it either." },
+    { "q": "What is the one-line difference between Cortex AI and CoCo?", "options": ["They are the same product", "Cortex AI works on the data inside your query; CoCo writes the query", "CoCo only works in the terminal"], "answer": 1, "why": "Functions such as AI_CLASSIFY run on rows inside SQL. CoCo is an assistant that produces SQL and code." },
+    { "q": "What happened to the old Snowflake Copilot?", "options": ["It was renamed CoWork", "It is the CLI version of CoCo", "It has been fully sunset and removed from accounts"], "answer": 2, "why": "A Snowflake release note says Copilot has been fully sunset. CoWork is the new name for Snowflake Intelligence." },
+    { "q": "CoCo writes a DELETE for a production table. What do you do?", "options": ["Run it, the agent checked it", "Keep it unrun, review it, and get a second person to check before anyone runs it", "Ask CoCo to run it twice"], "answer": 1, "why": "Destructive SQL on bank data always needs human review. The person who runs the code owns the result." },
+    { "q": "Which of these does CoCo NOT know unless you tell it?", "options": ["The column names of a table you can read", "Your bank's own definition of an 'active' customer", "Your current role"], "answer": 1, "why": "CoCo reads metadata and your role, but business rules live in people's heads and documents. Put them in your prompt." }
+  ]
+}
+</script>

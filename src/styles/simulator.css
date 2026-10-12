@@ -1,0 +1,63 @@
+/* CoCo / Cortex simulator panel (components/Simulator.tsx). Framed like the
+   real tool: a title bar with the tool badge, a conversation area, and a
+   control bar. Tokens only — the panel must read in both themes. */
+
+.sim { border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface); overflow: hidden; min-width: 0; box-shadow: var(--shadow); }
+
+/* ─────────── title bar ─────────── */
+.sim-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 16px; background: var(--subtle); border-bottom: 1px solid var(--line); }
+.sim-badge { font-size: 12px; font-weight: 700; letter-spacing: .04em; border-radius: 6px; padding: 2px 8px; border: 1px solid; }
+.sim-coco .sim-badge { background: var(--accent-soft); color: var(--link); border-color: var(--accent-line); }
+.sim-cortex .sim-badge { background: var(--amber-soft); color: var(--amber); border-color: var(--amber-line); }
+.sim-title { font-size: 15px; min-width: 0; overflow-wrap: anywhere; }
+.sim-tag { margin-left: auto; font-size: 12px; color: var(--faint); }
+.sim-intro { padding: 12px 16px 0; color: var(--muted); font-size: 14px; }
+
+/* ─────────── conversation ─────────── */
+.sim-body { padding: 14px 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+.sim-step { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; min-width: 0; }
+.sim-step + .sim-step { border-top: 1px dashed var(--line-strong); padding-top: 18px; }
+.sim-step-no { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+.sim-who { display: block; font-size: 12px; font-weight: 700; letter-spacing: .04em; margin-bottom: 4px; color: var(--muted); }
+
+.sim-msg { border-radius: 12px; padding: 10px 14px; max-width: 88%; overflow-wrap: anywhere; }
+.sim-msg.you { justify-self: end; background: var(--accent-soft); border: 1px solid var(--accent-line); border-bottom-right-radius: 4px; }
+.sim-msg.you .sim-who { color: var(--link); }
+.sim-msg.tool { justify-self: start; background: var(--bg); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+
+.sim-request, .sim-text { border-radius: 8px; border: 1px solid var(--line); background: var(--bg); padding: 10px 14px; min-width: 0; }
+.sim-request pre, .sim-text pre { margin: 0; font: 13px/1.6 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink); }
+.sim-cortex .sim-request { border-left: 3px solid var(--amber); }
+.sim-text { border-left: 3px solid var(--ok); }
+
+.sim-code { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; min-width: 0; }
+.sim-lang { font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--faint); }
+.sim-out .grid-wrap { max-height: 280px; }
+
+.sim-check { margin: 0; border: 1px solid var(--ok-line); background: var(--ok-soft); border-radius: 8px; padding: 10px 14px; display: grid; gap: 6px; min-width: 0; }
+.sim-check legend { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ok); padding: 0 4px; }
+.sim-check label { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 8px; align-items: start; font-size: 14px; cursor: pointer; }
+.sim-check input { margin: 4px 0 0; width: 16px; height: 16px; accent-color: var(--ok); }
+.sim-check label.checked span { color: var(--muted); text-decoration: line-through; }
+
+/* ─────────── controls ─────────── */
+.sim-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 16px; border-top: 1px solid var(--line); background: var(--subtle); }
+.sim-count { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 9ch; text-align: center; }
+.sim-all { margin-left: auto; }
+.sim-controls .btn { padding: 7px 14px; font-size: 13px; }
+
+@media (pointer: coarse) {
+  .sim-controls .btn { min-height: 44px; }
+}
+
+/* Phones: the bubbles take the full width and the toggle drops onto its own
+   row, so the bar never pushes the page sideways at 390px. */
+@media (max-width: 600px) {
+  .sim-head, .sim-body, .sim-controls { padding-inline: 12px; }
+  .sim-intro { padding-inline: 12px; }
+  .sim-msg { max-width: 100%; }
+  .sim-tag { display: none; }
+  .sim-controls .btn { padding: 10px 14px; }
+  .sim-all { margin-left: 0; width: 100%; }
+  .sim-count { flex: 1; }
+}

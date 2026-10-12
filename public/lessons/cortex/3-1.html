@@ -1,0 +1,455 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>Cortex Masterclass</span><span>Module 3 · Cortex services</span><span>Lesson 3.1</span></div>
+  <h1>Cortex Search and RAG</h1>
+  <p class="lede">Build a search service that finds complaints by meaning, then let an LLM answer questions using only what the search found, with complaint IDs as proof.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>40 min</span>
+    <span class="badge">Intermediate</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Simulator + worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab + project step P5</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain Cortex Search, hybrid search and RAG in plain words</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Write CREATE CORTEX SEARCH SERVICE with ON, ATTRIBUTES, WAREHOUSE, TARGET_LAG and EMBEDDING_MODEL</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Query it with SEARCH_PREVIEW, the Python API and REST, with filters</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Build a RAG answer with AI_COMPLETE that cites complaint IDs</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">Cortex Search is a managed Snowflake service that indexes a text column and finds the rows most relevant to a question, by meaning and by keywords. RAG (retrieval-augmented generation) means: search first, then ask an LLM to answer using only the rows you found.</p></div>
+  </div>
+  <p>An LLM on its own knows nothing about your bank's complaints. If you ask it “What are customers saying about UPI failures?”, it can only guess. RAG fixes that in two moves:</p>
+  <ul>
+    <li><b>Retrieve</b>: Cortex Search returns the 5 to 10 complaints closest in meaning to the question.</li>
+    <li><b>Generate</b>: you paste those complaints into the prompt of <code>AI_COMPLETE</code> and say “answer using only these, and cite the IDs”.</li>
+  </ul>
+  <p>Snowflake does the hard parts for you: it creates the embeddings, builds the index, keeps it fresh when the table changes and tunes the ranking. You write one <code>CREATE</code> statement.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a super index at the back of the library</h2>
+  <p>A normal index only lists exact words. If you look up “UPI failed”, you miss the book that says “my payment app transfer bounced”. Our sky library now has a <b>super index</b>: it understands meaning, so it points you to both pages. RAG is the rule the smart reader follows: <b>look it up first, then answer using only what you found</b>, and write the page numbers next to every sentence.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Super index</b><span>In Snowflake: the Cortex Search service on the TEXT_EN column</span></div>
+    <div><small>In the library</small><b>Page numbers</b><span>In Snowflake: the COMPLAINT_ID values the answer cites</span></div>
+    <div><small>In the library</small><b>“Only use what you found”</b><span>In Snowflake: the RAG prompt given to AI_COMPLETE</span></div>
+  </div>
+  <p>Without the rule, the reader might make up a nice-sounding answer. With it, every claim can be checked against a real complaint. That is why banks like RAG: it is auditable.</p>
+</section>
+
+<section class="sec" id="how" data-toc="How it works">
+  <h2>How Cortex Search works</h2>
+  <p>Every query runs <b>hybrid search</b>: three methods combined, so you get the best of each.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Part</th><th>What it does</th><th>Catches</th></tr></thead>
+      <tbody>
+        <tr><td><b>Vector search</b></td><td>Compares the meaning of the question with the meaning of each row (embeddings)</td><td>“transfer bounced” for a “UPI failed” question</td></tr>
+        <tr><td><b>Keyword search</b></td><td>Matches exact words, like a classic search engine</td><td>Exact codes, such as “U30” or a card name</td></tr>
+        <tr><td><b>Semantic reranking</b></td><td>A model re-orders the top results by how well they answer the question</td><td>Puts the most useful row first</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The parts of the <code>CREATE</code> statement, each in one line:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Clause</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>ON col</code></td><td>The text column to search. It must be text.</td></tr>
+        <tr><td><code>ATTRIBUTES a, b</code></td><td>Columns you can filter on, such as PRODUCT or CHANNEL</td></tr>
+        <tr><td><code>WAREHOUSE = wh</code></td><td>The warehouse that runs the source query and builds and refreshes the index</td></tr>
+        <tr><td><code>TARGET_LAG = '1 hour'</code></td><td>How far behind the base table the index may fall</td></tr>
+        <tr><td><code>EMBEDDING_MODEL = '…'</code></td><td>Optional. Default is <code>snowflake-arctic-embed-m-v1.5</code>. It cannot be changed after creation.</td></tr>
+        <tr><td><code>AS (SELECT …)</code></td><td>The source query. Every column you want back or filter on must be in it.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Cost and access</div><p>You pay for: the warehouse during refreshes (nothing when no changes are found), embedding tokens for new or changed rows, and <b>serving</b> per GB per month of indexed data while the service exists. So drop services you no longer use. To create one, your role needs <code>SNOWFLAKE.CORTEX_USER</code> (or <code>CORTEX_EMBED_USER</code>), CREATE CORTEX SEARCH SERVICE on the schema, SELECT on the source and USAGE on the warehouse. To query, a role needs USAGE on the service, database and schema. Services run with <b>owner's rights</b>: anyone who can query sees the indexed text, so index only columns that every user of the service may see.</p></div>
+  </div>
+  <p>Long text should be split into chunks of no more than about 512 tokens (around 385 English words) before indexing. Our complaints are short, so one row is one chunk.</p>
+</section>
+
+<section class="sec" id="syntax" data-toc="Syntax">
+  <h2>Real syntax</h2>
+  <p><b>1. Create the service.</b></p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">CREATE OR REPLACE CORTEX SEARCH SERVICE</span> BANK_AI.COMPLAINTS.COMPLAINT_SEARCH
+  <span class="kw">ON</span> TEXT_EN
+  <span class="kw">ATTRIBUTES</span> PRODUCT, CATEGORY, CHANNEL
+  <span class="kw">WAREHOUSE</span> = LEARN_WH
+  <span class="kw">TARGET_LAG</span> = '1 hour'
+  <span class="kw">EMBEDDING_MODEL</span> = 'snowflake-arctic-embed-l-v2.0'   <span class="cm">-- same model as P4</span>
+<span class="kw">AS</span> (
+  <span class="kw">SELECT</span> COMPLAINT_ID, TEXT_EN, PRODUCT, CATEGORY, CHANNEL, SENTIMENT
+  <span class="kw">FROM</span> BANK_AI.COMPLAINTS.ENRICHED
+);</pre></div>
+  <p><b>2. Test it from SQL.</b> <code>SEARCH_PREVIEW</code> is for testing; its arguments must be constants. It returns JSON text with a <code>results</code> array.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> f.value:COMPLAINT_ID::<span class="kw">STRING</span> <span class="kw">AS</span> complaint_id,
+       f.value:PRODUCT::<span class="kw">STRING</span>      <span class="kw">AS</span> product,
+       f.value:TEXT_EN::<span class="kw">STRING</span>      <span class="kw">AS</span> text_en
+<span class="kw">FROM</span> <span class="kw">TABLE</span>(FLATTEN(PARSE_JSON(SNOWFLAKE.CORTEX.SEARCH_PREVIEW(
+  'BANK_AI.COMPLAINTS.COMPLAINT_SEARCH',
+  '{"query": "UPI payment failed but money debited",
+    "columns": ["COMPLAINT_ID","PRODUCT","TEXT_EN"],
+    "filter": {"@eq": {"CHANNEL": "APP"}},
+    "limit": 5}'
+)):results)) f;</pre></div>
+  <p>Filter operators: <code>@eq</code>, <code>@contains</code> (array contains), <code>@gte</code>, <code>@lte</code>, and combine with <code>@and</code>, <code>@or</code>, <code>@not</code>. Filters only work on ATTRIBUTES columns.</p>
+  <p><b>3. From Python</b> (a Streamlit app or a notebook), with the Snowflake Python APIs 0.8.0 or later:</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre>from snowflake.core import Root
+from snowflake.snowpark.context import get_active_session
+
+root = Root(get_active_session())
+svc = (root.databases["BANK_AI"].schemas["COMPLAINTS"]
+           .cortex_search_services["COMPLAINT_SEARCH"])
+resp = svc.search(query="UPI payment failed",
+                  columns=["COMPLAINT_ID", "TEXT_EN"],
+                  filter={"@eq": {"PRODUCT": "UPI"}},
+                  limit=5)
+print(resp.to_json())</pre></div>
+  <p><b>4. From any app over REST</b>: <code>POST https://&lt;account_url&gt;/api/v2/databases/BANK_AI/schemas/COMPLAINTS/cortex-search-services/COMPLAINT_SEARCH:query</code> with the same JSON body and an auth token. This is the low-latency path for production apps.</p>
+  <p><b>5. The RAG answer.</b> Search, glue the hits into one context string, then ask the model to answer only from it.</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">WITH</span> hits <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> f.value:COMPLAINT_ID::<span class="kw">STRING</span> <span class="kw">AS</span> id, f.value:TEXT_EN::<span class="kw">STRING</span> <span class="kw">AS</span> txt
+  <span class="kw">FROM</span> <span class="kw">TABLE</span>(FLATTEN(PARSE_JSON(SNOWFLAKE.CORTEX.SEARCH_PREVIEW(
+    'BANK_AI.COMPLAINTS.COMPLAINT_SEARCH',
+    '{"query": "UPI payment failures", "columns": ["COMPLAINT_ID","TEXT_EN"], "limit": 6}'
+  )):results)) f
+), ctx <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> LISTAGG('[' || id || '] ' || txt, '\n') <span class="kw">AS</span> context <span class="kw">FROM</span> hits
+)
+<span class="kw">SELECT</span> AI_COMPLETE('llama3.1-70b',
+  'You are a bank complaints analyst. Answer the question using ONLY the complaints below. '
+  || 'After every claim, cite the complaint IDs in square brackets, like [12]. '
+  || 'If the complaints do not answer the question, say "Not enough evidence".\n\n'
+  || 'Complaints:\n' || context
+  || '\n\nQuestion: What are customers saying about UPI failures?') <span class="kw">AS</span> answer
+<span class="kw">FROM</span> ctx;</pre></div>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Use</th><th>What gets indexed</th><th>Typical filter</th></tr></thead>
+      <tbody>
+        <tr><td><b>Complaint insight</b> (our project)</td><td>Complaint text in English</td><td>PRODUCT, CHANNEL, CATEGORY</td></tr>
+        <tr><td><b>Policy assistant</b> for branch staff</td><td>Chunks of policy PDFs parsed with AI_PARSE_DOCUMENT</td><td>Country, policy type, effective date</td></tr>
+        <tr><td><b>Call-centre helper</b></td><td>Past call notes and resolutions</td><td>Product, resolution status</td></tr>
+        <tr><td><b>Regulatory research</b></td><td>Circulars and guidelines</td><td>Regulator, year</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The citation rule matters most. A compliance reviewer can click a cited ID and read the original complaint. An answer without citations is an opinion; an answer with citations is evidence.</p>
+</section>
+
+<section class="sec" id="simulator" data-toc="Simulator">
+  <h2>Simulator: search, filter, then RAG</h2>
+  <p>No trial handy? Step through a real session. Each step shows what you run, what Cortex returns and what to check.</p>
+  <div data-simulator="cortex-3-1-rag"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>This worksheet cannot call Cortex, so <code>search_results</code> holds real-shaped results already returned by the service for two questions, with a relevance <code>score</code> (higher is better) and the position <code>result_pos</code>. <code>complaints</code> holds the source rows. Your job: pick the right context for RAG.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: your first search service</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Create, test and filter a Cortex Search service</h3>
+      <div class="meta"><span>About 15 min</span><span>Needs P1 to P4 done</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>Set your context and check that the enriched table is there.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">USE ROLE</span> ACCOUNTADMIN;
+<span class="kw">USE WAREHOUSE</span> LEARN_WH;
+<span class="kw">USE SCHEMA</span> BANK_AI.COMPLAINTS;
+<span class="kw">SELECT COUNT</span>(*) <span class="kw">FROM</span> ENRICHED;</pre></div>
+        <p class="expect">Expected: 60.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Run the <code>CREATE CORTEX SEARCH SERVICE</code> statement from the Syntax section (step 1).</p>
+        <p class="expect">Expected: “Cortex search service COMPLAINT_SEARCH successfully created.” It can take a minute because the first index is built now. If you see an error about change tracking, run <code>ALTER TABLE ENRICHED SET CHANGE_TRACKING = TRUE;</code> and try again.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Check its state.</p>
+        <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SHOW CORTEX SEARCH SERVICES IN SCHEMA</span> BANK_AI.COMPLAINTS;
+<span class="kw">DESCRIBE CORTEX SEARCH SERVICE</span> COMPLAINT_SEARCH;</pre></div>
+        <p class="expect">Expected: one row; serving and indexing states show it is active, with your TARGET_LAG and warehouse.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Run the <code>SEARCH_PREVIEW</code> query from the Syntax section (step 2), then remove the <code>"filter"</code> line and run it again.</p>
+        <p class="expect">Expected: up to 5 rows about failed or stuck payments, such as complaints 2, 9 and 32. Without the filter you also get rows from other channels. Note how some hits never use the word “UPI” (for example the stuck transfer in complaint 43): that is vector search at work.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Open <b>AI &amp; ML » Cortex Search</b> in Snowsight, select COMPLAINT_SEARCH and try the built-in playground with a question of your own.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="project" data-toc="Project step P5">
+  <h2>Project step P5: Build a RAG chatbot with Cortex Search</h2>
+  <div class="callout project">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V4h11l-2 4 2 4H5"/></svg>
+    <div><div class="label">Project step P5 · Complaint Intelligence</div><p>Goal: a search service <code>BANK_AI.COMPLAINTS.COMPLAINT_SEARCH</code> on <code>TEXT_EN</code> with attributes PRODUCT, CATEGORY and CHANNEL, and one SQL query that answers “What are customers saying about UPI failures?” with complaint IDs cited.</p></div>
+  </div>
+  <ol class="steps">
+    <li><div><p>If you did the lab, the service already exists. If not, run the <code>CREATE CORTEX SEARCH SERVICE</code> statement from the Syntax section now.</p><label><input type="checkbox"> Done</label></div></li>
+    <li><div><p>Run the RAG query from the Syntax section (step 5).</p>
+      <p class="expect">Expected: one paragraph with 2 to 4 themes (for example money debited but the payment failed, refunds not received, UPI down or PIN problems), each followed by IDs in square brackets such as [2] or [32].</p><label><input type="checkbox"> Done</label></div></li>
+    <li><div><p>Verify the citations. Paste two of the cited IDs here and read the originals:</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">SELECT</span> COMPLAINT_ID, PRODUCT, TEXT_EN
+<span class="kw">FROM</span> BANK_AI.COMPLAINTS.ENRICHED
+<span class="kw">WHERE</span> COMPLAINT_ID <span class="kw">IN</span> (2, 32);  <span class="cm">-- use the IDs from your answer</span></pre></div>
+      <p class="expect">Expected: each original complaint really says what the answer claims. If one does not, tighten the prompt or lower the limit.</p><label><input type="checkbox"> Done</label></div></li>
+    <li><div><p>Save the question and answer for your write-up. Keep the service: P7 (the agent) uses it.</p><label><input type="checkbox"> Done</label></div></li>
+  </ol>
+  <p>COMPLAINT_ID is a NUMBER from P1 (1 to 60). The RAG query casts it to text only to build the prompt.</p>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>Cortex Search is a super index that finds rows by meaning and keywords. RAG means look it up first, then answer using only what you found, and cite the IDs so anyone can check.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Cortex Search service</dt><dd>A Snowflake object that indexes a text column for fast hybrid search.</dd>
+    <dt>RAG</dt><dd>Retrieval-augmented generation: retrieve relevant text, then generate an answer from it.</dd>
+    <dt>Hybrid search</dt><dd>Vector search plus keyword search plus semantic reranking, combined.</dd>
+    <dt>Embedding</dt><dd>A list of numbers that captures the meaning of a piece of text.</dd>
+    <dt>ATTRIBUTES</dt><dd>Columns in the service you can filter on.</dd>
+    <dt>TARGET_LAG</dt><dd>The longest the index may fall behind the source table.</dd>
+    <dt>SEARCH_PREVIEW</dt><dd>A SQL function for testing a search service. Use the Python or REST API in apps.</dd>
+    <dt>Citation</dt><dd>The ID of the source row printed next to a claim, so a person can verify it.</dd>
+    <dt>Hallucination</dt><dd>When an LLM states something that is not supported by any source.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#cortex/3-2">3.2 Cortex Analyst and semantic views →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "simulators": [
+    {
+      "id": "cortex-3-1-rag",
+      "title": "Search the complaints, then answer with RAG",
+      "tool": "cortex",
+      "intro": "The service COMPLAINT_SEARCH already exists on BANK_AI.COMPLAINTS.ENRICHED.",
+      "steps": [
+        {
+          "prompt": "SELECT f.value:COMPLAINT_ID::STRING AS id, f.value:PRODUCT::STRING AS product, f.value:TEXT_EN::STRING AS text_en\nFROM TABLE(FLATTEN(PARSE_JSON(SNOWFLAKE.CORTEX.SEARCH_PREVIEW('BANK_AI.COMPLAINTS.COMPLAINT_SEARCH',\n  '{\"query\": \"UPI payment failed but money debited\", \"columns\": [\"COMPLAINT_ID\",\"PRODUCT\",\"TEXT_EN\"], \"limit\": 4}')):results)) f;",
+          "say": "Hybrid search returned the four closest complaints. Complaint 43 never says UPI (it is a stuck app transfer), but it means nearly the same thing, so vector search found it. Complaint 32 was Hinglish; P3 stored its English version in TEXT_EN.",
+          "output": {
+            "columns": ["ID", "PRODUCT", "TEXT_EN"],
+            "rows": [
+              [
+                "2",
+                "UPI",
+                "My UPI payment of Rs 4,500 to a merchant failed but the money was debited from my savings account. It has been 5 days and there is no refund yet."
+              ],
+              ["32", "UPI", "Bhai, I sent 750 rupees by UPI, the money was debited but the shopkeeper never received it. When will the refund come?"],
+              ["9", "UPI", "UPI is not working since morning. Every payment shows bank server down. I could not even pay my milk vendor."],
+              ["43", "MOBILE_APP", "A fund transfer of Rs 25,000 to my mother is stuck on processing in the app. It is neither successful nor refunded."]
+            ]
+          },
+          "check": ["Do the rows actually match the question?", "Is any row from a product you did not expect? That is fine if the meaning matches."]
+        },
+        {
+          "prompt": "Same query, plus \"filter\": {\"@and\": [{\"@eq\": {\"PRODUCT\": \"UPI\"}}, {\"@eq\": {\"CHANNEL\": \"APP\"}}]}",
+          "say": "Filters narrow the results to ATTRIBUTES values. Complaint 43 (product MOBILE_APP) drops out; only UPI complaints from the app remain.",
+          "output": {
+            "columns": ["ID", "PRODUCT", "TEXT_EN"],
+            "rows": [
+              [
+                "2",
+                "UPI",
+                "My UPI payment of Rs 4,500 to a merchant failed but the money was debited from my savings account. It has been 5 days and there is no refund yet."
+              ],
+              ["32", "UPI", "Bhai, I sent 750 rupees by UPI, the money was debited but the shopkeeper never received it. When will the refund come?"],
+              ["9", "UPI", "UPI is not working since morning. Every payment shows bank server down. I could not even pay my milk vendor."],
+              ["55", "UPI", "I am unable to set my UPI PIN because the app says my debit card details are invalid, but the card works at ATMs."]
+            ]
+          },
+          "check": ["Filter columns must be listed in ATTRIBUTES, or the call fails.", "Values are case-sensitive: 'APP' is not 'App'."]
+        },
+        {
+          "prompt": "WITH hits AS (...6 results...), ctx AS (SELECT LISTAGG('[' || id || '] ' || txt, '\\n') AS context FROM hits)\nSELECT AI_COMPLETE('llama3.1-70b', 'Answer using ONLY the complaints below. Cite IDs in [ ]. ...' || context || '\\n\\nQuestion: What are customers saying about UPI failures?') FROM ctx;",
+          "say": "The model answered from the six retrieved complaints only, and cited them.",
+          "outputText": "Customers describe three main UPI problems. First, payments fail but the money is still debited, and refunds take days [2][32]. Second, UPI is sometimes down for hours with a 'bank server down' message [9]. Third, some cannot use UPI at all: the UPI PIN cannot be set [55] or the UPI Lite balance vanished after a phone change [47]. One customer also lost money sending to a wrong UPI ID [16].",
+          "check": ["Every sentence has at least one ID.", "Open two cited IDs and confirm the text supports the claim.", "No numbers appear that are not in the complaints."]
+        },
+        {
+          "prompt": "Same RAG query, question changed to: 'What do customers say about locker rent?'",
+          "say": "No retrieved complaint covers that topic, and the prompt told the model to admit it. This is the behaviour you want in a bank.",
+          "outputText": "Not enough evidence. None of the retrieved complaints mention locker rent.",
+          "check": ["A refusal is better than a guess.", "If it invents an answer here, strengthen the ONLY rule in the prompt."]
+        }
+      ]
+    }
+  ],
+  "worksheet": {
+    "tables": {
+      "search_results": {
+        "columns": [
+          ["query_text", "VARCHAR", "The question sent to Cortex Search"],
+          ["result_pos", "NUMBER", "1 = top result"],
+          ["complaint_id", "NUMBER"],
+          ["product", "VARCHAR"],
+          ["channel", "VARCHAR"],
+          ["score", "NUMBER", "Relevance, 0 to 1, higher is better"]
+        ],
+        "rows": [
+          ["UPI payment failures", 1, 2, "UPI", "APP", 0.91],
+          ["UPI payment failures", 2, 32, "UPI", "APP", 0.88],
+          ["UPI payment failures", 3, 9, "UPI", "APP", 0.81],
+          ["UPI payment failures", 4, 43, "MOBILE_APP", "APP", 0.74],
+          ["UPI payment failures", 5, 55, "UPI", "APP", 0.66],
+          ["UPI payment failures", 6, 20, "MOBILE_APP", "APP", 0.61],
+          ["UPI payment failures", 7, 47, "UPI", "APP", 0.52],
+          ["UPI payment failures", 8, 24, "UPI", "APP", 0.35],
+          ["card blocked", 1, 33, "CREDIT_CARD", "APP", 0.89],
+          ["card blocked", 2, 5, "CREDIT_CARD", "CALL_CENTER", 0.83],
+          ["card blocked", 3, 25, "CREDIT_CARD", "EMAIL", 0.79],
+          ["card blocked", 4, 10, "CREDIT_CARD", "APP", 0.57],
+          ["card blocked", 5, 54, "CREDIT_CARD", "APP", 0.46]
+        ]
+      },
+      "complaints": {
+        "columns": [["complaint_id", "NUMBER"], ["category", "VARCHAR"], ["text_en", "VARCHAR"]],
+        "rows": [
+          [
+            2,
+            "App and UPI",
+            "My UPI payment of Rs 4,500 to a merchant failed but the money was debited from my savings account. It has been 5 days and there is no refund yet."
+          ],
+          [
+            5,
+            "Fraud",
+            "I got an SMS for a transaction of Rs 18,750 at an online electronics store that I never made. My card is with me. Please block the card immediately."
+          ],
+          [9, "App and UPI", "UPI is not working since morning. Every payment shows bank server down. I could not even pay my milk vendor."],
+          [
+            10,
+            "Card issues",
+            "My credit card limit was reduced from Rs 1,50,000 to Rs 60,000 without any notice. It is embarrassing when my card gets declined at shops."
+          ],
+          [20, "App and UPI", "Rs 1,500 was debited from my account but the mobile recharge was not done. Please return the money."],
+          [24, "App and UPI", "UPI payments are fast and I have never had a failure in two years. Keep it up."],
+          [
+            25,
+            "Fraud",
+            "There are three international transactions in US dollars on my card statement from last night. I have never travelled abroad. Block my card now."
+          ],
+          [32, "App and UPI", "Bhai, I sent 750 rupees by UPI, the money was debited but the shopkeeper never received it. When will the refund come?"],
+          [33, "Card issues", "My card was blocked after three wrong PIN attempts while I was travelling in Goa. I could not pay my hotel bill."],
+          [43, "App and UPI", "A fund transfer of Rs 25,000 to my mother is stuck on processing in the app. It is neither successful nor refunded."],
+          [47, "App and UPI", "My UPI Lite balance of Rs 1,200 disappeared after I changed my phone."],
+          [54, "Card issues", "Contactless payment on my credit card is not working at any shop since last week. Chip and PIN works."],
+          [55, "App and UPI", "I am unable to set my UPI PIN because the app says my debit card details are invalid, but the card works at ATMs."]
+        ]
+      }
+    },
+    "starter": "SELECT result_pos, complaint_id, product, score\nFROM search_results\nWHERE query_text = 'UPI payment failures'\nORDER BY result_pos",
+    "examples": [
+      {"label": "All results", "sql": "SELECT *\nFROM search_results\nORDER BY query_text, result_pos"},
+      {
+        "label": "Results with text",
+        "sql": "SELECT s.result_pos, s.complaint_id, s.score, c.text_en\nFROM search_results s\nJOIN complaints c ON c.complaint_id = s.complaint_id\nWHERE s.query_text = 'card blocked'\nORDER BY s.result_pos"
+      },
+      {
+        "label": "Average score per question",
+        "sql": "SELECT query_text, ROUND(AVG(score), 2) AS avg_score, COUNT(*) AS hits\nFROM search_results\nGROUP BY query_text\nORDER BY query_text"
+      }
+    ],
+    "challenges": [
+      {
+        "task": "Build the RAG context: for 'UPI payment failures', show complaint_id and text_en of the top 5 results only, in result order.",
+        "hint": "JOIN complaints on complaint_id, filter query_text, ORDER BY result_pos and LIMIT 5.",
+        "answer": "SELECT s.complaint_id, c.text_en FROM search_results s JOIN complaints c ON c.complaint_id = s.complaint_id WHERE s.query_text = 'UPI payment failures' ORDER BY s.result_pos LIMIT 5"
+      },
+      {
+        "task": "Drop weak evidence: how many results per query_text have a score of at least 0.5?",
+        "hint": "WHERE score >= 0.5, then GROUP BY query_text with COUNT(*).",
+        "answer": "SELECT query_text, COUNT(*) AS strong_hits FROM search_results WHERE score >= 0.5 GROUP BY query_text ORDER BY query_text"
+      },
+      {
+        "task": "Simulate a filter: for 'UPI payment failures', show complaint_id and score of results where product = 'UPI' and channel = 'APP'.",
+        "hint": "Two conditions joined with AND, like @and in the service filter.",
+        "answer": "SELECT complaint_id, score FROM search_results WHERE query_text = 'UPI payment failures' AND product = 'UPI' AND channel = 'APP' ORDER BY score DESC"
+      }
+    ]
+  },
+  "quiz": [
+    {
+      "q": "What does RAG stand for, in practice?",
+      "options": ["Look it up first, then answer using only what you found", "Train a new model on your data", "Run a query on a bigger warehouse"],
+      "answer": 0,
+      "why": "Retrieval-augmented generation retrieves relevant text, then asks the LLM to answer from it. No training happens."
+    },
+    {
+      "q": "Which clause decides which columns you can filter on?",
+      "options": ["ON", "ATTRIBUTES", "TARGET_LAG"],
+      "answer": 1,
+      "why": "ATTRIBUTES lists the filterable columns. ON names the text column that is searched."
+    },
+    {
+      "q": "A question says 'transfer bounced' and the complaint says 'UPI failed'. Which part of hybrid search finds it?",
+      "options": ["Keyword search", "Vector (semantic) search", "Neither"],
+      "answer": 1,
+      "why": "Vector search compares meaning through embeddings, so different words with the same meaning still match."
+    },
+    {
+      "q": "Why ask the model to cite COMPLAINT_IDs?",
+      "options": ["It makes the answer shorter", "It lets a person verify every claim against the original complaint", "It lowers the token cost"],
+      "answer": 1,
+      "why": "Citations make the answer auditable, which is essential in a bank."
+    },
+    {
+      "q": "What is SNOWFLAKE.CORTEX.SEARCH_PREVIEW best used for?",
+      "options": ["Testing a service from SQL", "Low-latency production apps", "Creating the index"],
+      "answer": 0,
+      "why": "The docs position SEARCH_PREVIEW for testing. Production apps should use the Python or REST API."
+    },
+    {
+      "q": "A user can query a search service but has no SELECT on the source table. What do they see?",
+      "options": ["Nothing", "The indexed columns, because services run with owner's rights", "An error"],
+      "answer": 1,
+      "why": "Services run with the owner's rights, so only index columns that every user of the service is allowed to see."
+    }
+  ]
+}
+</script>

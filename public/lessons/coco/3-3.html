@@ -1,0 +1,281 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>CoCo Masterclass</span><span>Module 3 · CoCo for data science</span><span>Lesson 3.3</span></div>
+  <h1>Train a model with Snowpark ML</h1>
+  <p class="lede">Teach a guesser to spot customers who are about to leave. Split the data, train an XGBoost classifier inside Snowflake with CoCo’s help, and read accuracy, precision, recall and ROC AUC like a pro, even when churners are rare.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>40 min</span>
+    <span class="badge">Intermediate</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab + project step P5</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain training, testing and why we hold back 20% of the data</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Train <code>XGBClassifier</code> from <code>snowflake.ml.modeling</code> on a Snowpark DataFrame</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Read accuracy, precision, recall and ROC AUC in plain words</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Handle class imbalance and avoid the “80% accurate but useless” trap</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+  <div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">Training a model means showing it many past examples (features plus the known answer) so it learns a rule for guessing the answer on new examples. Snowpark ML (<code>snowflake.ml.modeling</code>) trains familiar models such as XGBoost and logistic regression directly on Snowflake tables.</p></div>
+  </div>
+  <p>Our model is a <b>classifier</b>: it answers a yes/no question, “will this customer churn?”. It gives a <b>probability</b> between 0 and 1, and we turn that into yes or no with a <b>threshold</b> (0.5 by default).</p>
+  <ul>
+    <li><b>Train set</b> (80%): the examples the model learns from.</li>
+    <li><b>Test set</b> (20%): examples it never saw. We grade it only on these.</li>
+    <li><b>Metric</b>: a score that says how good the guesses are. One score is never enough.</li>
+  </ul>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like training a guesser with flash cards</h2>
+  <p>The library trains a new helper to guess which members will stop coming. You show it 4,000 old clue cards with the answer on the back. It learns patterns: “no visits for months plus unanswered complaints usually means gone”. Then comes the exam: 1,000 cards it has <b>never seen</b>, answers hidden. If you tested it on the cards it practised with, it could just remember them and look like a genius. The robot assistant writes the training and exam code for you, but you decide which exam score matters.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Practice cards</b><span>In Snowflake: the 80% train split from <code>random_split</code></span></div>
+    <div><small>In the library</small><b>The exam</b><span>In Snowflake: the 20% test split, used only for metrics</span></div>
+    <div><small>In the library</small><b>The guesser’s rulebook</b><span>In Snowflake: the fitted <code>XGBClassifier</code>, ready for the registry in 3.4</span></div>
+  </div>
+</section>
+
+<section class="sec" id="metrics" data-toc="Metrics, simply">
+  <h2>The four metrics, in plain words</h2>
+  <p>Picture a smoke alarm for churn. It can ring correctly, ring for nothing, or stay silent during a real fire.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Metric</th><th>Question it answers</th><th>Smoke alarm version</th><th>Formula</th></tr></thead>
+      <tbody>
+        <tr><td><b>Accuracy</b></td><td>Of all guesses, how many were right?</td><td>How often the alarm was correct, ringing or silent</td><td>(TP + TN) / all</td></tr>
+        <tr><td><b>Precision</b></td><td>When it says “will churn”, how often is it right?</td><td>When it rings, is there really a fire?</td><td>TP / (TP + FP)</td></tr>
+        <tr><td><b>Recall</b></td><td>Of the real churners, how many did it catch?</td><td>Of all real fires, how many made it ring?</td><td>TP / (TP + FN)</td></tr>
+        <tr><td><b>ROC AUC</b></td><td>How well does it rank churners above stayers?</td><td>Pick one fire and one non-fire: how often is the fire scored hotter?</td><td>0.5 = coin flip, 1.0 = perfect</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>TP = true positive (said churn, did churn). FP = false positive (said churn, stayed). FN = false negative (said stay, churned). TN = true negative.</p>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Class imbalance: the 80% trap</div><p>If 20% of customers churn, a lazy model that always says “stays” is 80% accurate and catches nobody: recall 0. That is why we look at recall, precision and ROC AUC, not accuracy alone. Fixes: give churners more weight (<code>scale_pos_weight</code> in XGBoost = stayers / churners), or lower the threshold (for example 0.3) so more customers are flagged. The bank chooses the balance: calling a happy customer costs little, losing an unhappy one costs a lot.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="models" data-toc="Which model">
+  <h2>Two models to know</h2>
+  <div class="features">
+    <div class="feature"><b>LogisticRegression</b><span><code>snowflake.ml.modeling.linear_model</code>. A simple, explainable baseline. Needs no missing values, so fill nulls first.</span><small>Start here as a baseline</small></div>
+    <div class="feature"><b>XGBClassifier</b><span><code>snowflake.ml.modeling.xgboost</code>. Many small decision trees added together. Strong on tabular bank data, handles missing values itself.</span><small>Our project model</small></div>
+  </div>
+  <p>Both take the same three arguments: <code>input_cols</code> (the feature columns), <code>label_cols</code> (the answer column) and <code>output_cols</code> (the name of the prediction column). <code>fit(train_df)</code> trains in Snowflake; <code>predict(df)</code> adds the 0/1 guess; <code>predict_proba(df)</code> adds probability columns whose names start with <code>predict_proba_</code>.</p>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+  <p>A bank’s retention team can call 200 customers a week. A model with high <b>precision</b> in its top 200 means callers rarely waste time on happy customers. Model risk teams will ask for ROC AUC on held-out data, a comparison with a simple baseline, the threshold chosen and why, and proof that no feature leaks. Many banks also require explainable features, which is why we keep a logistic regression baseline next to XGBoost and look at feature importance.</p>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+  <p>The table <code>test_scores</code> holds 12 test customers: the true answer (<code>actual</code>), the model’s probability (<code>prob</code>) and its guess at threshold 0.5 (<code>predicted</code>). Compute the metrics in SQL so you can check any number CoCo shows you.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: metrics by hand, then by CoCo</h2>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Prove you can read a confusion matrix</h3>
+      <div class="meta"><span>About 10 min</span><span>Your trial</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>In a SQL worksheet, ask CoCo: “Build a confusion matrix from a tiny inline VALUES table of 10 rows with ACTUAL and PREDICTED (0/1), and compute accuracy, precision and recall in one query.”</p>
+        <p class="expect">Expected: a query with <code>COUNT_IF(ACTUAL = 1 AND PREDICTED = 1)</code>-style counts and three ratios. Check each formula against the table in this lesson.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Ask: “Change the data so the model always predicts 0 and 2 of 10 rows are churners. What happens to accuracy and recall?”</p>
+        <p class="expect">Expected: accuracy 0.8, recall 0. That is the imbalance trap, in numbers you made yourself.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="project" data-toc="Project step P5">
+  <h2>Project step P5: train the churn model</h2>
+  <div class="callout project">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21V4h12l-2 4 2 4H4"/></svg>
+    <div><div class="label">Bank Churn Predictor · P5</div><p>In a notebook, we split <code>FEATURES.CUSTOMER_FEATURES</code> 80/20, train an <code>XGBClassifier</code> with Snowpark ML and report accuracy, precision, recall and ROC AUC on the test set. The fitted model object is what P6 logs to the Model Registry.</p></div>
+  </div>
+  <p><b>1. Create a notebook</b> in <code>BANK_DS.ML</code> named <code>CHURN_TRAINING</code> (Workspaces or Projects » Notebooks, as in 3.1). Check the library is there: run <code>import snowflake.ml</code>. If the import fails, ask CoCo how to add the <code>snowflake-ml-python</code> package to your notebook; the steps depend on your runtime.</p>
+  <p><b>2. Prompt CoCo</b> in the notebook:</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre>Using snowflake.ml.modeling, train an XGBClassifier on BANK_DS.FEATURES.CUSTOMER_FEATURES.
+Label CHURNED. Use every numeric feature except CUSTOMER_ID (no CITY or SEGMENT).
+Split 80/20 with random_split seed 42. Weight churners with scale_pos_weight.
+Report accuracy, precision, recall and ROC AUC on the test set using
+snowflake.ml.modeling.metrics. Keep all data in Snowflake: no to_pandas.</pre></div>
+  <p><b>3. The vetted code</b> (one cell, or split it into cells):</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre><span class="kw">from</span> snowflake.snowpark.context <span class="kw">import</span> get_active_session
+<span class="kw">from</span> snowflake.snowpark <span class="kw">import</span> functions <span class="kw">as</span> F
+<span class="kw">from</span> snowflake.ml.modeling.xgboost <span class="kw">import</span> XGBClassifier
+<span class="kw">from</span> snowflake.ml.modeling.metrics <span class="kw">import</span> accuracy_score, precision_score, recall_score, roc_auc_score
+
+session = get_active_session()
+session.use_warehouse(<span class="kw">"LEARN_WH"</span>)
+df = session.table(<span class="kw">"BANK_DS.FEATURES.CUSTOMER_FEATURES"</span>)
+
+FEATURES = [<span class="kw">"AGE"</span>, <span class="kw">"AGE_MISSING"</span>, <span class="kw">"TENURE_MONTHS"</span>, <span class="kw">"NUM_PRODUCTS"</span>, <span class="kw">"HAS_CREDIT_CARD"</span>,
+            <span class="kw">"IS_ACTIVE_MEMBER"</span>, <span class="kw">"ESTIMATED_SALARY"</span>, <span class="kw">"BALANCE"</span>, <span class="kw">"TXN_COUNT_90D"</span>,
+            <span class="kw">"TOTAL_AMOUNT_90D"</span>, <span class="kw">"AVG_TXN_AMOUNT"</span>, <span class="kw">"DAYS_SINCE_LAST_TXN"</span>,
+            <span class="kw">"TICKET_COUNT"</span>, <span class="kw">"UNRESOLVED_TICKETS"</span>]
+LABEL = <span class="kw">"CHURNED"</span>
+
+train_df, test_df = df.random_split([0.8, 0.2], seed=42)
+train_df = train_df.cache_result()      <span class="cm"># freeze the split so it does not change between actions</span>
+test_df = test_df.cache_result()
+
+n_pos = train_df.filter(F.col(LABEL) == 1).count()
+n_neg = train_df.count() - n_pos
+
+model = XGBClassifier(
+    input_cols=FEATURES, label_cols=[LABEL], output_cols=[<span class="kw">"PREDICTED_CHURN"</span>],
+    n_estimators=200, max_depth=4, learning_rate=0.1,
+    scale_pos_weight=n_neg / n_pos, random_state=42,
+)
+model.fit(train_df)
+
+pred = model.predict(test_df)
+proba = model.predict_proba(test_df)
+<span class="kw">print</span>(proba.columns)                       <span class="cm"># see the exact probability column names</span>
+P1 = [c <span class="kw">for</span> c <span class="kw">in</span> proba.columns <span class="kw">if</span> <span class="kw">"PROBA"</span> <span class="kw">in</span> c.upper() <span class="kw">and</span> c.strip(<span class="kw">'"'</span>).endswith(<span class="kw">"1"</span>)][0]
+
+<span class="kw">print</span>(<span class="kw">"accuracy "</span>, accuracy_score(df=pred, y_true_col_names=LABEL, y_pred_col_names=<span class="kw">"PREDICTED_CHURN"</span>))
+<span class="kw">print</span>(<span class="kw">"precision"</span>, precision_score(df=pred, y_true_col_names=LABEL, y_pred_col_names=<span class="kw">"PREDICTED_CHURN"</span>))
+<span class="kw">print</span>(<span class="kw">"recall   "</span>, recall_score(df=pred, y_true_col_names=LABEL, y_pred_col_names=<span class="kw">"PREDICTED_CHURN"</span>))
+<span class="kw">print</span>(<span class="kw">"roc_auc  "</span>, roc_auc_score(df=proba, y_true_col_names=LABEL, y_score_col_names=P1))</pre></div>
+  <p class="expect"><b>Expected result:</b> train and test counts of about 4,000 and 1,000. Four metrics between 0 and 1. On a dataset like ours, ROC AUC is usually well above 0.5 (a coin flip); recall should be clearly above 0 thanks to <code>scale_pos_weight</code>. Your exact numbers depend on the data built in P1 to P4. Write them down: P6 stores them with the model.</p>
+  <div data-simulator="coco-3-3-train"></div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">If CoCo gives you something different</div><p><b>It calls to_pandas() and uses sklearn or open-source xgboost</b>: that also works on 5,000 rows inside a notebook, but it pulls the data into memory; ask it to keep <code>snowflake.ml.modeling</code> for this course. <b>It includes CITY or SEGMENT</b>: text columns need encoding first; ask it to drop them or to use <code>OneHotEncoder</code> from <code>snowflake.ml.modeling.preprocessing</code>. <b>It includes CUSTOMER_ID or CHURNED in input_cols</b>: reject that; an ID is not a clue and the label is the answer. <b>ROC AUC above 0.98</b>: suspect leakage from P4 before you celebrate. <b>Probability column name differs</b>: use the name printed by <code>proba.columns</code>.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+  <div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember</div><p>Train on 80%, grade on the 20% the model never saw. Accuracy alone lies when churners are rare: read precision, recall and ROC AUC, weight the rare class, and pick the threshold with the business.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <dt>Classifier</dt><dd>A model that predicts a category, here churn yes or no.</dd>
+    <dt>Train / test split</dt><dd>Dividing rows into a learning set and an exam set. random_split([0.8, 0.2], seed=42).</dd>
+    <dt>Threshold</dt><dd>The probability above which we say “will churn”. Default 0.5.</dd>
+    <dt>Precision</dt><dd>Of those flagged, the share who really churned.</dd>
+    <dt>Recall</dt><dd>Of the real churners, the share we flagged.</dd>
+    <dt>ROC AUC</dt><dd>How well the model ranks churners above stayers. 0.5 is random, 1.0 is perfect.</dd>
+    <dt>Class imbalance</dt><dd>One answer is much rarer than the other, such as 20% churners.</dd>
+    <dt>scale_pos_weight</dt><dd>An XGBoost setting that makes each rare positive example count more. Often stayers divided by churners.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+  <div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#coco/3-4">3.4 Model Registry and scoring →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+    "tables": {
+      "test_scores": {
+        "columns": [["customer_id", "NUMBER"], ["segment", "VARCHAR"], ["actual", "NUMBER", "1 = churned"], ["prob", "NUMBER", "model probability of churn"], ["predicted", "NUMBER", "1 if prob >= 0.5"]],
+        "rows": [
+          [101, "Retail", 1, 0.91, 1], [102, "Retail", 0, 0.12, 0], [103, "Premium", 1, 0.44, 0], [104, "Retail", 0, 0.63, 1],
+          [105, "Premium", 0, 0.08, 0], [106, "Retail", 1, 0.77, 1], [107, "Retail", 0, 0.35, 0], [108, "Premium", 0, 0.21, 0],
+          [109, "Retail", 1, 0.58, 1], [110, "Premium", 0, 0.05, 0], [111, "Retail", 0, 0.52, 1], [112, "Retail", 1, 0.31, 0]
+        ]
+      }
+    },
+    "starter": "-- You asked CoCo: 'Show the confusion matrix for the test set.'\nSELECT actual, predicted, COUNT(*) AS customers\nFROM test_scores\nGROUP BY actual, predicted\nORDER BY actual DESC, predicted DESC",
+    "examples": [
+      { "label": "Accuracy", "sql": "SELECT AVG(CASE WHEN actual = predicted THEN 1.0 ELSE 0.0 END) AS accuracy\nFROM test_scores" },
+      { "label": "Top 5 riskiest", "sql": "SELECT customer_id, segment, prob, actual\nFROM test_scores\nORDER BY prob DESC\nLIMIT 5" },
+      { "label": "Always-say-stay model", "sql": "-- A lazy model predicting 0 for everyone\nSELECT AVG(CASE WHEN actual = 0 THEN 1.0 ELSE 0.0 END) AS lazy_accuracy,\n       0 AS lazy_recall\nFROM test_scores" }
+    ],
+    "challenges": [
+      { "task": "You asked CoCo: 'What is the precision at threshold 0.5?' Write the SQL it should produce (one number: of rows with predicted = 1, the share where actual = 1).", "hint": "Filter WHERE predicted = 1, then AVG(CASE WHEN actual = 1 THEN 1.0 ELSE 0.0 END).", "answer": "SELECT AVG(CASE WHEN actual = 1 THEN 1.0 ELSE 0.0 END) AS precision_at_05 FROM test_scores WHERE predicted = 1" },
+      { "task": "You asked CoCo: 'What is the recall at threshold 0.5?' Write the SQL it should produce (of rows with actual = 1, the share the model predicted as 1).", "hint": "Filter WHERE actual = 1, then AVG(CASE WHEN predicted = 1 THEN 1.0 ELSE 0.0 END).", "answer": "SELECT AVG(CASE WHEN predicted = 1 THEN 1.0 ELSE 0.0 END) AS recall_at_05 FROM test_scores WHERE actual = 1" },
+      { "task": "You asked CoCo: 'If we lower the threshold to 0.3, what is the recall?' Write the SQL it should produce.", "hint": "Among actual = 1 rows, the share with prob >= 0.3.", "answer": "SELECT AVG(CASE WHEN prob >= 0.3 THEN 1.0 ELSE 0.0 END) AS recall_at_03 FROM test_scores WHERE actual = 1" }
+    ]
+  },
+  "simulators": [
+    {
+      "id": "coco-3-3-train",
+      "title": "Project P5: train and evaluate with CoCo",
+      "tool": "coco",
+      "intro": "Notebook CHURN_TRAINING in BANK_DS.ML, CoCo panel open, data from P4.",
+      "steps": [
+        {
+          "prompt": "How balanced is CHURNED in BANK_DS.FEATURES.CUSTOMER_FEATURES? Then split 80/20 with seed 42.",
+          "say": "About 1 in 5 customers churned, so the classes are imbalanced. I split with random_split and cache both halves so they stay fixed.",
+          "code": { "lang": "python", "text": "df.group_by(\"CHURNED\").count().show()\ntrain_df, test_df = df.random_split([0.8, 0.2], seed=42)\ntrain_df, test_df = train_df.cache_result(), test_df.cache_result()\nprint(train_df.count(), test_df.count())" },
+          "output": { "columns": ["CHURNED", "COUNT"], "rows": [[0, 3980], [1, 1020]] },
+          "check": ["Note the churn share: it decides how much accuracy means", "Train plus test equals the full row count", "A fixed seed makes the split repeatable"]
+        },
+        {
+          "prompt": "Train XGBClassifier from snowflake.ml.modeling on the numeric features, label CHURNED, with scale_pos_weight for imbalance.",
+          "say": "fit() runs inside Snowflake on LEARN_WH. scale_pos_weight is stayers divided by churners, about 3.9 here.",
+          "code": { "lang": "python", "text": "model = XGBClassifier(\n    input_cols=FEATURES, label_cols=[\"CHURNED\"], output_cols=[\"PREDICTED_CHURN\"],\n    n_estimators=200, max_depth=4, learning_rate=0.1,\n    scale_pos_weight=n_neg / n_pos, random_state=42)\nmodel.fit(train_df)" },
+          "outputText": "<snowflake.ml.modeling.xgboost.xgb_classifier.XGBClassifier object at 0x7f...>",
+          "check": ["input_cols has no CUSTOMER_ID, CITY, SEGMENT or CHURNED", "It trained on train_df only", "XSMALL is enough for 4,000 rows"]
+        },
+        {
+          "prompt": "Evaluate on test_df: accuracy, precision, recall, ROC AUC.",
+          "say": "All four metrics come from snowflake.ml.modeling.metrics and are computed in the warehouse.",
+          "code": { "lang": "python", "text": "pred = model.predict(test_df)\nproba = model.predict_proba(test_df)\nP1 = [c for c in proba.columns if \"PROBA\" in c.upper() and c.strip('\"').endswith(\"1\")][0]\nprint(accuracy_score(df=pred, y_true_col_names=\"CHURNED\", y_pred_col_names=\"PREDICTED_CHURN\"))\nprint(precision_score(df=pred, y_true_col_names=\"CHURNED\", y_pred_col_names=\"PREDICTED_CHURN\"))\nprint(recall_score(df=pred, y_true_col_names=\"CHURNED\", y_pred_col_names=\"PREDICTED_CHURN\"))\nprint(roc_auc_score(df=proba, y_true_col_names=\"CHURNED\", y_score_col_names=P1))" },
+          "output": { "columns": ["METRIC", "VALUE"], "rows": [["accuracy", 0.79], ["precision", 0.5], ["recall", 0.71], ["roc_auc", 0.84]] },
+          "check": ["Example values only; yours will differ", "Metrics use test_df, never train_df", "Recall well above 0 means the weighting worked"]
+        },
+        {
+          "prompt": "Accuracy was 0.82 before I added scale_pos_weight and is 0.79 now. Did I make the model worse?",
+          "say": "No. Before, the model mostly said stays, so accuracy was high but recall was low. Now it catches far more churners at the cost of some false alarms. For a retention team with a call list, recall and precision in the top of the list matter more than accuracy.",
+          "check": ["Always compare with the lazy baseline: about 0.80 accuracy here", "Decide the metric with the business before tuning", "Do not tune on the test set: keep it for the final grade"]
+        },
+        {
+          "prompt": "Which features matter most?",
+          "say": "to_xgboost() returns the underlying xgboost model, which has feature_importances_.",
+          "code": { "lang": "python", "text": "import pandas as pd\nxgb = model.to_xgboost()\npd.Series(xgb.feature_importances_, index=FEATURES).sort_values(ascending=False).head(5)" },
+          "output": { "columns": ["FEATURE", "IMPORTANCE"], "rows": [["DAYS_SINCE_LAST_TXN", 0.24], ["IS_ACTIVE_MEMBER", 0.17], ["NUM_PRODUCTS", 0.14], ["UNRESOLVED_TICKETS", 0.11], ["TXN_COUNT_90D", 0.09]] },
+          "check": ["Top features should make business sense", "One feature with almost all importance is a leakage warning", "Save this list for the model card in P6"]
+        }
+      ]
+    }
+  ],
+  "quiz": [
+    { "q": "Why do we keep 20% of rows as a test set?", "options": ["To save warehouse credits", "To grade the model on examples it never saw, like a real exam", "Because XGBoost cannot use more than 80%"], "answer": 1, "why": "Scoring on training rows rewards memorising. The held-out test set shows how the model will do on new customers." },
+    { "q": "20% of customers churn. A model always predicts ‘stays’. What is its accuracy and recall?", "options": ["80% accuracy, 0 recall", "20% accuracy, 100% recall", "50% and 50%"], "answer": 0, "why": "It is right for all stayers (80%) and catches no churners (recall 0). Accuracy alone hides this." },
+    { "q": "Precision answers which question?", "options": ["Of real churners, how many did we catch?", "When we flag someone, how often are they really a churner?", "How fast is the model?"], "answer": 1, "why": "Precision = TP / (TP + FP). Recall is the share of real churners caught." },
+    { "q": "What does ROC AUC = 0.5 mean?", "options": ["Perfect ranking", "No better than a coin flip at ranking churners above stayers", "Half the data was used"], "answer": 1, "why": "0.5 is random ranking; 1.0 ranks every churner above every stayer." },
+    { "q": "Which line trains a Snowpark ML XGBoost model on a Snowpark DataFrame?", "options": ["XGBClassifier(input_cols=FEATURES, label_cols=['CHURNED'], output_cols=['PREDICTED_CHURN']).fit(train_df)", "xgboost.train(train_df.to_csv())", "SELECT XGBOOST(*) FROM train_df"], "answer": 0, "why": "snowflake.ml.modeling.xgboost.XGBClassifier takes input_cols, label_cols and output_cols, and fit() accepts a Snowpark DataFrame." },
+    { "q": "CoCo’s code puts CUSTOMER_ID in input_cols. What do you do?", "options": ["Accept it, more columns are better", "Remove it: an ID is not a real clue and can make the model memorise", "Rename it"], "answer": 1, "why": "IDs carry no meaning about behaviour. Only real features go in input_cols; the label never does." }
+  ]
+}
+</script>

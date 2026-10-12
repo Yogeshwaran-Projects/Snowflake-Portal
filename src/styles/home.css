@@ -1,0 +1,37 @@
+/* Home: course picker. 1 column on phones, 2 from tablet up. Tokens only. */
+
+.home { max-width: 960px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; }
+.home-head { display: grid; gap: 10px; }
+.home-head h1 { font-size: clamp(28px, 4vw, 36px); }
+
+.course-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+
+.course-card { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 20px; display: grid; grid-template-rows: auto auto 1fr auto auto auto; gap: 12px; min-width: 0; }
+.course-card:hover { border-color: var(--accent-line); }
+.cc-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cc-meta { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.course-card h2 { font-size: 20px; }
+.cc-tagline { color: var(--muted); font-size: 14.5px; }
+.cc-project { font-size: 14px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.cc-project-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ok); border: 1px solid var(--ok-line); background: var(--ok-soft); border-radius: 999px; padding: 1px 8px; }
+.cc-progress { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cc-progress .bar { width: auto; }
+/* A long lesson title must wrap inside the button, not stretch the card. */
+.cc-cta { justify-self: start; max-width: 100%; text-align: left; overflow-wrap: anywhere; }
+
+.play-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; border: 1px dashed var(--line-strong); border-radius: 12px; background: var(--subtle); padding: 14px 18px; color: var(--ink); text-decoration: none; }
+.play-card:hover { border-color: var(--accent); }
+.play-ico { width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; background: var(--accent-soft); color: var(--link); }
+.play-text { display: grid; gap: 2px; min-width: 0; }
+.play-text span { font-size: 13.5px; color: var(--muted); }
+.play-go { font-size: 14px; font-weight: 600; color: var(--link); white-space: nowrap; }
+
+@media (max-width: 700px) {
+  .course-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .course-card { padding: 16px; }
+  .cc-cta { justify-self: stretch; padding-block: 12px; }
+  .play-card { grid-template-columns: auto minmax(0, 1fr); }
+  .play-go { display: none; }
+}

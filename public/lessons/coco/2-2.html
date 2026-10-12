@@ -1,0 +1,269 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>CoCo Masterclass</span><span>Module 2 · CoCo for SQL and data</span><span>Lesson 2.2</span></div>
+  <h1>Write, explain and fix SQL</h1>
+  <p class="lede">The everyday loop with CoCo: it writes a query, explains it, you run it, and when it breaks, it fixes it. Learn joins and window functions with CoCo, and how to read a fix so a bad one never slips through.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 min</span>
+    <span class="badge">Intermediate</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Ask CoCo for joins and window functions and check them</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Get a line-by-line explanation of any query</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Use Fix on common Snowflake errors</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Read a diff and spot a fix that hides the problem instead of solving it</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+<div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">The write-explain-fix loop: CoCo <b>writes</b> SQL from your prompt, <b>explains</b> it in plain English when you ask, and <b>fixes</b> it when Snowflake returns an error. You review each version as a <b>diff</b> before it is accepted.</p></div>
+  </div>
+  <p>The loop is fast, which is the danger. A fix that makes an error disappear is not always a fix that makes the answer right. This lesson trains your eye for the difference.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a slip with a red pen</h2>
+<p>The robot writes a request slip and reads it aloud to you. When the librarian sends it back with "no such shelf", the robot takes a red pen, crosses out the wrong word and writes the right one. You look at the red marks before the slip goes back. If the robot crossed out half the slip just to make the complaint go away, you notice, and you say no.</p>
+  <div class="map">
+    <div><small>In the library</small><b>Writing the slip</b><span>In Snowflake: CoCo generates SQL from your prompt</span></div>
+    <div><small>In the library</small><b>Reading it aloud</b><span>In Snowflake: CoCo explains the SQL line by line</span></div>
+    <div><small>In the library</small><b>The red pen</b><span>In Snowflake: the Fix button and the diff view showing exactly what changed</span></div>
+  </div>
+</section>
+
+<section class="sec" id="joins" data-toc="Joins with CoCo">
+  <h2>Joins: ask precisely, then check the row count</h2>
+<div class="table-wrap">
+    <table>
+      <thead><tr><th>Join</th><th>Keeps</th><th>Ask CoCo for it when</th></tr></thead>
+      <tbody>
+        <tr><td><b>INNER JOIN</b></td><td>Only rows with a match on both sides</td><td>You only want customers who have transactions</td></tr>
+        <tr><td><b>LEFT JOIN</b></td><td>Every row from the left table, matches or not</td><td>You want every customer, with 0 for those without transactions</td></tr>
+        <tr><td><b>Pre-aggregate, then join</b></td><td>One row per key on each side</td><td>You join a many-rows table (transactions) to a one-row table (customers)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The classic join bug is <b>fan-out</b>: joining customers (1 row each) to transactions (many rows each) multiplies customer columns. SUM(BALANCE) after that join counts each balance once per transaction. The safe prompt says: "aggregate TRANSACTIONS per CUSTOMER_ID first, then LEFT JOIN to CUSTOMERS".</p>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Always check the count</div><p>Before and after any join, ask for COUNT(*). If customers went in at 5,000 and came out at 100,000, something multiplied.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="windows" data-toc="Window functions">
+  <h2>Window functions: CoCo writes them, you understand them</h2>
+<p>A window function looks at a group of related rows (the <b>window</b>) without collapsing them into one row. They are the heart of feature engineering.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Function</th><th>What it does</th><th>Churn-project use</th></tr></thead>
+      <tbody>
+        <tr><td><b>ROW_NUMBER() OVER (PARTITION BY id ORDER BY d)</b></td><td>Numbers rows inside each group</td><td>Keep one row per customer; latest transaction</td></tr>
+        <tr><td><b>LAG(x) OVER (PARTITION BY id ORDER BY month)</b></td><td>Value from the previous row</td><td>This month vs last month spend</td></tr>
+        <tr><td><b>SUM(x) OVER (PARTITION BY id ORDER BY d)</b></td><td>Running total</td><td>Cumulative deposits</td></tr>
+        <tr><td><b>AVG(x) OVER (PARTITION BY segment)</b></td><td>Group average on every row</td><td>Balance compared to segment average</td></tr>
+        <tr><td><b>QUALIFY</b></td><td>Filters on a window result</td><td>QUALIFY ROW_NUMBER() ... = 1</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Good prompt: "Explain PARTITION BY and ORDER BY in this window, then show me 5 rows for one customer so I can see it work." Seeing a few rows makes it click.</p>
+</section>
+
+<section class="sec" id="errors" data-toc="Common errors">
+  <h2>Common Snowflake errors and what a good fix looks like</h2>
+<div class="table-wrap">
+    <table>
+      <thead><tr><th>Error text (start)</th><th>Usual cause</th><th>Good fix</th><th>Bad fix to reject</th></tr></thead>
+      <tbody>
+        <tr><td><b>invalid identifier 'SEGMNT'</b></td><td>Typo or wrong column</td><td>Correct the name only</td><td>Delete the column from the query</td></tr>
+        <tr><td><b>ambiguous column name 'CUSTOMER_ID'</b></td><td>Column exists in two joined tables</td><td>Add the table alias: C.CUSTOMER_ID</td><td>Remove the join</td></tr>
+        <tr><td><b>... is not a valid group by expression</b></td><td>A selected column is not grouped or aggregated</td><td>Add it to GROUP BY, or aggregate it</td><td>Wrap it in ANY_VALUE() without thinking</td></tr>
+        <tr><td><b>Division by zero</b></td><td>Dividing by a count that can be 0</td><td>DIV0(a, b) or NULLIF(b, 0), and say why</td><td>Filter out the rows silently</td></tr>
+        <tr><td><b>Numeric value 'abc' is not recognized</b></td><td>Text in a number column</td><td>Find the bad rows, then TRY_TO_NUMBER with a flag</td><td>TRY_TO_NUMBER everywhere, hiding bad data</td></tr>
+        <tr><td><b>... does not exist or not authorized</b></td><td>Wrong name, or your role lacks a grant</td><td>Check the name, then ask for the grant</td><td>Point at another, similar table</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="sec" id="diff" data-toc="Reading the diff">
+  <h2>Reading the diff: five red flags</h2>
+<ol>
+    <li><b>A filter disappeared.</b> A removed WHERE line changes the answer, not just the error.</li>
+    <li><b>The join type changed.</b> LEFT became INNER (rows dropped) or the reverse.</li>
+    <li><b>DISTINCT appeared.</b> Often a sticking plaster over fan-out. Ask why rows were duplicated.</li>
+    <li><b>TRY_ functions appeared.</b> TRY_CAST and TRY_TO_NUMBER turn bad values into NULL silently.</li>
+    <li><b>The diff is bigger than the error.</b> A typo fix should change one word. If 20 lines changed, ask "fix only the cause of this error".</li>
+  </ol>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+<p>A churn team wants "days since last transaction" for every customer: a strong churn signal. The prompt and the query CoCo should return:</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre>Prompt: For every customer in @BANK_DS.RAW.CUSTOMERS (one row per CUSTOMER_ID),
+return CUSTOMER_ID, the last TXN_DATE from @BANK_DS.RAW.TRANSACTIONS, and days
+between that date and 2026-09-30. Keep customers with no transactions (NULL).
+Aggregate transactions first. Write but do not run.
+
+WITH LAST_TXN AS (
+  SELECT CUSTOMER_ID, MAX(TXN_DATE) AS LAST_TXN_DATE
+  FROM BANK_DS.RAW.TRANSACTIONS
+  GROUP BY CUSTOMER_ID
+)
+SELECT C.CUSTOMER_ID,
+       L.LAST_TXN_DATE,
+       DATEDIFF(DAY, L.LAST_TXN_DATE, '2026-09-30'::DATE) AS DAYS_SINCE_LAST_TXN
+FROM (SELECT DISTINCT CUSTOMER_ID FROM BANK_DS.RAW.CUSTOMERS) C
+LEFT JOIN LAST_TXN L ON L.CUSTOMER_ID = C.CUSTOMER_ID;</pre></div>
+  <p>Review it: transactions are aggregated before the join (no fan-out), LEFT JOIN keeps every customer, and the as-of date is fixed, so the answer does not change tomorrow.</p>
+</section>
+
+<section class="sec" id="sim" data-toc="Simulator: write, explain, fix">
+  <h2>Try it: write, explain, break and fix</h2>
+<div data-simulator="coco-2-2-loop"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+<p>Two tables: <code>customers</code> and <code>txns</code>. Customer 6 has no transactions, on purpose. Write the SQL CoCo should produce for each request.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: the full loop on BANK_DS</h2>
+<div class="panel">
+    <div class="panel-head">
+      <h3>Write, explain, break, fix, review</h3>
+      <div class="meta"><span>About 15 min</span><span>Your trial + BANK_DS from P1</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>In a Workspaces SQL file, ask CoCo for the "days since last transaction" query from the bank example above (paste the prompt). Let it run after you have read it.</p>
+        <p class="expect">Expected: 5,000 rows. Churned customers tend to have larger DAYS_SINCE_LAST_TXN, because P1 made most of them stop transacting in the last 4 months.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Highlight the WITH block and choose <b>Explain</b>.</p>
+        <p class="expect">Expected: an explanation that mentions one row per customer from MAX(TXN_DATE) and why the LEFT JOIN keeps everyone.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Ask for a window function and look at a few rows.</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre>Using @BANK_DS.RAW.TRANSACTIONS, for CUSTOMER_ID = 42 show TXN_DATE, AMOUNT and a running total of AMOUNT by date. Limit 10.</pre></div>
+        <p class="expect">Expected: 10 rows, the running total growing on each row.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Break it: change <code>TXN_DATE</code> in the ORDER BY of the window to <code>TXN_DAY</code>, run, and select <b>Fix</b>.</p>
+        <p class="expect">Expected: a one-word diff back to TXN_DATE. Reject any fix that removes the window or the WHERE.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Ask: "Is there any way this query could double count? Prove it with a COUNT." Read the answer.</p>
+        <p class="expect">Expected: CoCo explains there is no join here, so no fan-out, and shows a count check.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+<div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember it</div><p>Write, explain, run, fix, and read the diff every time. Aggregate before you join to avoid fan-out, check counts before and after joins, and reject any fix that is bigger than the error or hides it with DISTINCT, TRY_ functions or a lost filter.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+<dl class="glossary">
+    <dt>Join</dt><dd>Combining rows of two tables on a matching key.</dd>
+    <dt>Fan-out</dt><dd>Rows multiplying after a one-to-many join.</dd>
+    <dt>Window function</dt><dd>A function that looks at related rows without collapsing them, written with OVER (...).</dd>
+    <dt>PARTITION BY</dt><dd>Splits rows into groups for a window function.</dd>
+    <dt>LAG</dt><dd>Returns a value from the previous row in the window.</dd>
+    <dt>Diff</dt><dd>The old and new versions of code side by side.</dd>
+    <dt>DIV0</dt><dd>A Snowflake function that returns 0 instead of failing on division by zero.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+<div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#coco/2-3">2.3 Data quality and cleaning →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+   "tables": {
+    "customers": {
+      "columns": [["customer_id", "NUMBER"], ["segment", "VARCHAR"], ["balance", "NUMBER"], ["churned", "NUMBER"]],
+      "rows": [
+        [1, "RETAIL", 12000, 1],
+        [2, "PRIORITY", 850000, 0],
+        [3, "RETAIL", 0, 1],
+        [4, "BUSINESS", 1200000, 0],
+        [5, "RETAIL", 45000, 0],
+        [6, "RETAIL", 3000, 1]
+      ]
+    },
+    "txns": {
+      "columns": [["txn_id", "NUMBER"], ["customer_id", "NUMBER"], ["txn_date", "DATE"], ["amount", "NUMBER"]],
+      "rows": [
+        [1, 1, "2026-06-03", 5000],
+        [2, 1, "2026-07-14", 1200],
+        [3, 2, "2026-08-20", 25000],
+        [4, 2, "2026-09-11", 8000],
+        [5, 2, "2026-09-25", 42000],
+        [6, 3, "2026-05-19", 2500],
+        [7, 4, "2026-09-01", 90000],
+        [8, 4, "2026-09-12", 15000],
+        [9, 5, "2026-09-28", 3200]
+      ]
+    }
+   },
+   "starter": "-- You asked CoCo: 'Each customer with their number of transactions, including customers with none.'\nSELECT c.customer_id, COUNT(t.txn_id) AS txn_count\nFROM customers c\nLEFT JOIN txns t ON t.customer_id = c.customer_id\nGROUP BY c.customer_id\nORDER BY c.customer_id",
+   "examples": [
+    {"label": "Fan-out trap", "sql": "-- Wrong: balance is repeated once per transaction\nSELECT SUM(c.balance) AS total_balance\nFROM customers c\nJOIN txns t ON t.customer_id = c.customer_id"},
+    {"label": "Running total per customer", "sql": "SELECT customer_id, txn_date, amount,\n       SUM(amount) OVER (PARTITION BY customer_id ORDER BY txn_date) AS running_total\nFROM txns\nORDER BY customer_id, txn_date"}
+   ],
+   "challenges": [
+    {"task": "You asked CoCo: 'Total transaction amount per customer for every customer, 0 if none, using a LEFT JOIN.' Write the SQL it should produce (customer_id, total_amount), ordered by customer_id.", "hint": "LEFT JOIN txns, COALESCE(SUM(t.amount), 0), GROUP BY c.customer_id.", "answer": "SELECT c.customer_id, COALESCE(SUM(t.amount), 0) AS total_amount FROM customers c LEFT JOIN txns t ON t.customer_id = c.customer_id GROUP BY c.customer_id ORDER BY c.customer_id"},
+    {"task": "You asked CoCo: 'The latest transaction of each customer: customer_id, txn_date, amount. Use ROW_NUMBER.' Write the SQL it should produce, ordered by customer_id.", "hint": "ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY txn_date DESC) in a subquery, keep rn = 1.", "answer": "SELECT customer_id, txn_date, amount FROM (SELECT customer_id, txn_date, amount, ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY txn_date DESC) AS rn FROM txns) x WHERE rn = 1 ORDER BY customer_id"},
+    {"task": "You asked CoCo: 'For each transaction, show the previous amount of the same customer (LAG), ordered by date.' Write the SQL it should produce (customer_id, txn_date, amount, prev_amount).", "hint": "LAG(amount) OVER (PARTITION BY customer_id ORDER BY txn_date). Order the output by customer_id, txn_date.", "answer": "SELECT customer_id, txn_date, amount, LAG(amount) OVER (PARTITION BY customer_id ORDER BY txn_date) AS prev_amount FROM txns ORDER BY customer_id, txn_date"}
+   ]
+  },
+  "simulators": [
+    {"id": "coco-2-2-loop", "title": "Write, explain, break and fix", "tool": "coco", "intro": "Snowsight Workspaces, BANK_DS from P1.", "steps": [
+      {"prompt": "For each SEGMENT, total transaction AMOUNT in the last 90 days up to 2026-09-30, and the number of customers with at least one transaction. Use @BANK_DS.RAW.CUSTOMERS and @BANK_DS.RAW.TRANSACTIONS. Write but do not run.", "say": "I join transactions to a deduplicated customer list, filter to the last 90 days and group by segment. Not run.", "code": {"lang": "sql", "text": "WITH CUST AS (\n  SELECT DISTINCT CUSTOMER_ID, SEGMENT FROM BANK_DS.RAW.CUSTOMERS\n)\nSELECT C.SEGMENT,\n       SUM(T.AMOUNT) AS AMOUNT_90D,\n       COUNT(DISTINCT T.CUSTOMER_ID) AS ACTIVE_CUSTOMERS\nFROM BANK_DS.RAW.TRANSACTIONS T\nJOIN CUST C ON C.CUSTOMER_ID = T.CUSTOMER_ID\nWHERE T.TXN_DATE > DATEADD(DAY, -90, '2026-09-30'::DATE)\nGROUP BY C.SEGMENT\nORDER BY AMOUNT_90D DESC;"}, "check": ["DISTINCT on the customer side stops the 30 duplicates from doubling amounts", "The date filter uses a fixed as-of date", "INNER JOIN is fine here: we only want customers with transactions"]},
+      {"prompt": "Explain the WHERE line to me.", "say": "DATEADD(DAY, -90, '2026-09-30') is 2026-07-02. The filter keeps transactions after that date, so the 90 days from 2026-07-03 to 2026-09-30.", "check": ["You now know exactly which days are included", "Ask 'inclusive or exclusive?' whenever a date window matters"]},
+      {"prompt": "Run it.", "output": {"columns": ["SEGMENT", "AMOUNT_90D", "ACTIVE_CUSTOMERS"], "rows": [["RETAIL", 359204118.42, 3330], ["PRIORITY", 92318760.15, 845], ["BUSINESS", 62077431.88, 585]]}, "check": ["Active customers are fewer than all customers: churned customers mostly stopped transacting", "Totals are plausible for about 20,000 transactions of up to 50,000 each"]},
+      {"prompt": "(You edited the query, added C.CITY to the SELECT, ran it, and got: 'C.CITY' is not a valid group by expression. You select Fix.)", "say": "CITY is selected but not grouped. Also, the CTE only has CUSTOMER_ID and SEGMENT. I added CITY to the CTE and to GROUP BY.", "code": {"lang": "text", "text": "-   SELECT DISTINCT CUSTOMER_ID, SEGMENT FROM BANK_DS.RAW.CUSTOMERS\n+   SELECT DISTINCT CUSTOMER_ID, SEGMENT, CITY FROM BANK_DS.RAW.CUSTOMERS\n- GROUP BY C.SEGMENT\n+ GROUP BY C.SEGMENT, C.CITY"}, "check": ["Two small changes, both explained", "No filter removed, no join changed: accept"]},
+      {"prompt": "(A different suggestion for the same error, from a rushed chat.)", "say": "I removed CITY from the SELECT so the query runs.", "code": {"lang": "text", "text": "- SELECT C.SEGMENT, C.CITY,\n+ SELECT C.SEGMENT,"}, "check": ["The error is gone but so is what you asked for", "Reject: a fix must solve the cause, not delete the request"]}
+    ]}
+  ],
+  "quiz": [
+    {"q": "You join 5,000 customers to 100,000 transactions and SUM(BALANCE). What goes wrong?", "options": ["Nothing", "Each balance is counted once per transaction (fan-out)", "The query fails"], "answer": 1, "why": "A one-to-many join repeats customer rows. Aggregate transactions first, then join."},
+    {"q": "You want every customer, with 0 for those without transactions. Which join?", "options": ["INNER JOIN", "LEFT JOIN from customers, with COALESCE(..., 0)", "CROSS JOIN"], "answer": 1, "why": "LEFT JOIN keeps unmatched customers; COALESCE turns their NULL total into 0."},
+    {"q": "What does LAG(amount) OVER (PARTITION BY customer_id ORDER BY txn_date) return?", "options": ["The previous transaction amount of the same customer", "The total amount", "The largest amount"], "answer": 0, "why": "LAG looks one row back within each customer's date-ordered rows."},
+    {"q": "Fix turns 'invalid identifier SEGMNT' into a 20-line rewrite. What do you do?", "options": ["Accept, it runs now", "Reject and ask: 'fix only the cause of this error'", "Run it twice"], "answer": 1, "why": "A typo fix should change one word. A big diff may change the logic."},
+    {"q": "A fix adds DISTINCT to make duplicate rows disappear. Why be careful?", "options": ["DISTINCT is slow", "It may hide fan-out from a bad join instead of fixing it", "DISTINCT is not valid SQL"], "answer": 1, "why": "Duplicates usually have a cause. Find it rather than covering it up."},
+    {"q": "Which Snowflake clause filters on a window function result?", "options": ["HAVING", "QUALIFY", "WHERE"], "answer": 1, "why": "QUALIFY filters after window functions are computed, for example QUALIFY ROW_NUMBER() OVER (...) = 1."}
+  ]
+}
+</script>

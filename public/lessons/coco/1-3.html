@@ -1,0 +1,273 @@
+<div class="lesson-head">
+  <div class="crumbs"><span>CoCo Masterclass</span><span>Module 1 · Meet CoCo</span><span>Lesson 1.3</span></div>
+  <h1>How CoCo works</h1>
+  <p class="lede">Look inside the robot: what it reads before answering, how it plans, how it asks your permission, what it remembers, and where its limits are.</p>
+  <div class="meta">
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>25 min</span>
+    <span class="badge">Beginner</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3"/></svg>Practice worksheet + 3 challenges</span>
+    <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-10V3"/></svg>1 lab</span>
+  </div>
+</div>
+
+<div class="panel objectives">
+  <div class="panel-head"><h3>By the end of this lesson you can</h3></div>
+  <div class="panel-body">
+    <ul>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Name the context CoCo reads before it answers</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Use @-mentions, quick actions and the Fix button</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Explain Plan mode, approvals and the diff view</li>
+      <li><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5L20 7"/></svg>Say what CoCo remembers between chats, and its main limits</li>
+    </ul>
+  </div>
+</div>
+
+<section class="sec" id="definition">
+  <h2>Definition</h2>
+<div class="callout def">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
+    <div><div class="label">Key definition</div><p class="big">CoCo works in a loop: it gathers context (your role, your open file, the catalog), makes a plan, proposes an action, waits for your approval when the action matters, looks at the result, and repeats until the task is done.</p></div>
+  </div>
+  <p>That loop is what makes it an <b>agent</b>. A plain chatbot would answer from memory. CoCo looks things up in your account first, so its answer fits your real tables and columns.</p>
+</section>
+
+<section class="sec" id="analogy" data-toc="Analogy">
+  <h2>Think of it like a robot with a clipboard</h2>
+<p>Before the robot assistant writes a slip, it checks its clipboard. The clipboard holds the library map, a photo of your ID badge, the page open on your desk, and the last few slips you handed in. For a big job (say, "tidy the whole customer shelf"), it first writes a <b>plan</b> on the clipboard and shows it to you. Only when you nod does it start. Before it changes anything on your desk, it holds up the old page and the new page side by side so you can compare.</p>
+  <div class="map">
+    <div><small>In the library</small><b>The clipboard</b><span>In Snowflake: the context CoCo reads (role, open file, catalog, recent queries)</span></div>
+    <div><small>In the library</small><b>The plan</b><span>In Snowflake: Plan mode, a list of steps you approve before work starts</span></div>
+    <div><small>In the library</small><b>Old page vs new page</b><span>In Snowflake: the diff view, which shows every change before it is applied</span></div>
+  </div>
+</section>
+
+<section class="sec" id="context" data-toc="What CoCo reads">
+  <h2>What CoCo reads before it answers</h2>
+<p>The CoCo in Snowsight docs list these sources of context:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Context</th><th>What it gives CoCo</th><th>In the library</th></tr></thead>
+      <tbody>
+        <tr><td><b>Your active role</b></td><td>What you may see and do. CoCo starts each session with your <b>default role</b>; it can switch if you ask.</td><td>Your ID badge</td></tr>
+        <tr><td><b>The open file</b></td><td>The SQL file or notebook you are viewing in Workspaces.</td><td>The page on your desk</td></tr>
+        <tr><td><b>Table schemas</b></td><td>Column names and types of the objects you mention.</td><td>Labels on the shelves</td></tr>
+        <tr><td><b>Recent queries</b></td><td>Your query history and the last few queries run in the workspace.</td><td>Your last few slips</td></tr>
+        <tr><td><b>Horizon Catalog and docs</b></td><td>Search across objects you can access, plus official Snowflake documentation.</td><td>The library map and the rule book</td></tr>
+        <tr><td><b>AGENTS.md</b></td><td>A file of project instructions CoCo follows, in Workspaces and in the CLI.</td><td>A sticky note from your team lead</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Notice what is <b>not</b> on the list: your business definitions, decisions made in meetings, and data your role cannot read. If CoCo needs those, put them in your prompt or in an AGENTS.md file.</p>
+</section>
+
+<section class="sec" id="tools" data-toc="Ways to talk to it">
+  <h2>Ways to point CoCo at things</h2>
+<div class="features">
+    <div class="feature"><b>@-mentions</b><span>Type <code>@</code> in the Snowsight message box to search the catalog in real time and attach an exact table, such as <code>@BANK_DS.RAW.CUSTOMERS</code>. In the CLI, <code>@</code> attaches a local file.</span><small>No guessing which shelf</small></div>
+    <div class="feature"><b>Quick actions</b><span>Highlight SQL in a Workspaces file to get Quick Edit, Format, Add to Chat and Explain.</span><small>Point at one line</small></div>
+    <div class="feature"><b>Fix button</b><span>When a query fails, use <b>Fix</b> in the results grid. CoCo reads the error and suggests a fix as a diff.</span><small>Lesson 2.2</small></div>
+    <div class="feature"><b>Suggestions as you type</b><span>CoCo suggests code while you type in a SQL file. Press Tab to accept.</span><small>Like phone autocomplete</small></div>
+    <div class="feature"><b>Model selector</b><span>At the lower right of the message box: Auto, Auto Intelligent, Auto Efficient or a named model. Saved per chat.</span><small>Which robot brain</small></div>
+    <div class="feature"><b>Skills</b><span>Type <code>/</code> to call built-in or personal skills: saved recipes for common jobs.</span><small>Saved routines</small></div>
+  </div>
+</section>
+
+<section class="sec" id="plan" data-toc="Plan, approve, diff">
+  <h2>Plan mode, approvals and the diff view</h2>
+<p>For a bigger job, you want CoCo to <b>think first and act later</b>. Each surface does this a little differently:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Surface</th><th>How it asks before acting</th></tr></thead>
+      <tbody>
+        <tr><td><b>Snowsight</b></td><td>CoCo plans multi-step tasks, and in Workspaces it shows every file change as a <b>diff</b> you accept or reject. A separate Plan mode switch may vary by account; check with your project team.</td></tr>
+        <tr><td><b>CoCo CLI</b></td><td>Type <code>/plan</code> to turn Plan mode on and <code>/plan-off</code> to turn it off, or start with <code>cortex --plan</code> ("require approval before all actions"). Shift+Tab cycles the modes. A three-tier approval system with automatic risk assessment decides what needs your yes.</td></tr>
+        <tr><td><b>CoCo Desktop</b></td><td>Has a Plan mode for "planning before implementing", plus permission modes that control what the agent may do without asking.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout note">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <div><div class="label">Never on bank data</div><p>The CLI has a <b>bypass mode</b> (<code>/bypass</code> or <code>--dangerously-allow-all-tool-calls</code>) that approves every action without asking. The docs warn about it. Never use it on a client account. Keep approvals on, so you read every slip.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="memory" data-toc="What it remembers">
+  <h2>What CoCo remembers, and its limits</h2>
+<div class="table-wrap">
+    <table>
+      <thead><tr><th>Where</th><th>What is kept</th></tr></thead>
+      <tbody>
+        <tr><td><b>Snowsight</b></td><td>Context is kept across one chat session. The model and effort level are saved per chat. A new chat starts fresh.</td></tr>
+        <tr><td><b>CLI</b></td><td>Conversations are saved in <code>~/.snowflake/cortex/conversations/</code>. <code>/resume</code> lists old sessions; <code>cortex --continue</code> resumes the latest. <code>--private</code> skips saving.</td></tr>
+        <tr><td><b>Desktop</b></td><td>A Memory feature remembers context across conversations.</td></tr>
+        <tr><td><b>Everywhere</b></td><td>AGENTS.md is the reliable way to give CoCo the same project rules every time.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Limits to keep in mind:</p>
+  <ul>
+    <li><b>It can be wrong.</b> The docs say suggestions "can occasionally be incorrect or not match your intent".</li>
+    <li><b>Badge-limited.</b> A permissions error usually means your default role lacks a grant.</li>
+    <li><b>Guardrails are one-way.</b> Once a restricted session scope (a read-only guardrail) is active in a chat, you cannot relax it in that chat. Start a new chat instead.</li>
+    <li><b>No web by default.</b> Web search needs an ACCOUNTADMIN to switch it on.</li>
+    <li><b>Long chats cost more.</b> Every message re-reads context, which uses tokens. Start a new chat for a new task.</li>
+  </ul>
+</section>
+
+<section class="sec" id="practice" data-toc="In practice: a bank">
+  <h2>In practice: a bank</h2>
+<p>A bank team keeps an <b>AGENTS.md</b> in its churn workspace so every analyst's CoCo follows the same rules:</p>
+  <div class="code"><button class="copy" type="button">Copy</button><pre># AGENTS.md for the churn workspace
+- Use role DS_CHURN_ROLE and warehouse LEARN_WH.
+- Read from BANK_DS.CLEAN, never write to BANK_DS.RAW.
+- A churned customer = account closed or no transaction for 90 days.
+- Never SELECT raw names, phone numbers or account numbers; use CUSTOMER_ID.
+- Write DELETE, UPDATE, DROP or GRANT statements, but never run them.</pre></div>
+  <p>Now every prompt starts with the team's definitions and safety rules already on the robot's clipboard. Check with your project team whether AGENTS.md is used on your account; it is the cheapest way to make CoCo consistent.</p>
+</section>
+
+<section class="sec" id="sim" data-toc="Simulator: plan and fix">
+  <h2>Try it: plan, approve and fix</h2>
+<p>A simulated Snowsight session on the project data from P1.</p>
+  <div data-simulator="coco-1-3-plan-fix"></div>
+</section>
+
+<section class="sec" id="worksheet" data-toc="Practice worksheet">
+  <h2>Practice worksheet</h2>
+<p>This worksheet holds two tables that look like what CoCo reads: <code>catalog_columns</code> (the library map) and <code>query_log</code> (your last slips). Write the SQL CoCo should produce for each request.</p>
+  <div data-worksheet style="display:grid;gap:14px"></div>
+</section>
+
+<section class="sec" id="lab" data-toc="Lab">
+  <h2>Lab: watch CoCo use its context</h2>
+<div class="panel">
+    <div class="panel-head">
+      <h3>Mentions, quick actions, Fix and a fresh chat</h3>
+      <div class="meta"><span>About 15 min</span><span>Your trial + BANK_DS from P1</span></div>
+    </div>
+    <ol class="steps">
+      <li><div>
+        <p>In Workspaces, open a new SQL file. In the CoCo panel type <code>@</code> and then <code>CUSTOMERS</code>. Pick <b>BANK_DS.RAW.CUSTOMERS</b> from the list, then ask:</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre>Describe @BANK_DS.RAW.CUSTOMERS: list each column with its type.</pre></div>
+        <p class="expect">Expected: twelve columns, from CUSTOMER_ID to CHURNED, with types such as NUMBER, VARCHAR, BOOLEAN and DATE. If the table is missing, finish project step P1 in lesson 1.2 first.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Paste this into the SQL file, highlight it, and choose <b>Explain</b> from the quick actions.</p>
+      <div class="code"><button class="copy" type="button">Copy</button><pre>SELECT SEGMENT, COUNT(*) AS CUSTOMERS FROM BANK_DS.RAW.CUSTOMERS GROUP BY SEGMENT ORDER BY CUSTOMERS DESC;</pre></div>
+        <p class="expect">Expected: a short plain-English explanation: count of customer rows per segment, biggest first. A sharp answer notes these are rows, not distinct customers.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Break it on purpose: change <code>SEGMENT</code> to <code>SEGMENTS</code> in both places and run it. Select <b>Fix</b> in the results grid.</p>
+        <p class="expect">Expected: a diff changing SEGMENTS back to SEGMENT and nothing else. Accept it only if the diff is that small.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Start a <b>new chat</b> and ask: <i>"What table were we just talking about?"</i></p>
+        <p class="expect">Expected: CoCo may not know, or may guess from the open file or query history. Chat context does not carry over; that is why AGENTS.md exists.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+      <li><div>
+        <p>Optional, own laptop only: in the CLI, type <code>/plan</code>, then ask for a plan to profile BANK_DS.RAW.CUSTOMERS. Read the plan and type <code>/plan-off</code>.</p>
+        <p class="expect">Expected: a numbered plan, and a request for approval before anything runs. Skip on any client machine.</p>
+        <label><input type="checkbox"> Done</label>
+      </div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec" id="takeaway" data-toc="Key takeaway">
+  <h2>Key takeaway</h2>
+<div class="callout key">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
+    <div><div class="label">Remember it</div><p>CoCo checks its clipboard (role, open file, catalog, recent queries), plans, asks before acting and shows a diff. It remembers within a chat, not reliably across chats: put lasting rules in AGENTS.md. Keep approvals on; never use bypass mode on bank data.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="glossary" data-toc="Glossary">
+  <h2>Glossary</h2>
+<dl class="glossary">
+    <dt>Context</dt><dd>Everything CoCo reads before it answers.</dd>
+    <dt>@-mention</dt><dd>Typing @ to attach an exact catalog object (Snowsight) or file (CLI) to your prompt.</dd>
+    <dt>Quick actions</dt><dd>Quick Edit, Format, Add to Chat and Explain on highlighted SQL.</dd>
+    <dt>Plan mode</dt><dd>A mode where CoCo plans first and needs your approval before acting.</dd>
+    <dt>Diff view</dt><dd>A side-by-side view of old and new code before a change is applied.</dd>
+    <dt>Bypass mode</dt><dd>A CLI mode that approves every action without asking. Not for bank data.</dd>
+    <dt>AGENTS.md</dt><dd>A file of project rules CoCo follows in Workspaces and the CLI.</dd>
+    <dt>Default role</dt><dd>The role your user starts with. CoCo starts each session with it.</dd>
+  </dl>
+</section>
+
+<section class="sec" id="check" data-toc="Knowledge check">
+  <h2>Knowledge check</h2>
+<div class="panel" data-quiz></div>
+</section>
+
+<div class="footer-nav">
+  <button class="btn btn-secondary" type="button" data-complete>Mark lesson complete</button>
+  <div class="next-card"><small>Next lesson</small><a class="btn btn-primary" href="#coco/1-4">1.4 Prompting craft →</a></div>
+</div>
+
+<script type="application/json" id="lesson-data">
+{
+  "worksheet": {
+   "tables": {
+    "catalog_columns": {
+      "columns": [["table_schema", "VARCHAR"], ["table_name", "VARCHAR"], ["column_name", "VARCHAR"], ["data_type", "VARCHAR"], ["ordinal", "NUMBER", "column position"]],
+      "rows": [
+        ["RAW", "CUSTOMERS", "CUSTOMER_ID", "NUMBER", 1],
+        ["RAW", "CUSTOMERS", "AGE", "NUMBER", 2],
+        ["RAW", "CUSTOMERS", "SEGMENT", "VARCHAR", 3],
+        ["RAW", "CUSTOMERS", "CHURNED", "BOOLEAN", 4],
+        ["RAW", "TRANSACTIONS", "TXN_ID", "NUMBER", 1],
+        ["RAW", "TRANSACTIONS", "CUSTOMER_ID", "NUMBER", 2],
+        ["RAW", "TRANSACTIONS", "TXN_DATE", "DATE", 3],
+        ["RAW", "TRANSACTIONS", "AMOUNT", "NUMBER", 4],
+        ["RAW", "SUPPORT_TICKETS", "TICKET_ID", "NUMBER", 1],
+        ["RAW", "SUPPORT_TICKETS", "CUSTOMER_ID", "NUMBER", 2],
+        ["RAW", "SUPPORT_TICKETS", "CATEGORY", "VARCHAR", 3],
+        ["RAW", "SUPPORT_TICKETS", "RESOLVED", "BOOLEAN", 4]
+      ]
+    },
+    "query_log": {
+      "columns": [["query_id", "NUMBER"], ["role_name", "VARCHAR"], ["warehouse_name", "VARCHAR"], ["run_status", "VARCHAR", "SUCCESS or FAILED"], ["elapsed_ms", "NUMBER"], ["error_text", "VARCHAR"]],
+      "rows": [
+        [1, "ACCOUNTADMIN", "LEARN_WH", "SUCCESS", 420, null],
+        [2, "ACCOUNTADMIN", "LEARN_WH", "FAILED", 35, "invalid identifier 'SEGMENTS'"],
+        [3, "ACCOUNTADMIN", "LEARN_WH", "SUCCESS", 380, null],
+        [4, "DS_ROLE", "LEARN_WH", "FAILED", 20, "Object 'BANK_DS.RAW.CUSTOMERS' does not exist or not authorized."],
+        [5, "ACCOUNTADMIN", "COMPUTE_WH", "SUCCESS", 2900, null],
+        [6, "DS_ROLE", "LEARN_WH", "SUCCESS", 610, null]
+      ]
+    }
+   },
+   "starter": "-- You asked CoCo: 'Which columns does RAW.CUSTOMERS have, in order?'\nSELECT column_name, data_type\nFROM catalog_columns\nWHERE table_schema = 'RAW' AND table_name = 'CUSTOMERS'\nORDER BY ordinal",
+   "examples": [
+    {"label": "Columns per table", "sql": "SELECT table_name, COUNT(*) AS columns_count\nFROM catalog_columns\nGROUP BY table_name\nORDER BY table_name"},
+    {"label": "Failed queries", "sql": "SELECT query_id, role_name, error_text\nFROM query_log\nWHERE run_status = 'FAILED'\nORDER BY query_id"}
+   ],
+   "challenges": [
+    {"task": "You asked CoCo: 'Which tables have a CUSTOMER_ID column? I want to know what I can join.' Write the SQL it should produce (table names, sorted).", "hint": "WHERE column_name = 'CUSTOMER_ID', select table_name, ORDER BY table_name.", "answer": "SELECT table_name FROM catalog_columns WHERE column_name = 'CUSTOMER_ID' ORDER BY table_name"},
+    {"task": "You asked CoCo: 'List every BOOLEAN column with its table.' Write the SQL it should produce.", "hint": "WHERE data_type = 'BOOLEAN', ORDER BY table_name.", "answer": "SELECT table_name, column_name FROM catalog_columns WHERE data_type = 'BOOLEAN' ORDER BY table_name"},
+    {"task": "You asked CoCo: 'For each role, how many queries failed and how many succeeded?' Write the SQL it should produce (role, status, count).", "hint": "GROUP BY role_name, run_status and ORDER BY both.", "answer": "SELECT role_name, run_status, COUNT(*) AS queries FROM query_log GROUP BY role_name, run_status ORDER BY role_name, run_status"}
+   ]
+  },
+  "simulators": [
+    {"id": "coco-1-3-plan-fix", "title": "Plan, approve, then fix", "tool": "coco", "intro": "Snowsight, a Workspaces SQL file open, BANK_DS loaded in P1.", "steps": [
+      {"prompt": "Before doing anything, give me a plan to profile @BANK_DS.RAW.CUSTOMERS: row counts, duplicates, NULLs per column and the churn rate. Do not run anything yet.", "say": "Here is my plan. Nothing has run.\n1. Count rows and distinct CUSTOMER_ID.\n2. Count NULLs for each of the 12 columns.\n3. Compute the churn rate overall and by SEGMENT.\n4. Summarise issues found.\nAll steps are read-only SELECTs on LEARN_WH. Shall I go ahead?", "check": ["Every step is read-only", "It names the warehouse it will use", "The @-mention made it use the exact table, not a guess"]},
+      {"prompt": "Approved. Do steps 1 and 3.", "say": "Done. Rows do not equal distinct ids, so there are duplicates. Churn is about 25%.", "code": {"lang": "sql", "text": "SELECT COUNT(*) AS ROW_COUNT,\n       COUNT(DISTINCT CUSTOMER_ID) AS DISTINCT_IDS,\n       ROUND(AVG(IFF(CHURNED, 1, 0)) * 100, 1) AS CHURN_PCT\nFROM BANK_DS.RAW.CUSTOMERS;"}, "output": {"columns": ["ROW_COUNT", "DISTINCT_IDS", "CHURN_PCT"], "rows": [[5030, 5000, 25.0]]}, "check": ["5,030 rows vs 5,000 ids: the 30 planted duplicates", "Churn computed on rows, which includes duplicates; fine for a first look"]},
+      {"prompt": "Add a column with churn by segment to the SQL file.", "say": "I propose this change to your file. Review the diff and accept or reject.", "code": {"lang": "text", "text": "- SELECT SEGMENT, COUNT(*) FROM BANK_DS.RAW.CUSTOMERS GROUP BY SEGMENT;\n+ SELECT SEGMENT,\n+        COUNT(*) AS CUSTOMERS,\n+        ROUND(AVG(IFF(CHURNED, 1, 0)) * 100, 1) AS CHURN_PCT\n+ FROM BANK_DS.RAW.CUSTOMERS\n+ GROUP BY SEGMENT\n+ ORDER BY CHURN_PCT DESC;"}, "check": ["Lines starting with - are removed, + are added", "Only the query you asked about changed; nothing else in the file"]},
+      {"prompt": "(You typed SEGMNT by mistake and ran it. You select Fix in the results grid.)", "say": "The error is: invalid identifier 'SEGMNT'. The column is SEGMENT. I changed only that word.", "code": {"lang": "text", "text": "- SELECT SEGMNT, COUNT(*) AS CUSTOMERS\n+ SELECT SEGMENT, COUNT(*) AS CUSTOMERS"}, "output": {"columns": ["SEGMENT", "CUSTOMERS"], "rows": [["RETAIL", 3530], ["PRIORITY", 893], ["BUSINESS", 607]]}, "check": ["The fix touched one word only", "A fix that also removed a WHERE or changed a join would be a red flag"]}
+    ]}
+  ],
+  "quiz": [
+    {"q": "Which of these is NOT part of the context CoCo reads by itself?", "options": ["Your active role", "The SQL file open in Workspaces", "Your bank's definition of a churned customer"], "answer": 2, "why": "CoCo reads role, open file, schemas, recent queries and the catalog. Business definitions must come from your prompt or AGENTS.md."},
+    {"q": "What does typing @ in the Snowsight CoCo box do?", "options": ["Runs the last query", "Searches the catalog so you can attach an exact object", "Switches to the CLI"], "answer": 1, "why": "@ triggers a real-time catalog search, so CoCo uses the exact table instead of guessing."},
+    {"q": "In the CoCo CLI, how do you turn Plan mode on?", "options": ["/plan", "/bypass", "/model"], "answer": 0, "why": "/plan enables Plan mode and /plan-off disables it. /bypass does the opposite of careful: it auto-approves everything."},
+    {"q": "A query fails in Snowsight. What is the quickest way to get CoCo's help?", "options": ["Restart Snowsight", "Select Fix in the results grid", "Email Snowflake support"], "answer": 1, "why": "The Fix button sends the failed query and error to CoCo, which proposes a change as a diff."},
+    {"q": "You start a new chat and CoCo forgot your churn definition. What is the lasting fix?", "options": ["Write it in AGENTS.md", "Use a bigger warehouse", "Use bypass mode"], "answer": 0, "why": "Chat context does not reliably carry over. AGENTS.md gives CoCo the same project rules every time."},
+    {"q": "CoCo says 'does not exist or not authorized' for a table your teammate uses. What do you check first?", "options": ["Whether the table was dropped", "Your default role and its grants", "Your internet connection"], "answer": 1, "why": "CoCo starts with your default role. The docs say to check that role's privileges when you see a permissions error."}
+  ]
+}
+</script>
